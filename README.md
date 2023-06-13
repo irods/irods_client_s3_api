@@ -2,55 +2,57 @@
 
 iRODS S3 API
 
-We will implement a subset of the S3 API:
+![S3 API network diagram](s3_api_diagram.png)
+
+Implements a subset of the Amazon S3 API:
   - https://docs.aws.amazon.com/AmazonS3/latest/API/API_Operations.html
 
-Initial effort to include:
+Initial effort includes:
   - [x] CopyObject
   - CompleteMultipartUpload
   - CreateMultipartUpload
   - [x] DeleteObject
   - DeleteObjects
   - [x] GetObject
-  - GetObjectAcl ? (Mapping the needs of S3 access control versus the iRODS access control is complicated)
-  - GetObjectTagging (The way this translates into AVUs is also not entirely clear)
+  - GetObjectAcl ?
+  - GetObjectTagging ?
   - [x] HeadObject
   - ListObjects ?
   - [x] ListObjectsV2
   - [x] PutObject
   - PutObjectAcl ?
-  - PutObjectTagging
+  - PutObjectTagging ?
   - UploadPart
   - UploadPartCopy ?
 
 Goal is to support the equivalent of:
- - ils - aws s3 ls s3://bucketname/a/b/c/
- - iput - aws s3 cp localfile s3://bucketname/a/b/c/filename
- - iget - aws s3 cp s3://bucketname/a/b/c/filename localfile
- - irm - aws s3 rm s3://bucketname/a/b/c/filename
- - imv - aws s3 mv s3://bucketname/a/b/c/filename1 s3://bucketname/a/b/c/filename2
+ - ils - `aws s3 ls s3://bucketname/a/b/c/`
+ - iput - `aws s3 cp localfile s3://bucketname/a/b/c/filename`
+ - iget - `aws s3 cp s3://bucketname/a/b/c/filename localfile`
+ - irm - `aws s3 rm s3://bucketname/a/b/c/filename`
+ - imv - `aws s3 mv s3://bucketname/a/b/c/filename1 s3://bucketname/a/b/c/filename2`
 
-# Limitations (What's Missing?)
+# Limitations / What's Missing
 
 ## Multipart Uploads
 
 Multipart uploads are an important part of S3, however, they aren't simple to implement and have substantial performance
-and storage implications for a naive approach. As of now, this bridge does not attempt to provide that functionality
+and storage implications for a naive approach. As of now, this API does not attempt to provide that functionality.
 
 ## Tagging
 
-iRODS does have its own metadata system, however it is not especially clear how it should map to S3 metadata, so it is not
+iRODS has its own metadata system, however it is not especially clear how it should map to S3 metadata, so it is not
 included at the moment.
 
 ## Paging
 
-Paging requires engineering work to provide paging through lists of objects efficient, so right now the bridge does not
+Paging requires engineering work to provide paging through lists of objects efficiently, so right now this API does not
 attempt to paginate its output for things such as listobjects.
 
 ## Checksum handling
 
-Amazon S3 provides many places to place checksums for the data as received by the server. iRODS provides MD5 checksums, 
-however the bridge does not use that to verify data objects created through PutObject.
+Amazon S3 provides many ways to communicate checksums for the data as received by the server. iRODS provides MD5 checksums, 
+however this API does not use that to verify data objects created through PutObject.
 
 ## ETags
 
@@ -60,7 +62,7 @@ ETags are not provided for or used consistently.
 
 Versioning is not supported at this time.
 
-# Setting it up <a id="Interesting_Part"/>
+# Setting it up
 
 ## Building
 
@@ -188,8 +190,7 @@ docker logs -f irods_s3_api
 
 ## Connecting with Botocore
 
-As a simple example, this is how you pass that in through botocore, one of the various libraries from Amazon which happen
-to provide S3 connectivity.
+As a simple example, this is how you pass that in through botocore, a library from Amazon that provides S3 connectivity.
 
 ```python
 import botocore.session
