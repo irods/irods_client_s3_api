@@ -53,6 +53,7 @@ asio::awaitable<void> irods::s3::actions::handle_listobjects_v2(
     }
     auto base_length = bucket_base.string().size();
     auto resolved_path = irods::s3::finish_path(bucket_base, url.segments());
+    std::cout << __func__ << ": resolved path [" << resolved_path << "]\n";
     boost::property_tree::ptree document;
 
     std::string filename_prefix = "%";
@@ -68,13 +69,13 @@ asio::awaitable<void> irods::s3::actions::handle_listobjects_v2(
             "'{}'",
             resolved_path.c_str(),
             filename_prefix,
-            resolved_path.string().substr(0, resolved_path.string().length() - 1),
+            resolved_path.parent_path().c_str(),
             filename_prefix);
     }
     else {
         query = fmt::format(
             "select COLL_NAME,DATA_NAME,DATA_OWNER_NAME,DATA_SIZE where COLL_NAME like '{}' AND DATA_NAME LIKE '{}'",
-            resolved_path.string().substr(0, resolved_path.string().length() - 1),
+            resolved_path.parent_path().c_str(),
             filename_prefix);
     }
     std::cout << query << std::endl;
@@ -108,7 +109,7 @@ asio::awaitable<void> irods::s3::actions::handle_listobjects_v2(
     // Required for genquery limitations :p
     query = fmt::format(
         "select COLL_NAME,DATA_NAME,DATA_OWNER_NAME,DATA_SIZE where COLL_NAME like '{}/{}'",
-        resolved_path.string().substr(0, resolved_path.string().length() - 1),
+        resolved_path.parent_path().c_str(),
         filename_prefix);
     std::cout << query << std::endl;
     for (auto&& i : irods::query<RcComm>(thing.get(), query)) {
