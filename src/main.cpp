@@ -180,6 +180,7 @@ asio::awaitable<void> listener(unsigned short port)
         std::cout << "Accepted?" << std::endl;
     }
 }
+
 /// \brief Load the configuration
 /// \param port out The location to write the acquired port number
 /// \returns The configuration object.
@@ -192,63 +193,71 @@ int main()
     irods::pack_entry_table& pk_tbl = irods::get_pack_table();
     init_api_table(api_tbl, pk_tbl);
 
-    auto config_value = load_configuration(port);
+    const auto config_value = load_configuration(port);
 
-    asio::io_context io_context(
-        config_value.find("threads") != config_value.end() ? config_value["threads"].get<int>()
-                                                           : 3 * (std::thread::hardware_concurrency() + 1));
-    auto address = asio::ip::make_address("0.0.0.0");
+    const auto s3_server = config_value.at("s3_server");
+    const auto iter = s3_server.find("threads");
+    const auto thread_count = (iter != std::end(s3_server)) ? iter->get<int>() : std::thread::hardware_concurrency();
+    asio::io_context io_context(thread_count);
+
     asio::signal_set signals(io_context, SIGINT, SIGTERM);
     signals.async_wait([&](auto, auto) { io_context.stop(); });
+
     asio::co_spawn(io_context, listener(port), boost::asio::detached);
     io_context.run();
+
     return 0;
 }
+
 nlohmann::json load_configuration(unsigned short& port)
 {
     nlohmann::json config_value;
-    {
-        if (!std::filesystem::exists("config.json")) {
-            std::cout
-                << "You need to create config.json and populate it with an authentication plugin and a bucket plugin"
-                << std::endl;
-            return 1;
-        }
-        std::ifstream configuration_file("config.json");
 
-        configuration_file >> config_value;
-        auto i = irods::s3::get_connection();
-        for (const auto& [k, v] : config_value["plugins"].items()) {
-            std::cout << "Loading plugin " << k << std::endl;
-            irods::s3::plugins::load_plugin(*i, k, v);
-        }
-        if (config_value.find("resource") != config_value.end()) {
-            irods::s3::set_resource(config_value.value<std::string>("resource", ""));
-        }
-        port = config_value.value("port", 8080);
-
-        if (!irods::s3::plugins::authentication_plugin_loaded()) {
-            std::cout
-                << "No authentication plugin is specified or loaded" << std::endl
-                << "Consider setting up the static_authentication_plugin, add a section like" << std::endl
-                << R"("static_authentication_resolver": {)"
-                   R"(""name": "static_authentication_resolver",)"
-                   R"(""users": {"<The s3 username>": {"username": "<The iRODS username>","secret_key": "<your favorite secret key>"}})"
-                   "}"
-                << std::endl
-                << "to the 'plugins' object in your config.json" << std::endl;
-        }
-        if (!irods::s3::plugins::bucket_plugin_loaded()) {
-            std::cout << "No bucket resolution plugin is specified or loaded" << std::endl
-                      << "Consider setting up the static_authentication_plugin, add a section like" << std::endl
-                      << R"("static_bucket_resolver": {)"
-                         R"("name": "static_bucket_resolver",)"
-                         R"("mappings": {)"
-                         R"(<Your Bucket's name>": "<The root of your bucket in irods>")"
-                         "}"
-                      << std::endl
-                      << "to the 'plugins' object in your config.json" << std::endl;
-        }
+    if (!std::filesystem::exists("config.json")) {
+        std::cout
+            << "You need to create config.json and populate it with an authentication plugin and a bucket plugin"
+            << std::endl;
+        return 1;
     }
+    std::ifstream configuration_file("config.json");
+
+    configuration_file >> config_value;
+    irods::s3::set_config(config_value);
+
+    const auto& s3_server = config_value.at("s3_server");
+
+    auto i = irods::s3::get_connection();
+    for (const auto& [k, v] : s3_server.at("plugins").items()) {
+        std::cout << "Loading plugin " << k << std::endl;
+        irods::s3::plugins::load_plugin(*i, k, v);
+    }
+    if (s3_server.find("resource") != s3_server.end()) {
+        irods::s3::set_resource(s3_server.value<std::string>("resource", ""));
+    }
+    port = s3_server.value("port", 8080);
+
+    if (!irods::s3::plugins::authentication_plugin_loaded()) {
+        std::cout
+            << "No authentication plugin is specified or loaded" << std::endl
+            << "Consider setting up the static_authentication_plugin, add a section like" << std::endl
+            << R"("static_authentication_resolver": {)"
+               R"(""name": "static_authentication_resolver",)"
+               R"(""users": {"<The s3 username>": {"username": "<The iRODS username>","secret_key": "<your favorite secret key>"}})"
+               "}"
+            << std::endl
+            << "to the 'plugins' object in your config.json" << std::endl;
+    }
+    if (!irods::s3::plugins::bucket_plugin_loaded()) {
+        std::cout << "No bucket resolution plugin is specified or loaded" << std::endl
+                  << "Consider setting up the static_authentication_plugin, add a section like" << std::endl
+                  << R"("static_bucket_resolver": {)"
+                     R"("name": "static_bucket_resolver",)"
+                     R"("mappings": {)"
+                     R"(<Your Bucket's name>": "<The root of your bucket in irods>")"
+                     "}"
+                  << std::endl
+                  << "to the 'plugins' object in your config.json" << std::endl;
+    }
+
     return config_value;
 }

@@ -3,9 +3,11 @@
 #include <algorithm>
 #include <iostream>
 #include <iomanip>
+#include <irods/rodsKeyWdDef.h>
 #include <sstream>
 #include <boost/algorithm/string.hpp>
 #include <irods/switch_user.h>
+#include <irods/rcMisc.h>
 
 namespace
 {
@@ -236,8 +238,13 @@ bool irods::s3::authentication::authenticates(
         irods::s3::authentication::get_user_secret_key(&conn, access_key_id).value(), date, region);
     auto computed_signature = hex_encode(hmac_sha_256(signing_key, sts));
 
-    if (auto error = rc_switch_user(&conn, irods_user.c_str(), conn.clientUser.rodsZone)) {
-        std::cout << "Faied to switch users! code [" << error << "]" << std::endl;
+    SwitchUserInput input{};
+    std::strcpy(input.username, irods_user.c_str());
+    std::strcpy(input.zone, conn.clientUser.rodsZone);
+    addKeyVal(&input.options, KW_CLOSE_OPEN_REPLICAS, "");
+
+    if (const auto ec = rc_switch_user(&conn, &input); ec < 0) {
+        std::cout << "Faied to switch users! code [" << ec << "]" << std::endl;
     }
 
     std::cout << "Computed: [" << computed_signature << "]";

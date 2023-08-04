@@ -8,7 +8,7 @@
 
 namespace irods::s3::plugins
 {
-    void load_plugin(rcComm_t& connection, const std::string_view& plugin_name, nlohmann::json& configuration)
+    void load_plugin(rcComm_t& connection, const std::string_view& plugin_name, const nlohmann::json& configuration)
     {
         auto i = fmt::format("lib{}.so", plugin_name);
         void* plugin_handle = dlopen(i.c_str(), RTLD_LAZY | RTLD_LOCAL);

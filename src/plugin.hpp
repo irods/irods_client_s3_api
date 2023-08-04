@@ -17,7 +17,7 @@ namespace irods::s3::plugins
     /// \param connection The connection to the irods server.
     /// \param plugin_name The name of the plugin, directly related to the plugin file
     /// \param configuration The configuration text to pass to the plugin.
-    void load_plugin(rcComm_t& connection, const std::string_view& plugin_name, nlohmann::json& configuration);
+    void load_plugin(rcComm_t& connection, const std::string_view& plugin_name, const nlohmann::json& configuration);
 
     /// \brief Checks if an authentication plugin is loaded.
     bool authentication_plugin_loaded();

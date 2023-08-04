@@ -65,6 +65,18 @@ boost::asio::awaitable<void> irods::s3::actions::handle_headobject(
                 break;
         }
     }
+
+#if 0
+    // mc client responses with:
+    //
+    //      mc: <ERROR> Unable to validate source `ours3/the-bucket/foo`: Last-Modified time format is invalid, failed with unable to parse  in any of the input formats: [Mon, 2 Jan 2006 15:04:05 GMT Mon, _2 Jan 2006 15:04:05 GMT Mon, _2 Jan 06 15:04:05 GMT
+    //
+    // We need to send more information in the response. We're likely missing several headers.
+    // At the moment, we're sending a very generic response to the client.
+    response.set("Last-Modified", "Mon, 2 Jan 2007 15:04:05 GMT");
+    response.set("Content-Length", "20");
+#endif
     beast::http::write(socket, response);
+
     co_return;
 }

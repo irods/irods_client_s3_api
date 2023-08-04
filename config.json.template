@@ -1,0 +1,40 @@
+{
+    "s3_server": {
+        "port": 8080,
+
+        "plugins": {
+            "static_bucket_resolver": {
+                "name": "static_bucket_resolver",
+                "mappings": {
+                    "test-bucket": "/tempZone/home/alice"
+                }
+            },
+
+            "static_authentication_resolver": {
+                "name": "static_authentication_resolver",
+                "users": {
+                    "s3_alice": {
+                        "username": "alice",
+                        "secret_key": "s3apass"
+                    }
+                }
+            }
+        },
+
+        "resource": "demoResc",
+
+        "threads": 10
+    },
+
+    "irods_client": {
+        "host": "localhost",
+        "port": 1247,
+
+        "zone": "tempZone",
+
+        "rodsadmin": {
+            "username": "rods",
+            "password": "rods"
+        }
+    }
+}

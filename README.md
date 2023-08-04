@@ -1,5 +1,6 @@
 # irods_client_s3_cpp
-C++ S3 API for iRODS
+
+iRODS S3 API
 
 We will implement a subset of the S3 API:
   - https://docs.aws.amazon.com/AmazonS3/latest/API/API_Operations.html
@@ -61,53 +62,129 @@ Versioning is not supported at this time.
 
 # Setting it up <a id="Interesting_Part"/>
 
-## Compilation
+## Building
 
-The iRODS documentation is nearly
+This project relies on iRODS features that have not been released yet.
 
-## Installation
+You'll need to build the iRODS packages using [irods/irods@6b14b65](https://github.com/irods/irods/tree/6b14b65301fc119ffc5cfaae4b0f5e68872100b9) or a later commit.
 
-## iRODS Connection
+Building requires the following:
+- Docker
+- irods-dev
+- irods-runtime
 
-## The Configuration File
+You'll need to copy the packages into the root of the project directory.
 
-Well, once you've got this installed, however that looks at the moment,
-the included plugins can be set up as such, in a config.json file in whatever
-directory the `irods_s3_bridge` executable is executed.
+To build, run the following in the root of the project directory:
 
-First you must set up an iRODS client environment, logged into an account
-with administrative permissions(This is not the permission S3 commands operate at)
+```bash
+docker build -t local/irods_s3_api .
+```
 
-```javascript
+## Configuration
+
+The S3 API expects a configuration file. You can create one using the template at the root of the project directory. The name of the template is **config.json.template**.
+
+Create a copy and update it to fit your needs. For example:
+
+```bash
+cp config.json.template config.json
+
+# Use your favorite editor to update config.json.
+```
+
+The following code block shows the structure of the configuration file and provides details explaining what they are. **THE COMMENTS MUST NOT BE INCLUDED. THEY EXIST FOR EXPLANATORY PURPOSES ONLY!**
+
+```js
 {
-  "plugins": {
-    "static_bucket_resolver": { // Each of these keys corresponds to the plugin's .so file name, minus the 'lib'-prefix
-      "name": "static_bucket_resolver",// This is a convention
-      "mappings": {
-        "the-bucket": "/tempZone/home/rods/bucket/"//You address s3 uploads to the 'the-bucket' bucket
-      }
+    // Defines options that affect how the client-facing component of the
+    // server behaves.
+    "s3_server": {
+        // The port used to accept incoming client requests.
+        "port": 8080,
+
+        // Defines the set of plugins to load.
+        "plugins": {
+            //
+            // Each key corresponds to a plugin's .so file name, minus the
+            // "lib" prefix.
+            //
+
+            "static_bucket_resolver": {
+                // The internal name assigned to the plugin.
+                "name": "static_bucket_resolver",
+
+                // Defines the mapping between bucket names and iRODS
+                // collections.
+                "mappings": {
+                    "<bucket_name>": "/path/to/collection"
+                }
+            },
+
+            "static_authentication_resolver": {
+                // The internal name assigned to the plugin.
+                "name": "static_authentication_resolver",
+
+                // Defines information for resolving an S3 username to an
+                // iRODS username.
+                "users": {
+                    // Maps <s3_username> to a specific iRODS user.
+                    // Each iRODS user that intends to access the S3 API must
+                    // have at least one entry.
+                    "<s3_username>": {
+                        // The iRODS username to resolve to.
+                        "username": "<string>",
+
+                        // The secret key used to authenticate with the S3
+                        // API for this user.
+                        "secret_key": "<string>"
+                    }
+                }
+            }
+        },
+
+        // This may be relevant to your performance if you have many rules
+        // in your iRODS installation
+        "resource": "demoResc",
+
+        // The number of threads dedicated to servicing client requests.
+        "threads": 10,
     },
-    "static_authentication_resolver": {
-      "name": "static_authentication_resolver",
-      "users": {
-        "<username>": {// You log into the s3 with *this* username
-          "username": "rods",// This is the irods username
-          "secret_key": "<secret key>" // This is the secret key on the s3 side
+
+    // Defines how the S3 API server connects to an iRODS server.
+    "irods_client": {
+        // The hostname or IP of the target iRODS server.
+        "host": "<string>",
+
+        // The port of the target iRODS server.
+        "port": 1247,
+
+        // The zone of the target iRODS server.
+        "zone": "<string>",
+
+        // The credentials for the rodsadmin user that will act as a proxy
+        // for all authenticated users.
+        "rodsadmin": {
+            "username": "<string>",
+            "password": "<string>"
         }
-      }
     }
-  },
-  // This may be relevant to your performance if you have many rules in your iRODS installation
-  "resource": "The_Fastest_iRODS_Resource",
-  // This is automatically set to 3 times the number of processors if this value is not specified.
-  "threads": 10
 }
 ```
 
-When an S3 request passes through to iRODS, it becomes a connection to the
-irods server which is pretending to be the user that it is mapped to.
-This means that you are limited to what you can do there, as an irods user,
-rather than whatever expectation might exist with a proper S3 environment.
+## Running
+
+Docker is required for running the S3 API server. To do so, run the following:
+
+```bash
+docker run -d --name irods_s3_api -v /path/to/your/config.json:/root/config.json:ro -p 8080:8080 local/irods_s3_api
+```
+
+You can follow the log file by running the following:
+
+```bash
+docker logs -f irods_s3_api
+```
 
 ## Connecting with Botocore
 

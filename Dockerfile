@@ -91,7 +91,8 @@ RUN ./bootstrap.sh && \
 WORKDIR /
 
 COPY scripts scripts
-COPY bison_credentials .
+
+COPY ./irods-dev_4.3.0-1~focal_amd64.deb ./irods-runtime_4.3.0-1~focal_amd64.deb /irods43X_packages/
 
 RUN bash scripts/get_build_deps.sh
 
@@ -108,6 +109,5 @@ RUN chmod +x scripts/run_bridge.sh
 ENV LD_LIBRARY_PATH=/opt/irods-externals/clang13.0.0-0/lib:/boost-1.81.0/stage/lib:$LD_LIBRARY_PATH
 
 RUN mkdir -p /root/.irods
-COPY irods_environment.json /root/.irods
 
 ENTRYPOINT [ "scripts/run_bridge.sh" ]
