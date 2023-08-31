@@ -1,9 +1,4 @@
 #!/usr/bin/bash
-ldconfig
-sleep 10
 
-cd ~
-irods_s3_bridge
-while true; do
-  sleep 1;
-done
+ldconfig /irods_s3_bridge/build
+/irods_s3_bridge/build/irods_s3_bridge /irods_client_s3_api_config.json

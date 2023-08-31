@@ -184,16 +184,22 @@ asio::awaitable<void> listener(unsigned short port)
 /// \brief Load the configuration
 /// \param port out The location to write the acquired port number
 /// \returns The configuration object.
-nlohmann::json load_configuration(unsigned short& port);
-int main()
+nlohmann::json load_configuration(const std::string_view _config_path, unsigned short& port);
+
+int main(int _argc, char* _argv[])
 {
+    if (_argc < 2) {
+        std::cerr << "Error: Missing configuration file path.\n\n"
+                     "USAGE: irods_s3_bridge CONFIG_FILE\n";
+    }
+
     unsigned short port = 8080;
 
     irods::api_entry_table& api_tbl = irods::get_client_api_table();
     irods::pack_entry_table& pk_tbl = irods::get_pack_table();
     init_api_table(api_tbl, pk_tbl);
 
-    const auto config_value = load_configuration(port);
+    const auto config_value = load_configuration(_argv[1], port);
 
     const auto s3_server = config_value.at("s3_server");
     const auto iter = s3_server.find("threads");
@@ -209,17 +215,17 @@ int main()
     return 0;
 }
 
-nlohmann::json load_configuration(unsigned short& port)
+nlohmann::json load_configuration(const std::string_view _config_path, unsigned short& port)
 {
     nlohmann::json config_value;
 
-    if (!std::filesystem::exists("config.json")) {
+    if (!std::filesystem::exists(_config_path)) {
         std::cout
             << "You need to create config.json and populate it with an authentication plugin and a bucket plugin"
             << std::endl;
         return 1;
     }
-    std::ifstream configuration_file("config.json");
+    std::ifstream configuration_file(_config_path);
 
     configuration_file >> config_value;
     irods::s3::set_config(config_value);

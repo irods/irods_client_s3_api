@@ -1,111 +1,175 @@
-cmake_minimum_required(VERSION 3.15)
+cmake_minimum_required(VERSION 3.15 FATAL_ERROR)
 
-find_package(IRODS 4.3.0 REQUIRED)
+set(IRODS_CLIENT_VERSION "0.1.0")
+set(IRODS_PACKAGE_REVISION "1")
+
+#
+# Build Configuration
+#
+
+find_package(IRODS 4.3.0 REQUIRED CONFIG)
+
+include(RequireOutOfSourceBuild)
 include(IrodsCXXCompiler)
-include(UseLibCXX)
-include(IrodsExternals)
-project(irods_s3_bridge CXX C)
 
-if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+set(CMAKE_CXX_STANDARD ${IRODS_CXX_STANDARD})
+set(CMAKE_CXX_EXTENSIONS OFF)
+# export-dynamic so stacktrace entries from executables have function names.
+set(CMAKE_EXE_LINKER_FLAGS_INIT "-rdynamic -Wl,--export-dynamic -Wl,--enable-new-dtags -Wl,--as-needed -Wl,-z,defs")
+set(CMAKE_EXE_LINKER_FLAGS_RELEASE_INIT "-Wl,--gc-sections -Wl,-z,combreloc")
+include(IrodsRunpathDefaults)
+
+project(irods_client_s3_api VERSION "${IRODS_CLIENT_VERSION}" LANGUAGES CXX C)
+
+include(${IRODS_TARGETS_PATH})
+include(GNUInstallDirs)
+include(UseLibCXX)
+
+if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
   add_compile_options($<$<COMPILE_LANGUAGE:CXX>:-fpermissive>)
 endif()
+
 add_subdirectory(third-party/hmac_sha256)
-# Boost 1.80 is necessary as boost::urls is broken on older systems.
-find_package(Boost 1.80 CONFIG REQUIRED COMPONENTS system)
-include_directories(${Boost_INCLUDE_DIRS})
-find_package(fmt CONFIG REQUIRED)
-find_package(nlohmann_json CONFIG REQUIRED)
+
+include_directories(
+  ${IRODS_EXTERNALS_FULLPATH_BOOST}/include
+  ${IRODS_EXTERNALS_FULLPATH_FMT}/include)
+
+find_package(CURL REQUIRED)
+find_package(nlohmann_json "3.6.1" REQUIRED)
+find_package(OpenSSL REQUIRED COMPONENTS Crypto SSL)
+
 set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
 set(THREADS_PREFER_PTHREAD_FLAG TRUE)
+
 find_package(Threads REQUIRED)
-#list(APPEND IRODS_COMPILE_DEFINITIONS_PRIVATE "BOOST_ASIO_HAS_STD_INVOKE_RESULT")
 
-add_executable(irods_s3_bridge)
-add_library(static_bucket_resolver SHARED)
-add_library(static_authentication_resolver SHARED)
-add_library(sqlite_persistence_plugin SHARED)
+set(IRODS_S3_API_BINARY_NAME irods_s3_bridge)
+add_executable(${IRODS_S3_API_BINARY_NAME})
 
-target_compile_definitions(irods_s3_bridge PRIVATE BOOST_ASIO_HAS_CO_AWAIT=1 BOOST_ASIO_HAS_STD_INVOKE_RESULT)
-target_link_libraries(irods_s3_bridge PRIVATE 
-  Boost::system 
-  fmt::fmt-header-only 
-  irods_client irods_plugin_dependencies 
-  irods_common irods_server  
-  hmac_sha256 ${CMAKE_DL_LIBS} 
-  nlohmann_json::nlohmann_json Threads::Threads)
+set(IRODS_S3_API_BUCKET_RESOLVER_PLUGIN_NAME static_bucket_resolver)
+add_library(${IRODS_S3_API_BUCKET_RESOLVER_PLUGIN_NAME} SHARED)
 
-target_include_directories(static_bucket_resolver PRIVATE src)
-target_include_directories(static_authentication_resolver PRIVATE src)
-target_include_directories(sqlite_persistence_plugin PRIVATE src)
+set(IRODS_S3_API_AUTH_RESOLVER_NAME static_authentication_resolver)
+add_library(${IRODS_S3_API_AUTH_RESOLVER_NAME} SHARED)
 
-target_link_libraries(static_bucket_resolver PRIVATE irods_client irods_common irods_server irods_plugin_dependencies
-                      ${CMAKE_DL_LIBS} nlohmann_json::nlohmann_json fmt::fmt-header-only)
-target_link_libraries(static_authentication_resolver PRIVATE irods_client irods_common irods_server irods_plugin_dependencies
-                      ${CMAKE_DL_LIBS} nlohmann_json::nlohmann_json fmt::fmt-header-only)
-target_link_libraries(sqlite_persistence_plugin PRIVATE irods_client irods_common irods_server irods_plugin_dependencies
-        ${CMAKE_DL_LIBS} nlohmann_json::nlohmann_json fmt::fmt-header-only)
+set(IRODS_S3_API_PERSISTENCE_PLUGIN sqlite_persistence_plugin)
+add_library(${IRODS_S3_API_PERSISTENCE_PLUGIN} SHARED)
 
-target_include_directories(irods_s3_bridge PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/third-party/url/include third-party/hmac_sha256
-        ${Boost_INCLUDE_DIR} )
-target_include_directories(static_authentication_resolver PRIVATE ${Boost_INCLUDE_DIR})
-target_include_directories(static_bucket_resolver PRIVATE ${Boost_INCLUDE_DIR})
-target_include_directories(sqlite_persistence_plugin PRIVATE ${Boost_INCLUDE_DIR})
-set_property(TARGET irods_s3_bridge PROPERTY CXX_STANDARD 20)
-set_property(TARGET irods_s3_bridge PROPERTY ENABLE_EXPORTS ON)
-set_property(TARGET static_authentication_resolver PROPERTY CXX_STANDARD 20)
-set_property(TARGET static_bucket_resolver PROPERTY CXX_STANDARD 20)
-set_property(TARGET sqlite_persistence_plugin PROPERTY CXX_STANDARD 20)
-install(TARGETS irods_s3_bridge static_authentication_resolver static_bucket_resolver)
+target_link_libraries(
+  ${IRODS_S3_API_BINARY_NAME}
+  PRIVATE 
+  ${IRODS_EXTERNALS_FULLPATH_BOOST}/lib/libboost_system.so
+  ${IRODS_EXTERNALS_FULLPATH_FMT}/lib/libfmt.so
+  irods_client
+  hmac_sha256
+  ${CMAKE_DL_LIBS} 
+  CURL::libcurl
+  nlohmann_json::nlohmann_json
+  Threads::Threads)
 
+target_include_directories(${IRODS_S3_API_BUCKET_RESOLVER_PLUGIN_NAME} PRIVATE src)
+target_include_directories(${IRODS_S3_API_AUTH_RESOLVER_NAME} PRIVATE src)
+target_include_directories(${IRODS_S3_API_PERSISTENCE_PLUGIN} PRIVATE src)
 
+target_link_libraries(
+  ${IRODS_S3_API_BUCKET_RESOLVER_PLUGIN_NAME}
+  PRIVATE
+  irods_client
+  ${CMAKE_DL_LIBS}
+  CURL::libcurl
+  nlohmann_json::nlohmann_json
+  ${IRODS_EXTERNALS_FULLPATH_FMT}/lib/libfmt.so)
+
+target_link_libraries(
+  ${IRODS_S3_API_AUTH_RESOLVER_NAME}
+  PRIVATE
+  irods_client
+  ${CMAKE_DL_LIBS}
+  CURL::libcurl
+  nlohmann_json::nlohmann_json
+  ${IRODS_EXTERNALS_FULLPATH_FMT}/lib/libfmt.so)
+
+target_link_libraries(
+  ${IRODS_S3_API_PERSISTENCE_PLUGIN}
+  PRIVATE
+  irods_client
+  ${CMAKE_DL_LIBS}
+  CURL::libcurl
+  nlohmann_json::nlohmann_json
+  ${IRODS_EXTERNALS_FULLPATH_FMT}/lib/libfmt.so)
+
+target_include_directories(
+  ${IRODS_S3_API_BINARY_NAME}
+  PRIVATE
+  ${CMAKE_CURRENT_SOURCE_DIR}/third-party/url/include
+  third-party/hmac_sha256
+  ${IRODS_EXTERNALS_FULLPATH_BOOST}/include)
+
+target_include_directories(${IRODS_S3_API_AUTH_RESOLVER_NAME} PRIVATE ${IRODS_EXTERNALS_FULLPATH_BOOST}/include)
+target_include_directories(${IRODS_S3_API_BUCKET_RESOLVER_PLUGIN_NAME} PRIVATE ${IRODS_EXTERNALS_FULLPATH_BOOST}/include)
+target_include_directories(${IRODS_S3_API_PERSISTENCE_PLUGIN} PRIVATE ${IRODS_EXTERNALS_FULLPATH_BOOST}/include)
+
+add_subdirectory(src)
+
+#
+# Packaging Configuration
+#
+
+include(IrodsCPackCommon)
+include(IrodsCPackPlatform)
+
+install(
+  TARGETS
+  ${IRODS_S3_API_BINARY_NAME}
+  ${IRODS_S3_API_AUTH_RESOLVER_NAME}
+  ${IRODS_S3_API_BUCKET_RESOLVER_PLUGIN_NAME}
+  DESTINATION
+  usr/local/irods_client_s3_api)
+
+set(IRODS_PACKAGE_NAME irods-experimental-client-s3-api)
+
+set(CPACK_PACKAGE_VERSION ${IRODS_CLIENT_VERSION})
 set(CPACK_INCLUDE_TOPLEVEL_DIRECTORY OFF)
 set(CPACK_COMPONENT_INCLUDE_TOPLEVEL_DIRECTORY OFF)
 set(CPACK_COMPONENTS_GROUPING IGNORE)
-set(CPACK_PACKAGE_VERSION ${IRODS_CLIENT_VERSION})
-set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "The integrated Rule-Oriented Data System")
-
-
-if (IRODS_LINUX_DISTRIBUTION_NAME STREQUAL "ubuntu" OR IRODS_LINUX_DISTRIBUTION_NAME STREQUAL "debian")
-  if (NOT IRODS_PLUGIN_LINUX_DISTRIBUTION_VERSION_CODENAME)
-    execute_process(
-            COMMAND "lsb_release" "-s" "-c"
-            RESULT_VARIABLE IRODS_PLUGIN_EXECUTE_PROCESS_RESULT_LINUX_DISTRIBUTION_VERSION_CODENAME
-            OUTPUT_VARIABLE IRODS_PLUGIN_LINUX_DISTRIBUTION_VERSION_CODENAME
-    )
-    string(STRIP ${IRODS_PLUGIN_LINUX_DISTRIBUTION_VERSION_CODENAME} IRODS_PLUGIN_LINUX_DISTRIBUTION_VERSION_CODENAME)
-    if (NOT ${IRODS_PLUGIN_EXECUTE_PROCESS_RESULT_LINUX_DISTRIBUTION_VERSION_CODENAME} STREQUAL "0")
-      message(FATAL_ERROR "Linux lsb_release shortname detection failed\n${IRODS_PLUGIN_EXECUTE_PROCESS_RESULT_LINUX_DISTRIBUTION_VERSION_CODENAME}")
-    endif()
-    set(IRODS_PLUGIN_LINUX_DISTRIBUTION_VERSION_CODENAME ${IRODS_PLUGIN_LINUX_DISTRIBUTION_VERSION_CODENAME} CACHE STRING "Linux distribution version codename, e.g. {precise, wheezy, trusty, jessie, ...}." FORCE)
-    message(STATUS "Setting unspecified IRODS_PLUGIN_LINUX_DISTRIBUTION_VERSION_CODENAME to '${IRODS_PLUGIN_LINUX_DISTRIBUTION_VERSION_CODENAME}'")
-  endif()
-endif()
-
-if (NOT CPACK_GENERATOR)
-  set(CPACK_GENERATOR ${IRODS_CPACK_GENERATOR} CACHE STRING "CPack generator to use, e.g. {DEB, RPM, TGZ}." FORCE)
-  message(STATUS "Setting unspecified CPACK_GENERATOR to ${CPACK_GENERATOR}. This is the correct setting for normal builds.")
-endif()
-
-include(IrodsCPackCommon)
 
 set(CPACK_DEB_COMPONENT_INSTALL OFF)
 set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS OFF)
 set(CPACK_DEBIAN_PACKAGE_CONTROL_STRICT_PERMISSION ON)
 set(CPACK_DEBIAN_PACKAGE_RELEASE "${IRODS_PACKAGE_REVISION}")
-
-set(CPACK_RPM_EXCLUDE_FROM_AUTO_FILELIST_ADDITION "/usr/sbin")
-list(APPEND CPACK_RPM_EXCLUDE_FROM_AUTO_FILELIST_ADDITION "${CPACK_PACKAGING_INSTALL_PREFIX}${CMAKE_INSTALL_SYSCONFDIR}")
-list(APPEND CPACK_RPM_EXCLUDE_FROM_AUTO_FILELIST_ADDITION "${CPACK_PACKAGING_INSTALL_PREFIX}${IRODS_HOME_DIRECTORY}")
-list(APPEND CPACK_RPM_EXCLUDE_FROM_AUTO_FILELIST_ADDITION "${CPACK_PACKAGING_INSTALL_PREFIX}${IRODS_HOME_DIRECTORY}/scripts")
-list(APPEND CPACK_RPM_EXCLUDE_FROM_AUTO_FILELIST_ADDITION "${CPACK_PACKAGING_INSTALL_PREFIX}${IRODS_HOME_DIRECTORY}/scripts/irods")
-list(APPEND CPACK_RPM_EXCLUDE_FROM_AUTO_FILELIST_ADDITION "${CPACK_PACKAGING_INSTALL_PREFIX}${IRODS_HOME_DIRECTORY}/scripts/irods/test")
-
 if (IRODS_LINUX_DISTRIBUTION_VERSION_CODENAME)
   set(CPACK_DEBIAN_PACKAGE_RELEASE "${CPACK_DEBIAN_PACKAGE_RELEASE}~${IRODS_LINUX_DISTRIBUTION_VERSION_CODENAME}")
 endif()
 set(CPACK_DEBIAN_FILE_NAME DEB-DEFAULT)
-set(CPACK_DEBIAN_PACKAGE_NAME "${PROJECT_NAME_HYPHENS}")
-set(CPACK_DEBIAN_PACKAGE_DEPENDS "${IRODS_PACKAGE_DEPENDENCIES_STRING}, irods-runtime (= ${IRODS_VERSION}), libc6" )
-add_subdirectory(src)
+
+set(CPACK_RPM_COMPONENT_INSTALL OFF)
+set(CPACK_RPM_PACKAGE_LICENSE "BSD-3-Clause")
+set(CPACK_RPM_PACKAGE_AUTOREQ 0)
+set(CPACK_RPM_PACKAGE_AUTOPROV 0)
+#set(CPACK_RPM_PACKAGE_OBSOLETES ${IRODS_PACKAGE_NAME})
+#set(CPACK_RPM_POST_INSTALL_SCRIPT_FILE "${CMAKE_SOURCE_DIR}/packaging/postinst")
+set(CPACK_RPM_PACKAGE_RELEASE "${IRODS_PACKAGE_REVISION}")
+set(CPACK_RPM_FILE_NAME RPM-DEFAULT)
+
+#set(CPACK_RPM_EXCLUDE_FROM_AUTO_FILELIST_ADDITION "/usr/sbin")
+#list(APPEND CPACK_RPM_EXCLUDE_FROM_AUTO_FILELIST_ADDITION "${CPACK_PACKAGING_INSTALL_PREFIX}${CMAKE_INSTALL_SYSCONFDIR}")
+#list(APPEND CPACK_RPM_EXCLUDE_FROM_AUTO_FILELIST_ADDITION "${CPACK_PACKAGING_INSTALL_PREFIX}${IRODS_HOME_DIRECTORY}")
+#list(APPEND CPACK_RPM_EXCLUDE_FROM_AUTO_FILELIST_ADDITION "${CPACK_PACKAGING_INSTALL_PREFIX}${IRODS_HOME_DIRECTORY}/scripts")
+#list(APPEND CPACK_RPM_EXCLUDE_FROM_AUTO_FILELIST_ADDITION "${CPACK_PACKAGING_INSTALL_PREFIX}${IRODS_HOME_DIRECTORY}/scripts/irods")
+#list(APPEND CPACK_RPM_EXCLUDE_FROM_AUTO_FILELIST_ADDITION "${CPACK_PACKAGING_INSTALL_PREFIX}${IRODS_HOME_DIRECTORY}/scripts/irods/test")
+
+set(CPACK_ARCHIVE_COMPONENT_INSTALL OFF)
+
+set(CPACK_DEBIAN_PACKAGE_NAME "${IRODS_PACKAGE_NAME}")
+set(CPACK_DEBIAN_PACKAGE_DEPENDS "${IRODS_PACKAGE_DEPENDENCIES_STRING}, irods-runtime (= ${IRODS_VERSION})")
+
+set(CPACK_RPM_PACKAGE_NAME "${IRODS_PACKAGE_NAME}")
+set(CPACK_RPM_PACKAGE_REQUIRES "${IRODS_PACKAGE_DEPENDENCIES_STRING}, irods-runtime = ${IRODS_VERSION}")
+
+if (NOT CPACK_GENERATOR)
+  set(CPACK_GENERATOR ${IRODS_CPACK_GENERATOR} CACHE STRING "CPack generator to use, e.g. {DEB, RPM, TGZ}." FORCE)
+  message(STATUS "Setting unspecified CPACK_GENERATOR to ${CPACK_GENERATOR}. This is the correct setting for normal builds.")
+endif()
 
 include(CPack)

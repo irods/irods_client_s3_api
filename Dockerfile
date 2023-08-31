@@ -78,18 +78,6 @@ ENV PATH=${cmake_path}:$PATH
 # This is where the dockerfile deviates from the one used by the development environment's docker
 # file
 
-# Build boost 1.81
-RUN wget https://boostorg.jfrog.io/artifactory/main/release/1.81.0/source/boost_1_81_0.tar.bz2 && \
-    tar xaf boost_1_81_0.tar.bz2
-
-WORKDIR boost_1_81_0
-
-RUN ./bootstrap.sh && \
-    ./b2 -j 10 link=static
-
-# Go back to the root
-WORKDIR /
-
 COPY scripts scripts
 
 COPY ./irods-dev_4.3.0-1~focal_amd64.deb ./irods-runtime_4.3.0-1~focal_amd64.deb /irods43X_packages/
@@ -102,11 +90,9 @@ COPY . irods_s3_bridge
 
 RUN bash scripts/build_bridge.sh
 
-RUN dpkg -i /irods_s3_bridge/build/irods_s3_bridge_0.1.1-~focal_amd64.deb
+RUN ls -l /irods_s3_bridge/build && dpkg -i /irods_s3_bridge/build/irods-experimental-client-s3-api_0.1.0-1~focal_amd64.deb
 
 RUN chmod +x scripts/run_bridge.sh
-
-ENV LD_LIBRARY_PATH=/opt/irods-externals/clang13.0.0-0/lib:/boost-1.81.0/stage/lib:$LD_LIBRARY_PATH
 
 RUN mkdir -p /root/.irods
 
