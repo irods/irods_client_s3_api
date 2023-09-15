@@ -67,6 +67,8 @@ namespace irods::s3
         const std::string_view& path,
         const std::vector<std::string>& part_ids)
     {
+        // TODO
+        return false;
     }
 
     /// Abort a multipart upload, deleting all partial uploads associated with it.
@@ -74,6 +76,8 @@ namespace irods::s3
     /// \param path The path of the upload.
     bool abort_multipart_upload(rcComm_t* connection, const std::string_view& path)
     {
+        // TODO
+        return false;
     }
 
     std::optional<std::string>
@@ -107,5 +111,8 @@ namespace irods::s3
 
     std::vector<std::string> list_multipart_uploads(rcComm_t* connection)
     {
+        // TODO
+        std::vector<std::string> v;
+        return v;
     }
 } //namespace irods::s3
