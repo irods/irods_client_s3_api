@@ -99,7 +99,6 @@ asio::awaitable<void> irods::s3::actions::handle_getobject(
                 size += current;
                 response.body().data = buffer_backing;
                 response.body().size = current;
-                std::cout << "Wrote " << current << " bytes" << std::endl;
                 if (d.bad()) {
                     std::cerr << "Weird error?" << std::endl;
                     exit(12);
@@ -115,14 +114,13 @@ asio::awaitable<void> irods::s3::actions::handle_getobject(
                     else {
                         // It would be nice if we could figure out something a bit more
                         // semantic than catching an exception
-                        std::cout << "Good error!" << std::endl;
+                        //std::cout << "Good error!" << std::endl;
                     }
                 }
             }
             response.body().size = d.gcount();
             response.body().more = false;
             beast::http::write(socket, serializer);
-            std::cout << "Wrote " << size << " bytes total" << std::endl;
         }
         else {
             beast::http::response<beast::http::empty_body> response;

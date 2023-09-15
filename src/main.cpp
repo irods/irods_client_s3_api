@@ -44,6 +44,10 @@ asio::awaitable<void> handle_request(asio::ip::tcp::socket socket)
 {
     beast::http::parser<true, beast::http::buffer_body> parser;
 
+    // 5 GB is the largest single part size allowed in S3.
+    // See https://aws.amazon.com/s3/faqs/.
+    parser.body_limit(5ULL * 1024 * 1024 * 1024);
+
     std::string buf_back;
     auto buffer = beast::flat_buffer();
     boost::system::error_code ec;
