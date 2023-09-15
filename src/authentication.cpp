@@ -96,9 +96,9 @@ namespace
             std::transform(
                 url.encoded_params().begin(), url.encoded_params().end(), std::back_inserter(params), [](const auto &a) {
                     if (a.has_value) {
-                        return std::make_pair<std::string, std::string>(uri_encode(a.key), uri_encode(a.value));
+                        return std::pair<std::string, std::string>(a.key, a.value);
                     }
-                    return std::make_pair(uri_encode(a.key), std::string(""));
+                    return std::pair<std::string, std::string>(a.key, std::string(""));
                 });
             std::sort(params.begin(), params.end());
             for (const auto& param : params) {

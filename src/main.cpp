@@ -34,6 +34,7 @@
 #include <irods/rodsGenQuery.h>
 #include <memory>
 #include <string_view>
+#include <curl/curl.h>
 
 namespace asio = boost::asio;
 namespace this_coro = boost::asio::this_coro;
@@ -62,7 +63,7 @@ asio::awaitable<void> handle_request(asio::ip::tcp::socket socket)
     url2.set_path(parser.get().target().substr(0, parser.get().target().find("?")));
     url2.set_scheme("http");
     if (parser.get().target().find('?') != std::string::npos) {
-        url2.set_query(parser.get().target().substr(parser.get().target().find("?") + 1));
+        url2.set_encoded_query(parser.get().target().substr(parser.get().target().find("?") + 1));
     }
 
     boost::urls::url_view url = url2;
@@ -177,7 +178,7 @@ asio::awaitable<void> listener(unsigned short port)
     for (;;) {
         asio::ip::tcp::socket socket = co_await acceptor.async_accept(boost::asio::use_awaitable);
         asio::co_spawn(executor, handle_request(std::move(socket)), asio::detached);
-        std::cout << "Accepted?" << std::endl;
+        std::cout << std::flush;
     }
 }
 
