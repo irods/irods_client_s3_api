@@ -69,6 +69,14 @@ asio::awaitable<void> irods::s3::actions::handle_putobject(
         irods::experimental::io::odstream d{
             xtrans, path, irods::experimental::io::root_resource_name{irods::s3::get_resource()}, std::ios_base::out};
 
+        if (!d.is_open()) {
+            beast::http::response<beast::http::empty_body> response;
+            response.result(beast::http::status::internal_server_error);
+            std::cerr << "Failed to open dstream" << std::endl;
+            beast::http::write(socket, response);
+            co_return;
+        }
+
         char buf[4096];
         parser.get().body().data = buf;
         parser.get().body().size = sizeof(buf);
