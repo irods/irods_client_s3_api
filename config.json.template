@@ -23,7 +23,10 @@
 
         "resource": "demoResc",
 
-        "threads": 10
+        "threads": 10,
+
+        "read_buffer_size_in_bytes": 8192,
+        "write_buffer_size_in_bytes": 8192 
     },
 
     "irods_client": {

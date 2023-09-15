@@ -70,7 +70,10 @@ asio::awaitable<void> irods::s3::actions::handle_getobject(
             std::cout << "Trying to write file" << std::endl;
             beast::http::response<beast::http::buffer_body> response;
             beast::http::response_serializer<beast::http::buffer_body> serializer{response};
-            char buffer_backing[4096];
+
+            uint64_t write_buffer_size = irods::s3::get_write_buffer_size_in_bytes();
+            std::cout << "write buffer size = " << write_buffer_size << std::endl;
+            std::vector<char> buf_vector(write_buffer_size);
 
             std::string length_field =
                 std::to_string(irods::experimental::filesystem::client::data_object_size(*thing, path));
@@ -94,10 +97,10 @@ asio::awaitable<void> irods::s3::actions::handle_getobject(
             std::streampos current, size;
             while (d.good()) {
                 response.result(beast::http::status::ok);
-                d.read(buffer_backing, 4096);
+                d.read(buf_vector.data(), write_buffer_size);
                 current = d.gcount();
                 size += current;
-                response.body().data = buffer_backing;
+                response.body().data = buf_vector.data();
                 response.body().size = current;
                 if (d.bad()) {
                     std::cerr << "Weird error?" << std::endl;

@@ -12,6 +12,7 @@
 #include <irods/transport/default_transport.hpp>
 
 #include <iostream>
+#include <vector>
 
 namespace asio = boost::asio;
 namespace beast = boost::beast;
@@ -77,23 +78,25 @@ asio::awaitable<void> irods::s3::actions::handle_putobject(
             co_return;
         }
 
-        char buf[4096];
-        parser.get().body().data = buf;
-        parser.get().body().size = sizeof(buf);
+        uint64_t read_buffer_size = irods::s3::get_read_buffer_size_in_bytes();
+        std::cout << "read buffer size = " << read_buffer_size << std::endl;
+        std::vector<char> buf_vector(read_buffer_size);
+        parser.get().body().data = buf_vector.data();
+        parser.get().body().size = read_buffer_size; 
 
         response.set("Etag", path.c_str());
         response.set("Connection", "close");
 
         while (!parser.is_done()) {
-            parser.get().body().data = buf;
-            parser.get().body().size = sizeof(buf);
+            parser.get().body().data = buf_vector.data();
+            parser.get().body().size = read_buffer_size;
             //            auto read = co_await beast::http::async_read_some(socket, buffer, parser,
             //            asio::use_awaitable);
             auto read = beast::http::read_some(socket, buffer, parser);
-            size_t read_bytes = sizeof(buf) - parser.get().body().size;
+            size_t read_bytes = read_buffer_size - parser.get().body().size;
 
             try {
-                d.write((char*) buf, read_bytes);
+                d.write((char*) buf_vector.data(), read_bytes);
             }
             catch (std::exception& e) {
                 std::cout << e.what() << std::endl;
