@@ -4,12 +4,17 @@
 #include "./s3_api.hpp"
 #include "../authentication.hpp"
 #include "../bucket.hpp"
+#include "../common_routines.hpp"
 
 #include <irods/irods_exception.hpp>
+
+#include <fmt/format.h>
 
 namespace asio = boost::asio;
 namespace beast = boost::beast;
 namespace fs = irods::experimental::filesystem;
+
+static const std::string date_format{"{:%a, %d %b %Y %H:%M:%S %Z}"};
 
 boost::asio::awaitable<void> irods::s3::actions::handle_headobject(
     boost::asio::ip::tcp::socket& socket,
@@ -49,8 +54,16 @@ boost::asio::awaitable<void> irods::s3::actions::handle_headobject(
                 }
                 response.result(can_see ? boost::beast::http::status::ok : boost::beast::http::status::forbidden);
                 std::cout << response.result() << std::endl;
-            }
-            else {
+
+                std::string length_field = std::to_string(irods::experimental::filesystem::client::data_object_size(*thing, path));
+                response.insert(beast::http::field::content_length, length_field);
+
+                auto last_write_time__time_point = irods::experimental::filesystem::client::last_write_time(*thing, path);
+                std::time_t last_write_time__time_t = std::chrono::system_clock::to_time_t(last_write_time__time_point);
+                std::string last_write_time__str = irods::s3::api::common_routines::convert_time_t_to_str(last_write_time__time_t, date_format);
+                response.insert(beast::http::field::last_modified, last_write_time__str);
+
+            } else {
                 response.result(boost::beast::http::status::not_found);
             }
         }
@@ -66,16 +79,6 @@ boost::asio::awaitable<void> irods::s3::actions::handle_headobject(
         }
     }
 
-#if 0
-    // mc client responses with:
-    //
-    //      mc: <ERROR> Unable to validate source `ours3/the-bucket/foo`: Last-Modified time format is invalid, failed with unable to parse  in any of the input formats: [Mon, 2 Jan 2006 15:04:05 GMT Mon, _2 Jan 2006 15:04:05 GMT Mon, _2 Jan 06 15:04:05 GMT
-    //
-    // We need to send more information in the response. We're likely missing several headers.
-    // At the moment, we're sending a very generic response to the client.
-    response.set("Last-Modified", "Mon, 2 Jan 2007 15:04:05 GMT");
-    response.set("Content-Length", "20");
-#endif
     beast::http::write(socket, response);
 
     co_return;
