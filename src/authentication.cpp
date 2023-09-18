@@ -98,7 +98,7 @@ namespace
                     if (a.has_value) {
                         return std::pair<std::string, std::string>(a.key, a.value);
                     }
-                    return std::pair<std::string, std::string>(a.key, std::string(""));
+                    return std::pair<std::string, std::string>(a.key, "");
                 });
             std::sort(params.begin(), params.end());
             for (const auto& param : params) {

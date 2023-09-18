@@ -63,7 +63,6 @@ std::string irods::s3::get_resource()
 
 uint64_t irods::s3::get_read_buffer_size_in_bytes()
 {
-    //port = s3_server.value("port", 8080);
     if (!read_buffer_size_in_bytes.has_value()) {
         read_buffer_size_in_bytes = g_config.value(
                 nlohmann::json::json_pointer{"/s3_server/read_buffer_size_in_bytes"}, 8192);

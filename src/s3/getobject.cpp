@@ -117,7 +117,6 @@ asio::awaitable<void> irods::s3::actions::handle_getobject(
                     else {
                         // It would be nice if we could figure out something a bit more
                         // semantic than catching an exception
-                        //std::cout << "Good error!" << std::endl;
                     }
                 }
             }
