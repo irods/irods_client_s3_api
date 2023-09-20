@@ -29,14 +29,7 @@ namespace irods::s3
 
     std::unique_ptr<rcComm_t, __detail::rcComm_Deleter> get_connection();
 
-    void set_config(const nlohmann::json& _config);
 
-    void set_resource(const std::string_view&);
-
-    std::string get_resource();
-
-    uint64_t get_read_buffer_size_in_bytes();
-    uint64_t get_write_buffer_size_in_bytes();
 
 } //namespace irods::s3
 #endif // IRODS_S3_API_CONNECTION_HPP

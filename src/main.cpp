@@ -3,7 +3,8 @@
 
 #include "boost/url/url.hpp"
 #include "boost/url/url_view.hpp"
-#include "./connection.hpp"
+#include "connection.hpp"
+#include "configuration.hpp"
 #include "plugin.hpp"
 #include "s3/s3_api.hpp"
 

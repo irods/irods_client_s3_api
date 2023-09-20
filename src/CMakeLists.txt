@@ -3,6 +3,7 @@ target_sources(
   PRIVATE
   main.cpp
   connection.cpp
+  configuration.cpp
   persistence_plugin.cpp
   hmac.cpp
   authentication.cpp bucket_plugin.cpp

@@ -3,6 +3,7 @@
 
 #include "../authentication.hpp"
 #include "../bucket.hpp"
+#include "../configuration.hpp"
 
 #include <boost/beast/core/error.hpp>
 

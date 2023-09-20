@@ -1,6 +1,7 @@
 #include "s3_api.hpp"
 
 #include "../connection.hpp"
+#include "../configuration.hpp"
 #include "../bucket.hpp"
 #include "../authentication.hpp"
 

@@ -1,16 +1,8 @@
 #include "connection.hpp"
+#include "configuration.hpp"
 
 #include <irods/rcConnect.h>
 #include <optional>
-
-namespace
-{
-    nlohmann::json g_config;
-
-    std::optional<std::string> resource;
-    std::optional<uint64_t> read_buffer_size_in_bytes;
-    std::optional<uint64_t> write_buffer_size_in_bytes;
-} //namespace
 
 std::unique_ptr<rcComm_t, irods::s3::__detail::rcComm_Deleter> irods::s3::get_connection()
 {
@@ -19,11 +11,11 @@ std::unique_ptr<rcComm_t, irods::s3::__detail::rcComm_Deleter> irods::s3::get_co
 
     using json_ptr = nlohmann::json::json_pointer;
 
-    const auto& host = g_config.at(json_ptr{"/irods_client/host"}).get_ref<const std::string&>();
-    const auto  port = g_config.at(json_ptr{"/irods_client/port"}).get<int>();
-    const auto& zone = g_config.at(json_ptr{"/irods_client/zone"}).get_ref<const std::string&>();
-    const auto& username = g_config.at(json_ptr{"/irods_client/rodsadmin/username"}).get_ref<const std::string&>();
-    const auto& password = g_config.at(json_ptr{"/irods_client/rodsadmin/password"}).get_ref<const std::string&>();
+    const auto& host = get_config().at(json_ptr{"/irods_client/host"}).get_ref<const std::string&>();
+    const auto  port = get_config().at(json_ptr{"/irods_client/port"}).get<int>();
+    const auto& zone = get_config().at(json_ptr{"/irods_client/zone"}).get_ref<const std::string&>();
+    const auto& username = get_config().at(json_ptr{"/irods_client/rodsadmin/username"}).get_ref<const std::string&>();
+    const auto& password = get_config().at(json_ptr{"/irods_client/rodsadmin/password"}).get_ref<const std::string&>();
 
     rErrMsg_t err{};
     result.reset(rcConnect(host.c_str(), port, username.c_str(), zone.c_str(), 0, &err));
@@ -41,40 +33,4 @@ std::unique_ptr<rcComm_t, irods::s3::__detail::rcComm_Deleter> irods::s3::get_co
     }
 
     return result;
-}
-
-void irods::s3::set_config(const nlohmann::json& _config)
-{
-    g_config = _config;
-}
-
-void irods::s3::set_resource(const std::string_view& resc)
-{
-    resource = resc;
-}
-
-std::string irods::s3::get_resource()
-{
-    if (!resource.has_value()) {
-        resource = g_config.value(nlohmann::json::json_pointer{"/resource"}, std::string{});
-    }
-    return resource.value();
-}
-
-uint64_t irods::s3::get_read_buffer_size_in_bytes()
-{
-    if (!read_buffer_size_in_bytes.has_value()) {
-        read_buffer_size_in_bytes = g_config.value(
-                nlohmann::json::json_pointer{"/s3_server/read_buffer_size_in_bytes"}, 8192);
-    }
-    return read_buffer_size_in_bytes.value();
-}
-
-uint64_t irods::s3::get_write_buffer_size_in_bytes()
-{
-    if (!write_buffer_size_in_bytes.has_value()) {
-        write_buffer_size_in_bytes = g_config.value(
-                nlohmann::json::json_pointer{"/s3_server/write_buffer_size_in_bytes"}, 8192);
-    }
-    return write_buffer_size_in_bytes.value();
 }
