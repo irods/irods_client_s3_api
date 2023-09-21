@@ -1,43 +1,144 @@
-import unittest
-import subprocess as sp
+from unittest import *
+import boto3
+from boto3.s3.transfer import TransferConfig
 import botocore
 import botocore.session
+import inspect
+import os
+from libs.execute import *
+from libs.command import *
+from libs.utility import *
+from datetime import datetime
 
-from tests.utility import *
+class HeadObject_Test(TestCase):
 
+    # ======== Construction, setUp, tearDown =========
 
-class TestHeadObject(unittest.TestCase):
+    bucket_irods_path = '/tempZone/home/alice/alice-bucket'
+    bucket_name = 'alice-bucket'
+    key = 's3_key2'
+    secret_key = 's3_secret_key2'
+    s3_api_url = 'http://s3-api:8080'
+
+    def __init__(self, *args, **kwargs):
+        super(HeadObject_Test, self).__init__(*args, **kwargs)
 
     def setUp(self):
-        session = botocore.session.get_session()
-        self.client = session.create_client("s3",
-                                            use_ssl=False,
-                                            endpoint_url="http://127.0.0.1:8080",  # normal networking stuff :p
-                                            aws_access_key_id="no",
-                                            aws_secret_access_key="heck")
-        set_access("", 'own', recursive=True)
-        mkdir("", access_level="own")
+
+        self.boto3_client = boto3.client('s3',
+                                        use_ssl=False,
+                                        endpoint_url=self.s3_api_url,
+                                        aws_access_key_id=self.key,
+                                        aws_secret_access_key=self.secret_key)
 
     def tearDown(self):
-        set_access("", "own", recursive=True)
-        # remove_file(self.client, "", recursive=True)
-        self.client.close()
+        pass
+
+    # ======== Tests =========
+
+    # Note:  Minio mc client does not have a head-object command but this is called behind the
+    # scenes on other tests such as list-object.
+
+    def test_botocore_head_object_in_root_directory(self):
+        put_filename = inspect.currentframe().f_code.co_name 
+        try:
+            # create and put a file
+            file_size = 100*1024
+            make_arbitrary_file(put_filename, file_size)
+            assert_command(f'iput {put_filename} {self.bucket_irods_path}/{put_filename}')
+
+            # get file last modified time for comparison below
+            _,out,_ = assert_command(f'iquest "%s" "select DATA_MODIFY_TIME where COLL_NAME = \'{self.bucket_irods_path}\' and DATA_NAME = \'{put_filename}\'"', 'STDOUT')
+            object_create_time = datetime.fromtimestamp(int(out))
+            print(out)
+
+            head_object_result = self.boto3_client.head_object(Bucket=self.bucket_name, Key=f'{put_filename}')
+            self.assertEqual(head_object_result['ResponseMetadata']['HTTPStatusCode'], 200)
+            self.assertEqual(head_object_result['ContentLength'], file_size)
+            self.assertEqual(head_object_result['LastModified'].replace(tzinfo=None), datetime.fromtimestamp(int(out)).replace(tzinfo=None))
+        finally:
+            os.remove(put_filename)
+            assert_command(f'irm -f {self.bucket_irods_path}/{put_filename}')
+
+    def test_botocore_head_object_in_subdirectory(self):
+        put_filename = inspect.currentframe().f_code.co_name 
+        put_directory = f'{put_filename}.dir'
+        try:
+            # create and put a file
+            file_size = 100*1024
+            make_arbitrary_file(put_filename, file_size)
+            assert_command(f'imkdir {self.bucket_irods_path}/{put_directory}')
+            assert_command(f'iput {put_filename} {self.bucket_irods_path}/{put_directory}/{put_filename}')
+
+            # get file last modified time for comparison below
+            _,out,_ = assert_command(f'iquest "%s" "select DATA_MODIFY_TIME where COLL_NAME = \'{self.bucket_irods_path}/{put_directory}\' and DATA_NAME = \'{put_filename}\'"', 'STDOUT')
+            object_create_time = datetime.fromtimestamp(int(out))
+            print(out)
+
+            head_object_result = self.boto3_client.head_object(Bucket=self.bucket_name, Key=f'{put_directory}/{put_filename}')
+            self.assertEqual(head_object_result['ResponseMetadata']['HTTPStatusCode'], 200)
+            self.assertEqual(head_object_result['ContentLength'], file_size)
+            self.assertEqual(head_object_result['LastModified'].replace(tzinfo=None), datetime.fromtimestamp(int(out)).replace(tzinfo=None))
+        finally:
+            os.remove(put_filename)
+            assert_command(f'irm -rf {self.bucket_irods_path}/{put_directory}')
+
+    def test_aws_head_object_in_root_directory(self):
+        put_filename = inspect.currentframe().f_code.co_name 
+        try:
+            # create and put a file
+            file_size = 100*1024
+            make_arbitrary_file(put_filename, file_size)
+            assert_command(f'iput {put_filename} {self.bucket_irods_path}/{put_filename}')
+
+            # get file last modified time for comparison below
+            _,out,_ = assert_command(f'iquest "%s" "select DATA_MODIFY_TIME where COLL_NAME = \'{self.bucket_irods_path}\' and DATA_NAME = \'{put_filename}\'"', 'STDOUT')
+            object_create_time = datetime.fromtimestamp(int(out))
+            object_create_time_formatted = datetime.fromtimestamp(int(out)).strftime("%Y-%m-%dT%H:%M:%S")
+
+            # Note:  When checking LastModified, we are not looking at the timezone offset which is printed in the AWS tools
+            assert_command(f'aws --profile s3_api_alice --endpoint-url {self.s3_api_url} s3api head-object --bucket {self.bucket_name} --key {put_filename}',
+                    'STDOUT_MULTILINE', [f'"ContentLength": {file_size}', f'"LastModified": "{object_create_time_formatted}'])
+        finally:
+            os.remove(put_filename)
+            assert_command(f'irm -f {self.bucket_irods_path}/{put_filename}')
+
+    def test_aws_head_object_in_subdirectory(self):
+        put_filename = inspect.currentframe().f_code.co_name 
+        put_directory = f'{put_filename}.dir'
+        try:
+            # create and put a file
+            file_size = 100*1024
+            make_arbitrary_file(put_filename, file_size)
+            assert_command(f'imkdir {self.bucket_irods_path}/{put_directory}')
+            assert_command(f'iput {put_filename} {self.bucket_irods_path}/{put_directory}/{put_filename}')
+
+            # get file last modified time for comparison below
+            _,out,_ = assert_command(f'iquest "%s" "select DATA_MODIFY_TIME where COLL_NAME = \'{self.bucket_irods_path}/{put_directory}\' and DATA_NAME = \'{put_filename}\'"', 'STDOUT')
+            object_create_time = datetime.fromtimestamp(int(out))
+            object_create_time_formatted = datetime.fromtimestamp(int(out)).strftime("%Y-%m-%dT%H:%M:%S")
+
+            assert_command(f'aws --profile s3_api_alice --endpoint-url {self.s3_api_url} s3api head-object --bucket {self.bucket_name} --key {put_directory}/{put_filename}',
+                    'STDOUT_MULTILINE', [f'"ContentLength": {file_size}', f'"LastModified": "{object_create_time_formatted}'])
+        finally:
+            os.remove(put_filename)
+            assert_command(f'irm -rf {self.bucket_irods_path}/{put_directory}')
 
     def test_permission(self):
-        "Test permission support in headobject"
-        # Create file that cannot be read by the current user
-        self.client.put_object(Bucket="wow", Key="test/Hi", Body=b"Hello")
-        set_access("Hi", "null")
-        # Read the object :)
-        self.assertRaises(Exception,  # This is very much not a good thing, but
-                          # but botocore is rather not ideal for this.
-                          lambda: print(self.client.head_object(Key="test/Hi", Bucket="wow")))
+        put_filename = inspect.currentframe().f_code.co_name 
+        try:
+            make_arbitrary_file(put_filename, 100*1024)
+            assert_command(f'iput {put_filename} {self.bucket_irods_path}/{put_filename}')
+            execute_irods_command_as_user(f'ichmod -M null alice {self.bucket_irods_path}/{put_filename}', 'irods', 1247, 'rods', 'tempZone', 'rods', 'apass')
+            self.assertRaises(Exception,
+                          lambda: self.boto3_client.head_object(Bucket=self.bucket_name, Key=f'{put_filename}'))
+            execute_irods_command_as_user(f'ichmod -M own alice {self.bucket_irods_path}/{put_filename}', 'irods', 1247, 'rods', 'tempZone', 'rods', 'apass')
 
-    def test_head_succeeds(self):
-        set_access("", "own", recursive=True)
-        self.client.put_object(Bucket="wow", Key="test/hi", Body=b"Hello")
-        self.client.head_object(Bucket="wow", Key="test/hi")
+        finally:
+            os.remove(put_filename)
+            assert_command(f'irm -f {self.bucket_irods_path}/{put_filename}')
 
-    def test_head_fails(self):
-        self.assertRaises(botocore.exceptions.ClientError, lambda: self.client.head_object(Bucket="wow", Key="test/hi2"))
+    def test_head_nonexistent_bucket_and_file(self):
+        self.assertRaises(botocore.exceptions.ClientError, lambda: self.boto3_client.head_object(Bucket="dne", Key="dne"))
+        self.assertRaises(botocore.exceptions.ClientError, lambda: self.boto3_client.head_object(Bucket=self.bucket_name, Key="dne"))
 

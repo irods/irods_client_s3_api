@@ -1,0 +1,48 @@
+{
+    "s3_server": {
+        "port": 8080,
+
+        "plugins": {
+            "static_bucket_resolver": {
+                "name": "static_bucket_resolver",
+                "mappings": {
+                    "test-bucket": "/tempZone/home/rods",
+                    "alice-bucket": "/tempZone/home/alice/alice-bucket",
+                    "alice-bucket2": "/tempZone/home/alice/alice-bucket2"
+                }
+            },
+
+            "static_authentication_resolver": {
+                "name": "static_authentication_resolver",
+                "users": {
+                    "s3_key1": {
+                        "username": "rods",
+                        "secret_key": "s3_secret_key1"
+                    },
+                    "s3_key2": {
+                        "username": "alice",
+                        "secret_key": "s3_secret_key2"
+                    }
+                }
+            }
+        },
+
+        "resource": "demoResc",
+
+        "threads": 10,
+        "put_object_buffer_size_in_bytes": 8192,
+        "get_object_buffer_size_in_bytes": 8192 
+    },
+
+    "irods_client": {
+        "host": "irods",
+        "port": 1247,
+
+        "zone": "tempZone",
+
+        "proxy_admin_account": {
+            "username": "rods",
+            "password": "rods"
+        }
+    }
+}

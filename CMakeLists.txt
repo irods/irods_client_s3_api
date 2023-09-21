@@ -7,7 +7,7 @@ set(IRODS_PACKAGE_REVISION "0")
 # Build Configuration
 #
 
-find_package(IRODS 4.3.0 REQUIRED CONFIG)
+find_package(IRODS 4.3.1 REQUIRED CONFIG)
 
 include(RequireOutOfSourceBuild)
 include(IrodsCXXCompiler)

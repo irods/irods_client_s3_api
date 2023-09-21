@@ -1,48 +1,236 @@
 import unittest
-import subprocess as sp
-import botocore
-import botocore.session
+import boto3
+from boto3.s3.transfer import TransferConfig
+import inspect
+import os
+from libs.execute import *
+from libs.command import *
+from libs.utility import *
+from datetime import datetime
+from minio import Minio
 
-from tests.utility import *
+class GetObject_Test(TestCase):
 
-# A lot of this will need to be reworked so that it can be bootstrapped effectively.
-# Also the "test/hi" and "hi" disparity is already getting old, so I
-# should do something about that.
+    bucket_irods_path = '/tempZone/home/alice/alice-bucket'
+    bucket_name = 'alice-bucket'
+    key = 's3_key2'
+    secret_key = 's3_secret_key2'
+    s3_api_host_port = 's3-api:8080'
+    s3_api_url = f'http://{s3_api_host_port}'
 
-
-class TestGetObject(unittest.TestCase):
+    def __init__(self, *args, **kwargs):
+        super(GetObject_Test, self).__init__(*args, **kwargs)
 
     def setUp(self):
-        session = botocore.session.get_session()
-        self.client = session.create_client("s3",
-                                            use_ssl=False,
-                                            endpoint_url="http://127.0.0.1:8080",  # normal networking stuff :p
-                                            aws_access_key_id="no",
-                                            aws_secret_access_key="heck")
-        set_access("", 'own',recursive=True)
-        mkdir("", access_level="own")
+
+        self.boto3_client = boto3.client('s3',
+                                          use_ssl=False,
+                                          endpoint_url=self.s3_api_url,
+                                          aws_access_key_id=self.key,
+                                          aws_secret_access_key=self.secret_key)
+
+        self.minio_client = Minio(self.s3_api_host_port,
+                                  access_key=self.key,
+                                  secret_key=self.secret_key,
+                                  secure=False)
 
     def tearDown(self):
-        self.client.close()
-        
-    def test_permission(self):
-        "Test permission support in getobject"
-        # Create file that cannot be read by the current user
-        touch_file("Hi")
-        set_access("Hi", "read_metadata")
-        # Read the object :)
-        self.assertRaises(Exception,# This is very much not a good thing, but 
-                                    # but botocore is rather not ideal for this.
-                          lambda: print(read_file(self.client, "test/Hi")))
+        pass
 
-        # After claiming the object, it should be able to be read
-        set_access("Hi", "own")
-        read_file(self.client, "test/Hi")
-        remove_file(self.client, 'Hi')
+    def test_botocore_get_in_bucket_root_small_file(self):
 
-    def test_get_contents(self):
-        self.client.put_object(Bucket="wow", Key="test/hi", Body=b"Hello")
-        resp = self.client.get_object(Bucket="wow", Key="test/hi")
-        self.assertEquals(resp["Body"].read(), b"Hello")
-        remove_file(self.client,"test/hi")
-        
+        put_filename = inspect.currentframe().f_code.co_name 
+        get_filename = f"{put_filename}.get"
+
+        try:
+
+            make_arbitrary_file(put_filename, 100*1024)
+            assert_command(f'iput {put_filename} {self.bucket_irods_path}/{put_filename}')
+            with open(get_filename, 'wb') as f:
+                    self.boto3_client.download_fileobj(self.bucket_name, put_filename, f)
+            assert_command(f'diff {put_filename} {get_filename}')
+
+        finally:
+            os.remove(put_filename)
+            os.remove(get_filename)
+            assert_command(f'irm -f {self.bucket_irods_path}/{put_filename}')
+
+    def test_botocore_get_in_bucket_root_large_file(self):
+
+        put_filename = inspect.currentframe().f_code.co_name 
+        get_filename = f"{put_filename}.get"
+
+        try:
+
+            make_arbitrary_file(put_filename, 20*1024*1024)
+            assert_command(f'iput {put_filename} {self.bucket_irods_path}/{put_filename}')
+            with open(get_filename, 'wb') as f:
+                self.boto3_client.download_fileobj(self.bucket_name, put_filename, f)
+            assert_command(f'diff {put_filename} {get_filename}')
+
+        finally:
+            os.remove(put_filename)
+            os.remove(get_filename)
+            assert_command(f'irm -f {self.bucket_irods_path}/{put_filename}')
+
+    def test_botocore_put_in_subdirectory(self):
+
+        put_filename = inspect.currentframe().f_code.co_name 
+        put_directory = f'{put_filename}_dir'
+        get_filename = f'{put_filename}.get'
+
+        try:
+
+            make_arbitrary_file(put_filename, 100*1024)
+            assert_command(f'imkdir {self.bucket_irods_path}/{put_directory}')
+            assert_command(f'iput {put_filename} {self.bucket_irods_path}/{put_directory}/{put_filename}')
+            with open(get_filename, 'wb') as f:
+                self.boto3_client.download_fileobj(self.bucket_name, f'{put_directory}/{put_filename}', f)
+            assert_command(f'diff {put_filename} {get_filename}')
+
+        finally:
+            os.remove(put_filename)
+            os.remove(get_filename)
+            assert_command(f'irm -rf {self.bucket_irods_path}/{put_directory}')
+
+    def test_aws_get_in_bucket_root_small_file(self):
+
+        put_filename = inspect.currentframe().f_code.co_name 
+        get_filename = f"{put_filename}.get"
+
+        try:
+
+            make_arbitrary_file(put_filename, 100*1024)
+            assert_command(f'iput {put_filename} {self.bucket_irods_path}/{put_filename}')
+            with open(get_filename, 'wb') as f:
+                    self.boto3_client.download_fileobj(self.bucket_name, put_filename, f)
+            assert_command(f'aws --profile s3_api_alice --endpoint-url {self.s3_api_url} '
+                    f's3 cp s3://{self.bucket_name}/{put_filename} {get_filename}',
+                    'STDOUT_SINGLELINE',
+                    f'download: s3://{self.bucket_name}/{put_filename} to ./{get_filename}')
+            assert_command(f'diff {put_filename} {get_filename}')
+
+        finally:
+            os.remove(put_filename)
+            os.remove(get_filename)
+            assert_command(f'irm -f {self.bucket_irods_path}/{put_filename}')
+
+    def test_aws_get_in_bucket_root_large_file(self):
+
+        put_filename = inspect.currentframe().f_code.co_name 
+        get_filename = f"{put_filename}.get"
+
+        try:
+
+            make_arbitrary_file(put_filename, 20*1024*1024)
+            assert_command(f'iput {put_filename} {self.bucket_irods_path}/{put_filename}')
+            with open(get_filename, 'wb') as f:
+                    self.boto3_client.download_fileobj(self.bucket_name, put_filename, f)
+            assert_command(f'aws --profile s3_api_alice --endpoint-url {self.s3_api_url} '
+                    f's3 cp s3://{self.bucket_name}/{put_filename} {get_filename}',
+                    'STDOUT_SINGLELINE',
+                    f'download: s3://{self.bucket_name}/{put_filename} to ./{get_filename}')
+            assert_command(f'diff {put_filename} {get_filename}')
+
+        finally:
+            os.remove(put_filename)
+            os.remove(get_filename)
+            assert_command(f'irm -f {self.bucket_irods_path}/{put_filename}')
+
+    def test_aws_get_in_subdirectory(self):
+
+        put_filename = inspect.currentframe().f_code.co_name 
+        put_directory = f'{put_filename}_dir'
+        get_filename = f'{put_filename}.get'
+
+        try:
+
+            make_arbitrary_file(put_filename, 100*1024)
+            assert_command(f'imkdir {self.bucket_irods_path}/{put_directory}')
+            assert_command(f'iput {put_filename} {self.bucket_irods_path}/{put_directory}/{put_filename}')
+            assert_command(f'aws --profile s3_api_alice --endpoint-url {self.s3_api_url} '
+                    f's3 cp s3://{self.bucket_name}/{put_directory}/{put_filename} {get_filename}',
+                    'STDOUT_SINGLELINE',
+                    f'download: s3://{self.bucket_name}/{put_directory}/{put_filename} to ./{get_filename}')
+            assert_command(f'diff {put_filename} {get_filename}')
+
+        finally:
+            os.remove(put_filename)
+            os.remove(get_filename)
+            assert_command(f'irm -rf {self.bucket_irods_path}/{put_directory}')
+
+    def test_minio_get_in_bucket_root_small_file(self):
+
+        put_filename = inspect.currentframe().f_code.co_name 
+        get_filename = f"{put_filename}.get"
+
+        try:
+
+            make_arbitrary_file(put_filename, 100*1024)
+            assert_command(f'iput {put_filename} {self.bucket_irods_path}/{put_filename}')
+
+            # read the data into get_filename
+            data = self.minio_client.get_object(self.bucket_name, put_filename)
+            with open(get_filename, 'wb') as file_data:
+                for d in data.stream(32*1024):
+                    file_data.write(d)
+ 
+            # compare the put file and get file 
+            assert_command(f'diff {put_filename} {get_filename}')
+
+        finally:
+            os.remove(put_filename)
+            os.remove(get_filename)
+            assert_command(f'irm -f {self.bucket_irods_path}/{put_filename}')
+            data.close()
+            data.release_conn()
+
+    def test_minio_get_in_bucket_root_large_file(self):
+
+        put_filename = inspect.currentframe().f_code.co_name 
+        get_filename = f"{put_filename}.get"
+
+        try:
+
+            make_arbitrary_file(put_filename, 20*1024*1024)
+            assert_command(f'iput {put_filename} {self.bucket_irods_path}/{put_filename}')
+
+            # read the data into get_filename
+            data = self.minio_client.get_object(self.bucket_name, put_filename)
+            with open(get_filename, 'wb') as file_data:
+                for d in data.stream(32*1024):
+                    file_data.write(d)
+ 
+            # compare the put file and get file 
+            assert_command(f'diff {put_filename} {get_filename}')
+
+
+        finally:
+            os.remove(put_filename)
+            os.remove(get_filename)
+            assert_command(f'irm -f {self.bucket_irods_path}/{put_filename}')
+
+    def test_minio_get_in_subdirectory(self):
+
+        put_filename = inspect.currentframe().f_code.co_name 
+        put_directory = f'{put_filename}_dir'
+        get_filename = f'{put_filename}.get'
+
+        try:
+            make_arbitrary_file(put_filename, 100*1024)
+            assert_command(f'imkdir {self.bucket_irods_path}/{put_directory}')
+            assert_command(f'iput {put_filename} {self.bucket_irods_path}/{put_directory}/{put_filename}')
+
+            # read the data into get_filename
+            data = self.minio_client.get_object(self.bucket_name, f'{put_directory}/{put_filename}')
+            with open(get_filename, 'wb') as file_data:
+                for d in data.stream(32*1024):
+                    file_data.write(d)
+ 
+            # compare the put file and get file 
+            assert_command(f'diff {put_filename} {get_filename}')
+
+        finally:
+            os.remove(put_filename)
+            os.remove(get_filename)
+            assert_command(f'irm -rf {self.bucket_irods_path}/{put_directory}')
