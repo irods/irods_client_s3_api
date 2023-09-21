@@ -250,3 +250,19 @@ To set the multipart threshold with a boto3 client, do the following:
 config = TransferConfig(multipart_threshold=5*1024*1024*1024)
 self.boto3_client.upload_file(put_filename, bucket_name, key, Config=config)
 ```
+
+## Running Unit Tests
+
+Run the following commands to run the unit test suite.
+
+```bash
+cd tests/docker
+docker-compose build
+docker-compose run client
+```
+
+The test output will appear in the terminal.  Once the tests complete run the following to cleanup:
+
+```bash
+docker-compose down
+```

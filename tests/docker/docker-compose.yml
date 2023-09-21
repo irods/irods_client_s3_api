@@ -1,0 +1,40 @@
+version: '3'
+
+services:
+    irods:
+        build:
+            context: . 
+            dockerfile: irods.ubuntu20.Dockerfile
+        ports:
+            - "1247"
+        healthcheck:
+            test: ils || exit 1
+            start_period: 20s
+            interval: 10s
+            timeout: 10s
+            retries: 20 
+
+    s3-api:
+        build:
+            context: ../..
+            dockerfile: Dockerfile
+        volumes:
+            - ./config.json:/irods_client_s3_api_config.json:ro
+        environment:
+            - local_package=/irods-client-rest-cpp_package.deb
+        ports:
+            - "8080"
+        depends_on:
+            irods:
+                condition: service_healthy
+
+    client:
+        build:
+            context: .
+            dockerfile: client.ubuntu20.Dockerfile
+        depends_on:
+            - irods
+            - s3-api
+        volumes:
+            - ../../:/irods_client_s3_cpp 
+            

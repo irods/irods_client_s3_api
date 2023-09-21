@@ -201,6 +201,7 @@ asio::awaitable<void> irods::s3::actions::handle_getobject(
                 }
             }
             response.body().size = d.gcount();
+            std::cout << "Wrote " << size << " bytes total" << std::endl;
             response.body().more = false;
             beast::http::write(socket, serializer);
         }
