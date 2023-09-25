@@ -93,9 +93,13 @@ asio::awaitable<void> handle_request(asio::ip::tcp::socket socket)
                 }
             }
             else {
-                // GetObject
-
-                if (url.params().find("location") != url.params().end() && url.segments().size() > 1) {
+                if (parser.get().target() == "/") {
+                    // This is a ListBucket
+                    std::cout << "ListBucket detected" << std::endl;
+                    co_await irods::s3::actions::handle_listbuckets(socket, parser, url);
+                    co_return;
+                }
+                else if (url.params().find("location") != url.params().end() && url.segments().size() > 1) {
                     // This is GetBucketLocation
                     std::cout << "GetBucketLocation detected" << std::endl;
                     beast::http::response<beast::http::string_body> resp;
