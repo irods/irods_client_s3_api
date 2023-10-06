@@ -39,6 +39,8 @@ Goal is to support the equivalent of:
 Multipart uploads are an important part of S3, however, they aren't simple to implement and have substantial performance
 and storage implications for a naive approach. As of now, this API does not attempt to provide that functionality.
 
+See [Disabling Multipart](#disabling-multipart) for details.
+
 ## Tagging
 
 iRODS has its own metadata system, however it is not especially clear how it should map to S3 metadata, so it is not
@@ -151,6 +153,12 @@ The following code block shows the structure of the configuration file and provi
 
         // The number of threads dedicated to servicing client requests.
         "threads": 10,
+
+        // The size of the buffer when calling PutObject.
+        "put_object_buffer_size_in_bytes": 8192,
+
+        // The size of the buffer when calling GetObject 
+        "get_buffer_size_in_bytes": 8192 
     },
 
     // Defines how the S3 API server connects to an iRODS server.
@@ -201,4 +209,33 @@ client = session.create_client("s3",
                                endpoint_url="http://127.0.0.1:8080",
                                aws_access_key_id="<username>",
                                aws_secret_access_key="<secret key>")
+```
+
+## Disabling Multipart
+
+Multipart uploads are not supported at this time.  Therefore, multipart must be disabled in the client.
+
+### Disabling Multipart for AWS CLI
+
+For AWS CLI, multipart uploads can be disabled by setting an arbitrarily large multipart threshold.  Since 5 GB is the largest single part upload allowed by AWS, this is a good choice.
+
+To disable multipart uploads, set the `multipart_threshold` in the ~/.aws/credentials file for the profile in question.  For example, you could create a profile called `irods_s3_no_multipart` with the following in the credentials file.
+
+```
+[irods_s3_no_multipart]
+aws_access_key_id = key1 
+aws_secret_access_key = secret_key1
+s3 =
+    multipart_threshold = 5GB
+```
+
+To use this with the AWS CLI commands, use the `--profile` flag.  Example: `aws --profile irods_s3_no_multipart`.
+
+### Example for Boto3
+
+To set the multipart threshold with a boto3 client, do the following: 
+
+```python
+config = TransferConfig(multipart_threshold=5*1024*1024*1024)
+self.boto3_client.upload_file(put_filename, bucket_name, key, Config=config)
 ```
