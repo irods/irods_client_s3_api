@@ -79,7 +79,7 @@ asio::awaitable<void> irods::s3::actions::handle_putobject(
             co_return;
         }
 
-        uint64_t read_buffer_size = irods::s3::get_read_buffer_size_in_bytes();
+        uint64_t read_buffer_size = irods::s3::get_put_object_buffer_size_in_bytes();
         std::cout << "read buffer size = " << read_buffer_size << std::endl;
         std::vector<char> buf_vector(read_buffer_size);
         parser.get().body().data = buf_vector.data();

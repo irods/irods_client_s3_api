@@ -118,7 +118,7 @@ asio::awaitable<void> irods::s3::actions::handle_getobject(
             beast::http::response<beast::http::buffer_body> response;
             beast::http::response_serializer<beast::http::buffer_body> serializer{response};
 
-            uint64_t write_buffer_size = irods::s3::get_write_buffer_size_in_bytes();
+            uint64_t write_buffer_size = irods::s3::get_get_object_buffer_size_in_bytes();
             std::cout << "write buffer size = " << write_buffer_size << std::endl;
             std::vector<char> buf_vector(write_buffer_size);
 

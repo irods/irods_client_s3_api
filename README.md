@@ -157,8 +157,8 @@ The following code block shows the structure of the configuration file and provi
         // The size of the buffer when calling PutObject.
         "put_object_buffer_size_in_bytes": 8192,
 
-        // The size of the buffer when calling GetObject 
-        "get_buffer_size_in_bytes": 8192 
+        // The size of the buffer when calling GetObject.
+        "get_object_buffer_size_in_bytes": 8192
     },
 
     // Defines how the S3 API server connects to an iRODS server.
