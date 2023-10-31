@@ -99,14 +99,20 @@ asio::awaitable<void> handle_request(asio::ip::tcp::socket socket)
                     co_await irods::s3::actions::handle_listbuckets(socket, parser, url);
                     co_return;
                 }
-                else if (url.params().find("location") != url.params().end() && url.segments().size() > 1) {
+                else if (url.params().find("location") != url.params().end()) {
                     // This is GetBucketLocation
                     std::cout << "GetBucketLocation detected" << std::endl;
                     beast::http::response<beast::http::string_body> resp;
                     resp.body() = "<?xml version='1.0' encoding='utf-8'?>"
-                                  "<LocationConstraint>"
-                                  "   <LocationConstraint>a-computer-1</LocationConstraint>"
-                                  "</LocationConstraint>";
+                                  "<LocationConstraint>us-east-1</LocationConstraint>";
+                    co_await beast::http::async_write(socket, resp, asio::use_awaitable);
+                    co_return;
+                }
+                else if (url.params().find("object-lock") != url.params().end()) {
+                    std::cout << "GetObjectLockConfiguration detected" << std::endl;
+                    beast::http::response<beast::http::string_body> resp;
+                    resp.body() = "<?xml version='1.0' encoding='utf-8'?>"
+                                  "<ObjectLockConfiguration/>";
                     co_await beast::http::async_write(socket, resp, asio::use_awaitable);
                     co_return;
                 }
