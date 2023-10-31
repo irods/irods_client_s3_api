@@ -158,7 +158,10 @@ The following code block shows the structure of the configuration file and provi
         "put_object_buffer_size_in_bytes": 8192,
 
         // The size of the buffer when calling GetObject.
-        "get_object_buffer_size_in_bytes": 8192
+        "get_object_buffer_size_in_bytes": 8192,
+
+        // The region returned in the GetBucketLocation API call.  The default is us-east-1.
+        "s3_region": "us-east-1"
     },
 
     // Defines how the S3 API server connects to an iRODS server.

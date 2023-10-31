@@ -26,6 +26,8 @@
 #include <boost/beast/http/verb.hpp>
 #include <boost/system/system_error.hpp>
 #include <boost/url/src.hpp>
+#include <boost/property_tree/ptree.hpp>
+#include <boost/property_tree/xml_parser.hpp>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -102,9 +104,16 @@ asio::awaitable<void> handle_request(asio::ip::tcp::socket socket)
                 else if (url.params().find("location") != url.params().end()) {
                     // This is GetBucketLocation
                     std::cout << "GetBucketLocation detected" << std::endl;
+                    std::string s3_region = irods::s3::get_s3_region();
                     beast::http::response<beast::http::string_body> resp;
-                    resp.body() = "<?xml version='1.0' encoding='utf-8'?>"
-                                  "<LocationConstraint>us-east-1</LocationConstraint>";
+                    boost::property_tree::ptree document;
+                    document.add("LocationConstraint", s3_region);
+                    std::stringstream s;
+                    boost::property_tree::xml_parser::xml_writer_settings<std::string> settings;
+                    settings.indent_char = ' ';
+                    settings.indent_count = 4;
+                    boost::property_tree::write_xml(s, document, settings);
+                    resp.body() = s.str();
                     co_await beast::http::async_write(socket, resp, asio::use_awaitable);
                     co_return;
                 }

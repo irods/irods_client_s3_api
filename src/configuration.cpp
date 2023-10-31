@@ -9,6 +9,7 @@ namespace
     std::optional<std::string> resource;
     std::optional<uint64_t> put_object_buffer_size_in_bytes;
     std::optional<uint64_t> get_object_buffer_size_in_bytes;
+    std::optional<std::string> s3_region;
 } //namespace
 
 void irods::s3::set_config(const nlohmann::json& _config)
@@ -39,6 +40,15 @@ uint64_t irods::s3::get_get_object_buffer_size_in_bytes()
     return get_object_buffer_size_in_bytes.value();
 }
 
+std::string irods::s3::get_s3_region()
+{
+    if (!s3_region.has_value()) {
+        s3_region = g_config.value(
+                nlohmann::json::json_pointer{"/s3_server/s3_region"}, "us-east-1");
+    }
+    return s3_region.value();
+}
+
 void irods::s3::set_resource(const std::string_view& resc)
 {
     resource = resc;
@@ -47,7 +57,7 @@ void irods::s3::set_resource(const std::string_view& resc)
 std::string irods::s3::get_resource()
 {
     if (!resource.has_value()) {
-        resource = g_config.value(nlohmann::json::json_pointer{"/resource"}, std::string{});
+        resource = g_config.value(nlohmann::json::json_pointer{"/s3_server/resource"}, std::string{});
     }
     return resource.value();
 }
