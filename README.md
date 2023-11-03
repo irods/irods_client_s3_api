@@ -1,6 +1,6 @@
-# irods_client_s3_cpp
+# iRODS S3 API
 
-iRODS S3 API
+A project that presents an iRODS 4.3.1+ server as S3 compatible storage.
 
 ![S3 API network diagram](s3_api_diagram.png)
 
@@ -68,22 +68,23 @@ Versioning is not supported at this time.
 
 ## Building
 
-This project relies on iRODS features that have not been released yet.
+This project relies on git submodules and Docker for building the server.
 
-You'll need to build the iRODS packages using [irods/irods@6b14b65](https://github.com/irods/irods/tree/6b14b65301fc119ffc5cfaae4b0f5e68872100b9) or a later commit.
+Before the server can be built, you must download the appropriate git submodules. You can do that by running the following:
 
-Building requires the following:
-- Docker
-- irods-dev
-- irods-runtime
+```bash
+git submodule update --init --recursive
+```
 
-You'll need to copy the packages into the root of the project directory.
-
-To build, run the following in the root of the project directory:
+With the dependencies resolved, all that's left is to build the application. Run the following command from the root of the project directory.
 
 ```bash
 docker build -t local/irods_s3_api .
 ```
+
+If everything succeeds, you'll have a containerized iRODS S3 API server image.
+
+If you run into issues, try checking if the git submodules exist on your machine and you're running an up-to-date version of Docker.
 
 ## Configuration
 
