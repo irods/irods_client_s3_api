@@ -14,9 +14,12 @@ Initial effort includes:
   - [x] DeleteObject
   - DeleteObjects
   - [x] GetObject
+  - [x] GetBucketLocation
   - GetObjectAcl ?
+  - [x] GetObjectLockConfiguration
   - GetObjectTagging ?
   - [x] HeadObject
+  - [x] ListBuckets
   - ListObjects ?
   - [x] ListObjectsV2
   - [x] PutObject
