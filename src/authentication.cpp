@@ -59,10 +59,6 @@ namespace
         return result.str();
     }
 
-    bool should_include_header(const std::string_view sv)
-    {
-        return sv.starts_with("X-Amz") || sv.starts_with("x-amz") || sv == "Host" || sv == "Content-Type";
-    }
     std::string to_lower(const std::string_view sv)
     {
         std::string r;
@@ -111,8 +107,7 @@ namespace
         result << '\n';
 
         for (const auto& header : request.get()) {
-            if (should_include_header(header.name_string()) ||
-                std::find(signed_headers.begin(), signed_headers.end(), to_lower(header.name_string())) !=
+            if (std::find(signed_headers.begin(), signed_headers.end(), to_lower(header.name_string())) !=
                     signed_headers.end())
             {
                 sorted_fields.emplace_back(header.name_string().data(), header.name_string().length());
