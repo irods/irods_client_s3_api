@@ -10,12 +10,15 @@
 
 namespace irods::s3::authentication
 {
-    /// Authenticates an iRODS connection and switch to that user.
+    /// Resolves the hashed signature to an iRODS username.
+    ///
     /// \param conn The connection to the iRODS server.
     /// \param request The request.
     /// \param url The url
-    /// \returns If the user was successfully authenticated.
-    bool authenticates(rcComm_t& conn, const static_buffer_request_parser& request, const boost::urls::url_view& url);
+    ///
+    /// \returns An iRODS username if the signature is correct, else an empty std::optional.
+    std::optional<std::string> authenticates(rcComm_t& conn, const static_buffer_request_parser& request, const boost::urls::url_view& url);
+
     bool user_exists(rcComm_t& connection, const std::string_view username);
     bool delete_user(rcComm_t& connection, const std::string_view username);
     bool create_user(rcComm_t& connection, const std::string_view username, const std::string_view secret_key);

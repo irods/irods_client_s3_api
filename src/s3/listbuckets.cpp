@@ -39,13 +39,18 @@ asio::awaitable<void> irods::s3::actions::handle_listbuckets(
     using namespace boost::property_tree;
 
     auto rcComm_t_ptr = irods::s3::get_connection();
+    auto irods_username = irods::s3::authentication::authenticates(*rcComm_t_ptr, parser, url);
 
-    if (!irods::s3::authentication::authenticates(*rcComm_t_ptr, parser, url)) {
+    if (!irods_username) {
         beast::http::response<beast::http::empty_body> response;
         response.result(beast::http::status::forbidden);
         beast::http::write(socket, response);
         co_return;
     }
+
+    // Reconnect to the iRODS server as the target user.
+    // The rodsadmin account from the config file will act as the proxy for the user.
+    rcComm_t_ptr = irods::s3::get_connection(irods_username);
 
     boost::property_tree::ptree document;
     document.add("ListAllMyBucketsResult", "");

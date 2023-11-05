@@ -6,7 +6,6 @@
 #include <irods/rodsKeyWdDef.h>
 #include <sstream>
 #include <boost/algorithm/string.hpp>
-#include <irods/switch_user.h>
 #include <irods/rcMisc.h>
 
 namespace
@@ -189,7 +188,7 @@ namespace
         return result.str();
     }
 } //namespace
-bool irods::s3::authentication::authenticates(
+std::optional<std::string> irods::s3::authentication::authenticates(
     rcComm_t& conn,
     const static_buffer_request_parser& request,
     const boost::urls::url_view& url)
@@ -208,7 +207,7 @@ bool irods::s3::authentication::authenticates(
     // Break up the credential field.
     boost::split(credential_fields, auth_fields[0], boost::is_any_of("/"));
 
-    auto& access_key_id = credential_fields[0];
+    auto& access_key_id = credential_fields[0]; // This is the username.
     auto& date = credential_fields[1];
     auto& region = credential_fields[2];
     // Look, covering my bases here seems prudent.
@@ -228,23 +227,20 @@ bool irods::s3::authentication::authenticates(
     std::cout << sts << '\n';
     std::cout << "=========================" << std::endl;
 
-    auto irods_user = irods::s3::authentication::get_iRODS_user(&conn, access_key_id).value();
+    auto irods_user = irods::s3::authentication::get_iRODS_user(&conn, access_key_id);
+
+    if (!irods_user) {
+        std::cout << "Authentication Error: No iRODS username mapped to access key ID [" << access_key_id << "]." << std::endl;
+        return std::nullopt;
+    }
+
     auto signing_key = get_user_signing_key(
         irods::s3::authentication::get_user_secret_key(&conn, access_key_id).value(), date, region);
     auto computed_signature = hex_encode(hmac_sha_256(signing_key, sts));
-
-    SwitchUserInput input{};
-    std::strcpy(input.username, irods_user.c_str());
-    std::strcpy(input.zone, conn.clientUser.rodsZone);
-    addKeyVal(&input.options, KW_CLOSE_OPEN_REPLICAS, "");
-
-    if (const auto ec = rc_switch_user(&conn, &input); ec < 0) {
-        std::cout << "Faied to switch users! code [" << ec << "]" << std::endl;
-    }
 
     std::cout << "Computed: [" << computed_signature << "]";
 
     std::cout << "\nActual Signature: [" << signature << "]" << std::endl;
 
-    return computed_signature == signature;
+    return (computed_signature == signature) ? irods_user : std::nullopt;
 }

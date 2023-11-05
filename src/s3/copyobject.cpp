@@ -19,12 +19,19 @@ boost::asio::awaitable<void> irods::s3::actions::handle_copyobject(
 {
     auto thing = irods::s3::get_connection();
     std::cerr << "I'm about to authenticate for copying?" << std::endl;
-    if (!irods::s3::authentication::authenticates(*thing, parser, url)) {
+
+    auto irods_username = irods::s3::authentication::authenticates(*thing, parser, url);
+    if (!irods_username) {
         beast::http::response<beast::http::empty_body> response;
         response.result(beast::http::status::forbidden);
         beast::http::write(socket, response);
         co_return;
     }
+
+    // Reconnect to the iRODS server as the target user.
+    // The rodsadmin account from the config file will act as the proxy for the user.
+    thing = irods::s3::get_connection(irods_username);
+
     auto url2 = boost::urls::url(parser.get()["x-amz-copy-source"]);
     fs::path destination_path, source_path;
     std::cerr << "We're starting a copy" << std::endl;

@@ -28,8 +28,12 @@ asio::awaitable<void> irods::s3::actions::handle_putobject(
 {
     boost::beast::error_code ec;
     connection_handle connection = get_connection();
+
     std::cout << "Hi! About to auth" << std::endl;
-    if (!irods::s3::authentication::authenticates(*connection, parser, url)) {
+
+    auto irods_username = irods::s3::authentication::authenticates(*connection, parser, url);
+
+    if (!irods_username) {
         beast::http::response<boost::beast::http::empty_body> response;
         response.result(boost::beast::http::status::forbidden);
         beast::http::write(socket, response);
@@ -37,6 +41,10 @@ asio::awaitable<void> irods::s3::actions::handle_putobject(
         std::cout << "Failed to auth" << std::endl;
         co_return;
     }
+
+    // Reconnect to the iRODS server as the target user.
+    // The rodsadmin account from the config file will act as the proxy for the user.
+    connection = irods::s3::get_connection(irods_username);
 
     if (parser.get()[beast::http::field::expect] == "100-continue") {
         beast::http::response<beast::http::empty_body> resp;

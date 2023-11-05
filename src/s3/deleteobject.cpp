@@ -42,13 +42,21 @@ asio::awaitable<void> irods::s3::actions::handle_deleteobject(
 {
     auto thing = irods::s3::get_connection();
     auto url_and_stuff = boost::urls::url_view(parser.get().base().target());
+
     // Permission verification stuff should go roughly here.
-    if (!irods::s3::authentication::authenticates(*thing, parser, url)) {
+
+    auto irods_username = irods::s3::authentication::authenticates(*thing, parser, url);
+    if (!irods_username) {
         beast::http::response<beast::http::empty_body> response;
         response.result(beast::http::status::forbidden);
         beast::http::write(socket, response);
         co_return;
     }
+
+    // Reconnect to the iRODS server as the target user.
+    // The rodsadmin account from the config file will act as the proxy for the user.
+    thing = irods::s3::get_connection(irods_username);
+
     fs::path path;
     if (auto bucket = irods::s3::resolve_bucket(*thing, url.segments()); bucket.has_value()) {
         path = bucket.value();

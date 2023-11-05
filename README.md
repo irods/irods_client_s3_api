@@ -13,8 +13,8 @@ Initial effort includes:
   - CreateMultipartUpload
   - [x] DeleteObject
   - DeleteObjects
-  - [x] GetObject
   - [x] GetBucketLocation
+  - [x] GetObject
   - GetObjectAcl ?
   - [x] GetObjectLockConfiguration
   - GetObjectTagging ?
@@ -202,6 +202,10 @@ You can follow the log file by running the following:
 ```bash
 docker logs -f irods_s3_api
 ```
+
+This application can also run against iRODS 4.2.11 and 4.2.12. No adjustments to your configuration file are required.
+
+**IMPORTANT: This project requires the iRODS 4.3.1 runtime and therefore cannot be run on the same machine hosting an iRODS 4.2 server.**
 
 ## Connecting with Botocore
 
