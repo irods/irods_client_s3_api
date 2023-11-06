@@ -181,7 +181,7 @@ The following code block shows the structure of the configuration file and provi
 
         // The credentials for the rodsadmin user that will act as a proxy
         // for all authenticated users.
-        "rodsadmin": {
+        "proxy_admin_account": {
             "username": "<string>",
             "password": "<string>"
         }
