@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.15 FATAL_ERROR)
 
 set(IRODS_CLIENT_VERSION "0.1.0")
-set(IRODS_PACKAGE_REVISION "1")
+set(IRODS_PACKAGE_REVISION "0")
 
 #
 # Build Configuration
