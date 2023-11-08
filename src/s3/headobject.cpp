@@ -14,7 +14,7 @@ namespace asio = boost::asio;
 namespace beast = boost::beast;
 namespace fs = irods::experimental::filesystem;
 
-static const std::string date_format{"{:%a, %d %b %Y %H:%M:%S %Z}"};
+static const std::string date_format{"{:%a, %d %b %Y %H:%M:%S GMT}"};
 
 boost::asio::awaitable<void> irods::s3::actions::handle_headobject(
     boost::asio::ip::tcp::socket& socket,
