@@ -1,4 +1,4 @@
 #!/usr/bin/bash
 
-ldconfig /irods_s3_bridge/build
-/irods_s3_bridge/build/irods_s3_bridge /irods_client_s3_api_config.json
+ldconfig /irods_s3_api/build
+/irods_s3_api/build/irods_s3_api /irods_client_s3_api_config.json

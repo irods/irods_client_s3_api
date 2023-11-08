@@ -89,13 +89,13 @@ ENV PATH=${cmake_path}:$PATH
 
 COPY scripts scripts
 
-RUN mkdir irods_s3_bridge
+RUN mkdir irods_s3_api
 
-COPY . irods_s3_bridge
+COPY . irods_s3_api
 
 RUN bash scripts/build_bridge.sh
 
-RUN ls -l /irods_s3_bridge/build && dpkg -i /irods_s3_bridge/build/irods-experimental-client-s3-api_0.1.0-0~focal_amd64.deb
+RUN ls -l /irods_s3_api/build && dpkg -i /irods_s3_api/build/irods-experimental-client-s3-api_0.1.0-0~focal_amd64.deb
 
 RUN chmod +x scripts/run_bridge.sh && \
     mkdir -p /root/.irods

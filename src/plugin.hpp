@@ -8,7 +8,7 @@ namespace irods::s3::plugins
 {
     /// \brief Load a plugin
     ///
-    /// Plugins in irods_s3_bridge are loaded as dynamic modules, after this, the program runs the symbol associated
+    /// Plugins in irods_s3_api are loaded as dynamic modules, after this, the program runs the symbol associated
     /// with `plugin_initialize`, which should be a function that accepts an `rcComm_t*` connection and a `const char*`
     /// configuration string which the plugin must parse on its own.
     ///

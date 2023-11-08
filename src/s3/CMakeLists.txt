@@ -1,5 +1,5 @@
 target_sources(
-  irods_s3_bridge
+  irods_s3_api
   PRIVATE
   listobjects.cpp
   listbuckets.cpp
