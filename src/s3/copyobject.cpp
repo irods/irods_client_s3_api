@@ -58,7 +58,7 @@ boost::asio::awaitable<void> irods::s3::actions::handle_copyobject(
     }
     std::cout << "We've gotten to the copying?" << std::endl;
     try {
-        fs::client::copy(*thing, source_path, destination_path);
+        fs::client::copy(*thing, source_path, destination_path, fs::copy_options::overwrite_existing);
     }
     catch (irods::experimental::filesystem::filesystem_error& ex) {
         beast::http::response<beast::http::empty_body> response;
