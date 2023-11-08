@@ -215,7 +215,7 @@ int main(int _argc, char* _argv[])
 {
     if (_argc < 2) {
         std::cerr << "Error: Missing configuration file path.\n\n"
-                     "USAGE: irods_s3_bridge CONFIG_FILE\n";
+                     "USAGE: irods_s3_api CONFIG_FILE\n";
     }
 
     unsigned short port = 8080;

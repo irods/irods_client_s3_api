@@ -52,7 +52,7 @@ typedef int (*bucket_list_function)(rcComm_t* connection, const char* username, 
 #ifdef BRIDGE_PLUGIN
 extern
 #endif
-    /// To be called on s3_bridge_load
+    /// To be called on s3_api_load
     ///
     /// @param resolution_f The bucket resolution function. This is the core of the plugin.
     /// @param reversal_f The bucket reversal function or the null pointer

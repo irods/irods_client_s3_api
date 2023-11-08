@@ -44,7 +44,7 @@ set(THREADS_PREFER_PTHREAD_FLAG TRUE)
 
 find_package(Threads REQUIRED)
 
-set(IRODS_S3_API_BINARY_NAME irods_s3_bridge)
+set(IRODS_S3_API_BINARY_NAME irods_s3_api)
 add_executable(${IRODS_S3_API_BINARY_NAME})
 
 set(IRODS_S3_API_BUCKET_RESOLVER_PLUGIN_NAME static_bucket_resolver)
