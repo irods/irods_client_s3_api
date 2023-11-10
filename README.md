@@ -1,6 +1,6 @@
 # iRODS S3 API
 
-A project that presents an iRODS 4.3.1+ Zone as S3 compatible storage.
+A project that presents an iRODS Zone as S3 compatible storage.
 
 ![S3 API network diagram](s3_api_diagram.png)
 
