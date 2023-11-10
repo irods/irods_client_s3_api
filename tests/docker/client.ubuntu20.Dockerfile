@@ -1,4 +1,4 @@
-FROM ubuntu:20.04
+FROM ubuntu:22.04
 
 ADD start.client.ubuntu20.sh /
 RUN chmod u+x /start.client.ubuntu20.sh

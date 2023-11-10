@@ -1,4 +1,4 @@
-FROM ubuntu:20.04
+FROM ubuntu:22.04
 
 SHELL [ "/bin/bash", "-c" ]
 
@@ -61,7 +61,7 @@ RUN wget -qO - https://packages.irods.org/irods-signing-key.asc | apt-key add - 
     wget -qO - https://core-dev.irods.org/irods-core-dev-signing-key.asc | apt-key add - && \
     echo "deb [arch=amd64] https://core-dev.irods.org/apt/ $(lsb_release -sc) main" | tee /etc/apt/sources.list.d/renci-irods-core-dev.list
 
-ARG irods_version=4.3.1-0~focal
+ARG irods_version=4.3.1-0~jammy
 RUN apt-get update && \
     apt-get install -y \
         irods-externals-clang13.0.0-0 \
@@ -95,7 +95,7 @@ COPY . irods_s3_api
 
 RUN bash scripts/build_bridge.sh
 
-RUN ls -l /irods_s3_api/build && dpkg -i /irods_s3_api/build/irods-experimental-client-s3-api_0.1.0-0~focal_amd64.deb
+RUN ls -l /irods_s3_api/build && dpkg -i /irods_s3_api/build/irods-experimental-client-s3-api_0.1.0-0~jammy_amd64.deb
 
 RUN chmod +x scripts/run_bridge.sh && \
     mkdir -p /root/.irods
