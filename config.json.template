@@ -27,7 +27,7 @@
 
         "put_object_buffer_size_in_bytes": 8192,
         "get_object_buffer_size_in_bytes": 8192,
-        "s3_region": "us-east-1"
+        "region": "us-east-1"
     },
 
     "irods_client": {

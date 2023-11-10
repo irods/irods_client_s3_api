@@ -44,7 +44,7 @@ std::string irods::s3::get_s3_region()
 {
     if (!s3_region.has_value()) {
         s3_region = g_config.value(
-                nlohmann::json::json_pointer{"/s3_server/s3_region"}, "us-east-1");
+                nlohmann::json::json_pointer{"/s3_server/region"}, "us-east-1");
     }
     return s3_region.value();
 }
