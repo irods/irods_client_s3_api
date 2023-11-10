@@ -6,4 +6,6 @@ target_sources(
   getobject.cpp
   putobject.cpp
   deleteobject.cpp
-  headobject.cpp copyobject.cpp)
+  headobject.cpp
+  headbucket.cpp
+  copyobject.cpp)

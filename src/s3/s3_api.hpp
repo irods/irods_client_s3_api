@@ -43,6 +43,11 @@ namespace irods::s3::actions
         static_buffer_request_parser& parser,
         const boost::urls::url_view& url);
 
+    boost::asio::awaitable<void> handle_headbucket(
+        boost::asio::ip::tcp::socket& socket,
+        static_buffer_request_parser& parser,
+        const boost::urls::url_view& url);
+
     boost::asio::awaitable<void> handle_copyobject(
         boost::asio::ip::tcp::socket& socket,
         static_buffer_request_parser& parser,
