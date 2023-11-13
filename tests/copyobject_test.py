@@ -41,7 +41,7 @@ class CopyObject_Test(TestCase):
                                   secure=False)
 
     def tearDown(self):
-        pass
+        self.boto3_client.close()
 
     def test_botocore_copy_object_root_small_file(self):
 

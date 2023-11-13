@@ -156,8 +156,6 @@ asio::awaitable<void> handle_request(asio::ip::tcp::socket socket)
             break;
         case boost::beast::http::verb::head:
             // Probably just headbucket and headobject here.
-            // and headbucket isn't on the immediate list
-            // of endpoints.
             if (1 == url.segments().size()) {
                 std::cout << "Headbucket detected" << std::endl;
                 co_await irods::s3::actions::handle_headbucket(socket, parser, url);

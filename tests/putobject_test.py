@@ -31,7 +31,7 @@ class PutObject_Test(TestCase):
                                         aws_secret_access_key=self.secret_key)
 
     def tearDown(self):
-        pass
+        self.boto3_client.close()
 
     def test_botocore_put_in_bucket_root_small_file(self):
 

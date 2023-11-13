@@ -40,7 +40,8 @@ class ListBuckets_Test(TestCase):
                                             aws_secret_access_key=self.secret_key_alice)
 
     def tearDown(self):
-        pass
+        self.client_rods.close()
+        self.client_alice.close()
 
     # ======== Helper Functions =========
 

@@ -35,7 +35,7 @@ class GetObject_Test(TestCase):
                                   secure=False)
 
     def tearDown(self):
-        pass
+        self.boto3_client.close()
 
     def test_botocore_get_in_bucket_root_small_file(self):
 
