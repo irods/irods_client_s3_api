@@ -12,6 +12,7 @@ namespace irods::s3
     std::string get_resource();
 
     uint64_t get_put_object_buffer_size_in_bytes();
+    uint64_t get_put_object_max_buffer_size_in_bytes();
     uint64_t get_get_object_buffer_size_in_bytes();
 
     std::string get_s3_region();

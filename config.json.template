@@ -26,6 +26,7 @@
         "threads": 10,
 
         "put_object_buffer_size_in_bytes": 8192,
+        "put_object_max_buffer_size_in_bytes": 65536,
         "get_object_buffer_size_in_bytes": 8192,
         "region": "us-east-1"
     },

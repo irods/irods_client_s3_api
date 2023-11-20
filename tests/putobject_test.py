@@ -151,6 +151,64 @@ class PutObject_Test(TestCase):
             os.remove(get_filename)
             assert_command(f'irm -rf {self.bucket_irods_path}/{put_directory}')
 
+    def test_mc_put_small_file_in_bucket_root(self):
+
+        put_filename = inspect.currentframe().f_code.co_name 
+        get_filename = f'{put_filename}.get'
+
+        try:
+            make_arbitrary_file(put_filename, 100*1024)
+            assert_command(f'mc cp {put_filename} s3-api-alice/{self.bucket_name}/{put_filename}',
+                    'STDOUT_SINGLELINE',
+                    'small_file')
+            assert_command(f'iget {self.bucket_irods_path}/{put_filename} {get_filename}')
+            assert_command(f'diff {put_filename} {get_filename}')
+
+        finally:
+            os.remove(put_filename)
+            os.remove(get_filename)
+            assert_command(f'irm -f {self.bucket_irods_path}/{put_filename}')
+
+    def test_mc_put_large_file_in_bucket_root(self):
+
+        put_filename = inspect.currentframe().f_code.co_name 
+        get_filename = f'{put_filename}.get'
+
+        try:
+
+            make_arbitrary_file(put_filename, 20*1024*1024)
+            assert_command(f'mc cp --disable-multipart {put_filename} s3-api-alice/{self.bucket_name}/{put_filename}',
+                    'STDOUT_SINGLELINE',
+                    'large_file')
+            assert_command(f'iget {self.bucket_irods_path}/{put_filename} {get_filename}')
+            assert_command(f'diff {put_filename} {get_filename}')
+
+        finally:
+            os.remove(put_filename)
+            os.remove(get_filename)
+            assert_command(f'irm -f {self.bucket_irods_path}/{put_filename}')
+
+    def test_mc_put_in_subdirectory(self):
+
+        put_filename = inspect.currentframe().f_code.co_name 
+        put_directory = f'{put_filename}_dir'
+        get_filename = f'{put_filename}.get'
+
+        try:
+
+            make_arbitrary_file(put_filename, 100*1024)
+            self.boto3_client.upload_file(put_filename, self.bucket_name, f'{put_directory}/{put_filename}')
+            assert_command(f'mc cp {put_filename} s3-api-alice/{self.bucket_name}/{put_directory}/{put_filename}',
+                    'STDOUT_SINGLELINE',
+                    'in_subdirectory')
+            assert_command(f'iget {self.bucket_irods_path}/{put_directory}/{put_filename} {get_filename}')
+            assert_command(f'diff {put_filename} {get_filename}')
+
+        finally:
+            os.remove(put_filename)
+            os.remove(get_filename)
+            assert_command(f'irm -rf {self.bucket_irods_path}/{put_directory}')
+
     def test_put_fails(self):
         """
         Tests that that putobject works properly in the failure case.

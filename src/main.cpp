@@ -56,6 +56,7 @@ asio::awaitable<void> handle_request(asio::ip::tcp::socket socket)
     boost::system::error_code ec;
     std::cout << "Received " << beast::http::read_header(socket, buffer, parser, ec) << " bytes\n";
     if (ec) {
+        std::cout << "ERROR READING HEADER!!!" << std::endl;
         // handle me please!
     }
     for (const auto& field : parser.get()) {

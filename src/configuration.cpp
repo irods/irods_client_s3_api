@@ -8,6 +8,7 @@ namespace
     nlohmann::json g_config;
     std::optional<std::string> resource;
     std::optional<uint64_t> put_object_buffer_size_in_bytes;
+    std::optional<uint64_t> put_object_max_buffer_size_in_bytes;
     std::optional<uint64_t> get_object_buffer_size_in_bytes;
     std::optional<std::string> s3_region;
 } //namespace
@@ -29,6 +30,15 @@ uint64_t irods::s3::get_put_object_buffer_size_in_bytes()
                 nlohmann::json::json_pointer{"/s3_server/put_object_buffer_size_in_bytes"}, 8192);
     }
     return put_object_buffer_size_in_bytes.value();
+}
+
+uint64_t irods::s3::get_put_object_max_buffer_size_in_bytes()
+{
+    if (!put_object_max_buffer_size_in_bytes.has_value()) {
+        put_object_max_buffer_size_in_bytes = g_config.value(
+                nlohmann::json::json_pointer{"/s3_server/put_object_max_buffer_size_in_bytes"}, 65536);
+    }
+    return put_object_max_buffer_size_in_bytes.value();
 }
 
 uint64_t irods::s3::get_get_object_buffer_size_in_bytes()

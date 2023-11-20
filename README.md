@@ -162,6 +162,10 @@ The following code block shows the structure of the configuration file and provi
         // The size of the buffer when calling PutObject.
         "put_object_buffer_size_in_bytes": 8192,
 
+        // When the HTTP parser requests a larger buffer, the buffer size is
+        // doubled. This option specifies the largest the buffer will grow.
+        "put_object_max_buffer_size_in_bytes": 65536,
+
         // The size of the buffer when calling GetObject.
         "get_object_buffer_size_in_bytes": 8192,
 
