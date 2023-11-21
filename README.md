@@ -256,6 +256,16 @@ config = TransferConfig(multipart_threshold=5*1024*1024*1024)
 self.boto3_client.upload_file(put_filename, bucket_name, key, Config=config)
 ```
 
+### Example of MinIO mc client
+
+The `mc cp` command has a `--disable-multipart` option for file uploads.  Here is an example of an upload with a `myminio` alias:
+
+```bash
+mc cp --disable-multipart put_file myminio/bucket_name/put_filename
+```
+
+*Note: MinIO client uses aliases to group URL and keys. Refer to the `mc alias` command for information on setting, listing, and removing aliases.*
+
 ## Running Tests
 
 Run the following commands to run the test suite.
