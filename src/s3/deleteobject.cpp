@@ -40,12 +40,12 @@ asio::awaitable<void> irods::s3::actions::handle_deleteobject(
     static_buffer_request_parser& parser,
     const boost::urls::url_view& url)
 {
-    auto thing = irods::s3::get_connection();
+    auto conn = irods::s3::get_connection();
     auto url_and_stuff = boost::urls::url_view(parser.get().base().target());
 
     // Permission verification stuff should go roughly here.
 
-    auto irods_username = irods::s3::authentication::authenticates(*thing, parser, url);
+    auto irods_username = irods::s3::authentication::authenticates(*conn, parser, url);
     if (!irods_username) {
         beast::http::response<beast::http::empty_body> response;
         response.result(beast::http::status::forbidden);
@@ -55,10 +55,10 @@ asio::awaitable<void> irods::s3::actions::handle_deleteobject(
 
     // Reconnect to the iRODS server as the target user.
     // The rodsadmin account from the config file will act as the proxy for the user.
-    thing = irods::s3::get_connection(irods_username);
+    conn = irods::s3::get_connection(irods_username);
 
     fs::path path;
-    if (auto bucket = irods::s3::resolve_bucket(*thing, url.segments()); bucket.has_value()) {
+    if (auto bucket = irods::s3::resolve_bucket(*conn, url.segments()); bucket.has_value()) {
         path = bucket.value();
         path = irods::s3::finish_path(path, url.segments());
     }
@@ -73,9 +73,9 @@ asio::awaitable<void> irods::s3::actions::handle_deleteobject(
     std::cout << "Requested " << path << std::endl;
 
     try {
-        if (fs::client::exists(*thing, path) && not fs::client::is_collection(*thing, path)) {
+        if (fs::client::exists(*conn, path) && not fs::client::is_collection(*conn, path)) {
             beast::http::response<beast::http::empty_body> response;
-            if (fs::client::remove(*thing, path, experimental::filesystem::remove_options::no_trash)) {
+            if (fs::client::remove(*conn, path, experimental::filesystem::remove_options::no_trash)) {
                 std::cerr << "Supposedly " << path << " doesn't exist anymore" << std::endl;
                 response.result(beast::http::status::ok);
             }

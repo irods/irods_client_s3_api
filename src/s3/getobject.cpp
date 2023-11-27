@@ -43,11 +43,11 @@ asio::awaitable<void> irods::s3::actions::handle_getobject(
     static_buffer_request_parser& parser,
     const boost::urls::url_view& url)
 {
-    auto thing = irods::s3::get_connection();
+    auto conn = irods::s3::get_connection();
 
     // Permission verification stuff should go roughly here.
 
-    auto irods_username = irods::s3::authentication::authenticates(*thing, parser, url);
+    auto irods_username = irods::s3::authentication::authenticates(*conn, parser, url);
     if (!irods_username) {
         std::cout<<"Authentication failed"<<std::endl;
         beast::http::response<beast::http::empty_body> response;
@@ -58,10 +58,10 @@ asio::awaitable<void> irods::s3::actions::handle_getobject(
 
     // Reconnect to the iRODS server as the target user.
     // The rodsadmin account from the config file will act as the proxy for the user.
-    thing = irods::s3::get_connection(irods_username);
+    conn = irods::s3::get_connection(irods_username);
 
     fs::path path;
-    if (auto bucket = irods::s3::resolve_bucket(*thing, url.segments()); bucket.has_value()) {
+    if (auto bucket = irods::s3::resolve_bucket(*conn, url.segments()); bucket.has_value()) {
         path = bucket.value();
         path = irods::s3::finish_path(path, url.segments());
     }
@@ -120,7 +120,7 @@ asio::awaitable<void> irods::s3::actions::handle_getobject(
     } 
 
     try {
-        if (fs::client::exists(*thing, path)) {
+        if (fs::client::exists(*conn, path)) {
             std::cout << "Trying to write file" << std::endl;
             beast::http::response<beast::http::buffer_body> response;
             beast::http::response_serializer<beast::http::buffer_body> serializer{response};
@@ -129,7 +129,7 @@ asio::awaitable<void> irods::s3::actions::handle_getobject(
             std::cout << "write buffer size = " << write_buffer_size << std::endl;
             std::vector<char> buf_vector(write_buffer_size);
 
-            auto file_size = irods::experimental::filesystem::client::data_object_size(*thing, path);
+            auto file_size = irods::experimental::filesystem::client::data_object_size(*conn, path);
             if (range_end == 0 || range_end > file_size - 1) {
                 range_end = file_size - 1;
             }
@@ -138,11 +138,11 @@ asio::awaitable<void> irods::s3::actions::handle_getobject(
             std::string length_field =
                 std::to_string(content_length);
             response.insert(beast::http::field::content_length, length_field);
-            auto md5 = irods::experimental::filesystem::client::data_object_checksum(*thing, path);
+            auto md5 = irods::experimental::filesystem::client::data_object_checksum(*conn, path);
             response.insert("Content-MD5", md5);
 
             beast::error_code ec;
-            irods::experimental::io::client::default_transport xtrans{*thing};
+            irods::experimental::io::client::default_transport xtrans{*conn};
             irods::experimental::io::idstream d{
                 xtrans, path, irods::experimental::io::root_resource_name{irods::s3::get_resource()}};
 

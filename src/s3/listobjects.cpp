@@ -28,7 +28,7 @@
 namespace asio = boost::asio;
 namespace beast = boost::beast;
 
-static const std::string date_format{"{:%Y-%m-%dT%H:%M:%S.000Z}"};
+const static std::string_view date_format{"{:%Y-%m-%dT%H:%M:%S.000Z}"};
 
 asio::awaitable<void> irods::s3::actions::handle_listobjects_v2(
     asio::ip::tcp::socket& socket,

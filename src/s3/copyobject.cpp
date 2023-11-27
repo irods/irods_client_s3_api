@@ -17,10 +17,10 @@ boost::asio::awaitable<void> irods::s3::actions::handle_copyobject(
     static_buffer_request_parser& parser,
     const boost::urls::url_view& url)
 {
-    auto thing = irods::s3::get_connection();
+    auto conn = irods::s3::get_connection();
     std::cerr << "I'm about to authenticate for copying?" << std::endl;
 
-    auto irods_username = irods::s3::authentication::authenticates(*thing, parser, url);
+    auto irods_username = irods::s3::authentication::authenticates(*conn, parser, url);
     if (!irods_username) {
         beast::http::response<beast::http::empty_body> response;
         response.result(beast::http::status::forbidden);
@@ -30,20 +30,20 @@ boost::asio::awaitable<void> irods::s3::actions::handle_copyobject(
 
     // Reconnect to the iRODS server as the target user.
     // The rodsadmin account from the config file will act as the proxy for the user.
-    thing = irods::s3::get_connection(irods_username);
+    conn= irods::s3::get_connection(irods_username);
 
     auto url2 = boost::urls::url(parser.get()["x-amz-copy-source"]);
     fs::path destination_path, source_path;
     std::cerr << "We're starting a copy" << std::endl;
     bool succeeds = false;
-    if (auto bucket = irods::s3::resolve_bucket(*thing, url2.segments()); bucket.has_value()) {
+    if (auto bucket = irods::s3::resolve_bucket(*conn, url2.segments()); bucket.has_value()) {
         source_path = irods::s3::finish_path(bucket.value(), url2.segments());
     }
     else {
         std::cerr << "Could not locate source path" << std::endl;
     }
     std::cerr << "We've gotten past the source" << std::endl;
-    if (auto bucket = irods::s3::resolve_bucket(*thing, url.segments()); bucket.has_value()) {
+    if (auto bucket = irods::s3::resolve_bucket(*conn, url.segments()); bucket.has_value()) {
         destination_path = irods::s3::finish_path(bucket.value(), url.segments());
     }
     else {
@@ -58,7 +58,7 @@ boost::asio::awaitable<void> irods::s3::actions::handle_copyobject(
     }
     std::cout << "We've gotten to the copying?" << std::endl;
     try {
-        fs::client::copy(*thing, source_path, destination_path, fs::copy_options::overwrite_existing);
+        fs::client::copy(*conn, source_path, destination_path, fs::copy_options::overwrite_existing);
     }
     catch (irods::experimental::filesystem::filesystem_error& ex) {
         beast::http::response<beast::http::empty_body> response;

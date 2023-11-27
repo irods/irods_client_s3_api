@@ -6,7 +6,7 @@
 
 namespace irods::s3::api::common_routines {
 
-    inline std::string convert_time_t_to_str(const time_t& t, const std::string& format) {
+    inline std::string convert_time_t_to_str(const time_t& t, const std::string_view format) {
         return fmt::format(fmt::runtime(format), fmt::localtime(t));
     }
 }
