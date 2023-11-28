@@ -102,7 +102,6 @@ target_link_libraries(
 target_include_directories(
   ${IRODS_S3_API_BINARY_NAME}
   PRIVATE
-  ${CMAKE_CURRENT_SOURCE_DIR}/third-party/url/include
   third-party/hmac_sha256
   ${IRODS_EXTERNALS_FULLPATH_BOOST}/include)
 
