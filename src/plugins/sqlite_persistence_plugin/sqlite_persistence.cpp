@@ -1,9 +1,13 @@
 #define BRIDGE_PLUGIN
 #include "persistence_plugin.h"
 #include "sqlite3.h"
-#include <mutex>
 #include <nlohmann/json.hpp>
 #include <iostream>
+#include <mutex>
+#include <optional>
+#include <string>
+#include <string_view>
+#include <vector>
 
 /// We can pretend this is sufficient for migration logic(it probably actually is).
 /// This is distinct from the `schema_version` pragma in sqlite, as that is automatically
