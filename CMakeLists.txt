@@ -16,7 +16,10 @@ set(CMAKE_CXX_STANDARD ${IRODS_CXX_STANDARD})
 set(CMAKE_CXX_EXTENSIONS OFF)
 # export-dynamic so stacktrace entries from executables have function names.
 set(CMAKE_EXE_LINKER_FLAGS_INIT "-rdynamic -Wl,--export-dynamic -Wl,--enable-new-dtags -Wl,--as-needed -Wl,-z,defs")
+# we have intentionally(?) undefined symbols in the plugins, so no -Wl,-z,defs
+set(CMAKE_MODULE_LINKER_FLAGS_INIT "-Wl,--enable-new-dtags -Wl,--as-needed")
 set(CMAKE_EXE_LINKER_FLAGS_RELEASE_INIT "-Wl,--gc-sections -Wl,-z,combreloc")
+set(CMAKE_MODULE_LINKER_FLAGS_RELEASE_INIT "-Wl,--gc-sections -Wl,-z,combreloc")
 include(IrodsRunpathDefaults)
 
 project(irods_client_s3_api VERSION "${IRODS_CLIENT_VERSION}" LANGUAGES CXX C)
