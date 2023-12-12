@@ -119,7 +119,7 @@ install(
   ${IRODS_S3_API_BINARY_NAME}
   ${IRODS_S3_API_AUTH_RESOLVER_NAME}
   ${IRODS_S3_API_BUCKET_RESOLVER_PLUGIN_NAME}
-  DESTINATION "${LIBDIR}/irods/clients/s3_api")
+  DESTINATION "${CMAKE_INSTALL_LIBDIR}/irods/clients/s3_api")
 
 #
 # Packaging Configuration
