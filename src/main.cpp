@@ -278,18 +278,18 @@ nlohmann::json load_configuration(const std::string_view _config_path, unsigned 
             << "Consider setting up the static_authentication_plugin, add a section like" << std::endl
             << R"("static_authentication_resolver": {)"
                R"(""name": "static_authentication_resolver",)"
-               R"(""users": {"<The s3 username>": {"username": "<The iRODS username>","secret_key": "<your favorite secret key>"}})"
+               R"(""users": {"<the s3 username>": {"username": "<the iRODS username>","secret_key": "<your favorite secret key>"}})"
                "}"
             << std::endl
             << "to the 'plugins' object in your config.json" << std::endl;
     }
     if (!irods::s3::plugins::bucket_plugin_loaded()) {
         std::cout << "No bucket resolution plugin is specified or loaded" << std::endl
-                  << "Consider setting up the static_authentication_plugin, add a section like" << std::endl
+                  << "Consider setting up the static_bucket_plugin, add a section like" << std::endl
                   << R"("static_bucket_resolver": {)"
                      R"("name": "static_bucket_resolver",)"
                      R"("mappings": {)"
-                     R"(<Your Bucket's name>": "<The root of your bucket in irods>")"
+                     R"(<your bucket's name>": "<the root of your bucket in iRODS>")"
                      "}"
                   << std::endl
                   << "to the 'plugins' object in your config.json" << std::endl;
