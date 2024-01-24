@@ -199,7 +199,7 @@ The following code block shows the structure of the configuration file and provi
 Docker is required for running the S3 API server. To do so, run the following:
 
 ```bash
-docker run -d --name irods_s3_api -v /path/to/your/config.json:/irods_client_s3_api_config.json:ro -p 8080:8080 local/irods_s3_api
+docker run -d --name irods_s3_api -v /path/to/your/config.json:/config.json:ro -p 8080:8080 local/irods_s3_api
 ```
 
 You can follow the log file by running the following:
