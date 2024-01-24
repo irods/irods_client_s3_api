@@ -67,7 +67,7 @@ void irods::s3::set_resource(const std::string_view& resc)
 std::string irods::s3::get_resource()
 {
     if (!resource.has_value()) {
-        resource = g_config.value(nlohmann::json::json_pointer{"/s3_server/resource"}, std::string{});
+        resource = g_config.value(nlohmann::json::json_pointer{"/irods_client/resource"}, std::string{});
     }
     return resource.value();
 }

@@ -267,9 +267,10 @@ nlohmann::json load_configuration(const std::string_view _config_path, unsigned 
         std::cout << "Loading plugin " << k << std::endl;
         irods::s3::plugins::load_plugin(*i, k, v);
     }
-    if (s3_server.find("resource") != s3_server.end()) {
-        irods::s3::set_resource(s3_server.value<std::string>("resource", ""));
-    }
+
+    using json_pointer = nlohmann::json::json_pointer;
+    irods::s3::set_resource(config_value.value<std::string>(json_pointer{"/irods_client/resource"}, ""));
+
     port = s3_server.value("port", 8080);
 
     if (!irods::s3::plugins::authentication_plugin_loaded()) {

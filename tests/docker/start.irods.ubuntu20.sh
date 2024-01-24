@@ -22,6 +22,9 @@ sudo -H -u irods bash -c "iadmin moduser user1 password user1"
 sudo -H -u irods bash -c "iadmin mkuser alice rodsuser"
 sudo -H -u irods bash -c "iadmin moduser alice password apass"
 
+#### Create newResc resource in iRODS ####
+sudo -H -u irods bash -c "iadmin mkresc newResc unixfilesystem `hostname`:/tmp/newRescVault"
+
 #### Give root an environment to connect to iRODS ####
 echo 'localhost
 1247

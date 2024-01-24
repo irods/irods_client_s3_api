@@ -152,10 +152,6 @@ The following code block shows the structure of the configuration file and provi
             }
         },
 
-        // This may be relevant to your performance if you have many rules
-        // in your iRODS installation
-        "resource": "demoResc",
-
         // The number of threads dedicated to servicing client requests.
         "threads": 10,
 
@@ -183,6 +179,10 @@ The following code block shows the structure of the configuration file and provi
 
         // The zone of the target iRODS server.
         "zone": "<string>",
+
+        // This may be relevant to your performance if you have many rules
+        // in your iRODS installation
+        "resource": "demoResc",
 
         // The credentials for the rodsadmin user that will act as a proxy
         // for all authenticated users.

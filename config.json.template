@@ -21,8 +21,6 @@
             }
         },
 
-        "resource": "demoResc",
-
         "threads": 10,
 
         "put_object_buffer_size_in_bytes": 8192,
@@ -36,6 +34,8 @@
         "port": 1247,
 
         "zone": "tempZone",
+
+        "resource": "demoResc",
 
         "proxy_admin_account": {
             "username": "rods",
