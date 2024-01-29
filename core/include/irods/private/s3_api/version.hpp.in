@@ -1,0 +1,14 @@
+#ifndef IRODS_S3_API_VERSION_HPP
+#define IRODS_S3_API_VERSION_HPP
+
+namespace irods::s3::version
+{
+	// clang-format off
+	inline constexpr const char* binary_name = "@IRODS_S3_API_BINARY_NAME@";
+	inline constexpr const char* server_name = "@IRODS_S3_API_BINARY_NAME@/@IRODS_S3_API_VERSION@ (@IRODS_S3_API_GIT_SHA1@)";
+	inline constexpr const char* api_version = "@IRODS_S3_API_VERSION@";
+	inline constexpr const char* sha         = "@IRODS_S3_API_GIT_SHA1@";
+	// clang-format on
+} // namespace irods::s3::version
+
+#endif // IRODS_S3_API_VERSION_HPP
