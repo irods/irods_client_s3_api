@@ -1,1 +1,0 @@
-target_sources(static_bucket_resolver PRIVATE static_bucket_resolver.cpp)

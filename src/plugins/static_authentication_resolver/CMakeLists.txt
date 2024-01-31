@@ -1,1 +1,0 @@
-target_sources(static_authentication_resolver PRIVATE static_authentication_resolver.cpp)
