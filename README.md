@@ -68,9 +68,97 @@ ETags are not provided for or used consistently.
 
 Versioning is not supported at this time.
 
-# Setting it up
+# Docker
 
-## Building
+This project provides two Dockerfiles, one for building and one for running the application.
+
+**IMPORTANT: All commands in the sections that follow assume you are located in the root of the repository.**
+
+## The Builder Image
+
+The builder image is responsible for building the iRODS S3 API package. Before you can use it, you must build the image. To do that, run the following:
+```bash
+docker build -t irods-s3-api-builder -f irods_builder.Dockerfile .
+```
+
+With the builder image in hand, all that's left is to compile the source code for the S3 API project. The builder image is designed to compile code sitting on your machine. This is important because it gives you the ability to build any fork or branch of the project.
+
+Building the package requires mounting the project into the container at the appropriate location. The command you run should look similar to the one below. Don't forget to create the directory which will hold your package!
+```bash
+docker run -it --rm \
+    -v /path/to/irods_client_s3_api:/s3_api_source:ro \
+    -v /path/to/packages_directory:/packages_output \
+    irods-s3-api-builder
+```
+
+If everything succeeds, you will have a DEB package in the local directory you mapped to **/packages_output**.
+
+## The Runner Image
+
+The runner image is responsible for running the iRODS S3 API. Building the runner image requires the DEB package the iRODS S3 API to exist on the local machine. See the previous section for details on generating the package.
+
+To build the image, run the following command:
+```bash
+docker build -t irods-s3-api-runner -f irods_runner.Dockerfile /path/to/packages/directory
+```
+
+If all goes well, you will have a containerized iRODS S3 API server! You can verify this by checking the version information. Below is an example.
+```bash
+$ docker run -it --rm irods-s3-api-runner -v
+irods_s3_api <version>-<build_sha>
+```
+
+## Launching the Container
+
+To run the containerized server, you need to provide a configuration file at the correct location. If you do not have a configuration file already, see [Configuration](#configuration) for details.
+
+To launch the server, run the following command:
+```bash
+docker run -d --rm --name irods_s3_api \
+    -v /path/to/config/file:/config.json:ro \
+    -p 9000:9000 \
+    irods-s3-api-runner
+```
+
+The first thing the server will do is validate the configuration. If the configuration fails validation, the server will exit immediately. If the configuration passes validation, then congratulations, you now have a working iRODS S3 API server!
+
+You can view the log output using `docker logs -f` or by passing `-it` to `docker run` instead of `-d`.
+
+If for some reason the default schema file is not sufficient, you can instruct the iRODS S3 API to use a different schema file. See the following example.
+```bash
+# Generate the default JSON schema.
+docker run -it --rm irods-s3-api-runner --dump-default-jsonschema > schema.json
+
+# Tweak the schema.
+vim schema.json
+
+# Launch the server with the new schema file.
+docker run -d --rm --name irods_s3_api \
+    -v /path/to/config/file:/config.json:ro \
+    -v ./schema.json:/jsonschema.json:ro \
+    -p 9000:9000 \
+    irods-s3-api-runner \
+    --jsonschema-file /jsonschema.json
+```
+
+## Stopping the Container
+
+If the container was launched with `-it`, use **CTRL-C** or `docker container stop <container_name>` to shut it down.
+
+If the container was launched with `-d`, use `docker container stop <container_name>`.
+
+# Building and running without Docker
+
+## Build Dependencies
+
+- iRODS development package
+- iRODS externals package for boost
+- iRODS externals package for nlohmann-json
+- iRODS externals package for spdlog
+- Curl development package
+- OpenSSL development package
+
+## Building from source
 
 This project relies on git submodules and Docker for building the server.
 
@@ -80,37 +168,78 @@ Before the server can be built, you must download the appropriate git submodules
 git submodule update --init --recursive
 ```
 
-With the dependencies resolved, all that's left is to build the application. Run the following command from the root of the project directory.
+To build, follow the normal CMake steps.
 
 ```bash
-docker build -t local/irods_s3_api .
+mkdir build # Preferably outside of the repository
+cd build
+cmake /path/to/repository
+make package # Use -j to use more parallelism.
 ```
 
-If everything succeeds, you'll have a containerized iRODS S3 API server image.
+Upon success, you should have an installable package.
 
 If you run into issues, try checking if the git submodules exist on your machine and you're running an up-to-date version of Docker.
 
-## Configuration
+## Running without Docker
 
-The S3 API expects a configuration file. You can create one using the template at the root of the project directory. The name of the template is **config.json.template**.
+The server has three requirements that must be satisfied before launch. They are listed as follows:
+- Python 3 must be installed
+- Python 3 jsonschema module must be installed
+- A valid configuration file for the iRODS S3 API server
 
-Create a copy and update it to fit your needs. For example:
+The Python requirements can be satisfied by using your OS's package manager and `python3 -m pip`. We'll leave that as an exercise for the reader.
 
+Now, you need a configuration file for the iRODS S3 API. See [Configuration](#configuration) for details on how to create one.
+
+With the requirements satisfied, run the following to launch the server:
 ```bash
-cp config.json.template config.json
-
-# Use your favorite editor to update config.json.
+irods_s3_api /path/to/config.json
 ```
 
-The following code block shows the structure of the configuration file and provides details explaining what they are. **THE COMMENTS MUST NOT BE INCLUDED. THEY EXIST FOR EXPLANATORY PURPOSES ONLY!**
+To stop the server, you can use **CTRL-C** or send **SIGINT** or **SIGTERM** to the process.
+
+# Configuration
+
+Before you can run the server, you'll need to create a configuration file.
+
+You can generate a configuration file by running the following:
+```bash
+irods_s3_api --dump-config-template > config.json
+```
+
+**IMPORTANT: `--dump-config-template` does not produce a fully working configuration. It must be updated before it can be used.**
+
+## Configuration File Structure
+
+The JSON structure below represents the default configuration.
+
+Notice how some of the configuration values are wrapped in angle brackets (e.g. `"<string>"`). These are placeholder values that must be updated before launch.
+
+**IMPORTANT: The comments in the JSON structure are there for explanatory purposes and must not be included in your configuration. Failing to follow this requirement will result in the server failing to start up.**
 
 ```js
 {
     // Defines options that affect how the client-facing component of the
     // server behaves.
     "s3_server": {
+        // The hostname or IP address to bind.
+        // "0.0.0.0" instructs the server to listen on all network interfaces.
+        "host": "0.0.0.0",
+
         // The port used to accept incoming client requests.
-        "port": 8080,
+        "port": 9000,
+
+        // The minimum log level needed before logging activity.
+        //
+        // The following values are supported:
+        // - trace
+        // - debug
+        // - info
+        // - warn
+        // - error
+        // - critical
+        "log_level": "info",
 
         // Defines the set of plugins to load.
         "plugins": {
@@ -152,24 +281,47 @@ The following code block shows the structure of the configuration file and provi
             }
         },
 
-        // The number of threads dedicated to servicing client requests.
-        "threads": 10,
+        // Defines the region the server will report as being a member of.
+        "region": "us-east-1",
 
-        // The size of the buffer when calling PutObject.
-        "put_object_buffer_size_in_bytes": 8192,
+        // Defines options that affect various authentication schemes.
+        "authentication": {
+            // The amount of time that must pass before checking for expired
+            // bearer tokens.
+            "eviction_check_interval_in_seconds": 60,
 
-        // When the HTTP parser requests a larger buffer, the buffer size is
-        // doubled. This option specifies the largest the buffer will grow.
-        "put_object_max_buffer_size_in_bytes": 65536,
+            // Defines options for the "Basic" authentication scheme.
+            "basic": {
+                // The amount of time before a user's authentication
+                // token expires.
+                "timeout_in_seconds": 3600
+            }
+        },
 
-        // The size of the buffer when calling GetObject.
-        "get_object_buffer_size_in_bytes": 8192,
+        // Defines options that affect how client requests are handled.
+        "requests": {
+            // The number of threads dedicated to servicing client requests.
+            // When adjusting this value, consider adjusting "background_io/threads"
+            // and "irods_client/connection_pool/size" as well.
+            "threads": 3,
 
-        // The region returned in the GetBucketLocation API call.  The default is us-east-1.
-        "region": "us-east-1"
+            // The maximum size allowed for the body of a request.
+            "max_size_of_request_body_in_bytes": 8388608,
+
+            // The amount of time allowed to service a request. If the timeout
+            // is exceeded, the client's connection is terminated immediately.
+            "timeout_in_seconds": 30
+        },
+
+        // Defines options that affect tasks running in the background.
+        // These options are primarily related to long-running tasks.
+        "background_io": {
+            // The number of threads dedicated to background I/O.
+            "threads": 6
+        }
     },
 
-    // Defines how the S3 API server connects to an iRODS server.
+    // Defines iRODS connection information.
     "irods_client": {
         // The hostname or IP of the target iRODS server.
         "host": "<string>",
@@ -180,39 +332,99 @@ The following code block shows the structure of the configuration file and provi
         // The zone of the target iRODS server.
         "zone": "<string>",
 
-        // This may be relevant to your performance if you have many rules
-        // in your iRODS installation
-        "resource": "demoResc",
+        // Defines options for secure communication with the target iRODS server.
+        "tls": {
+            // Controls whether the client and server communicate using TLS.
+            //
+            // The following values are supported:
+            // - CS_NEG_REFUSE:    Do not use secure communication.
+            // - CS_NEG_REQUIRE:   Demand secure communication.
+            // - CS_NEG_DONT_CARE: Let the server decide.
+            "client_server_policy": "CS_NEG_REFUSE",
+
+            // The file containing trusted CA certificates in PEM format.
+            //
+            // Note that the certificates in this file are used in conjunction
+            // with the system default trusted certificates.
+            "ca_certificate_file": "<string>",
+
+            // The file containing the server's certificate chain.
+            //
+            // The certificates must be in PEM format and must be sorted
+            // starting with the subject's certificate (actual client or server
+            // certificate), followed by intermediate CA certificates if
+            // applicable, and ending at the highest level (root) CA.
+            "certificate_chain_file": "<string>",
+
+            // The file containing Diffie-Hellman parameters.
+            "dh_params_file": "<string>",
+
+            // Defines the level of server certificate authentication to
+            // perform.
+            //
+            // The following values are supported:
+            // - none:     Authentication is skipped.
+            // - cert:     The server verifies the certificate is signed by
+            //             a trusted CA.
+            // - hostname: Equivalent to "cert", but also verifies the FQDN
+            //             of the iRODS server matches either the common
+            //             name or one of the subjectAltNames.
+            "verify_server": "cert"
+        },
+
+        // Controls how the S3 API communicates with the iRODS server.
+        //
+        // When set to true, the following applies:
+        // - Only APIs supported by the iRODS 4.2 series will be used.
+        // - Connection pool settings are ignored.
+        // - All HTTP requests will be served using a new iRODS connection.
+        //
+        // When set to false, the S3 API will take full advantage of the
+        // iRODS server's capabilities.
+        //
+        // This option should be used when the S3 API is configured to
+        // communicate with an iRODS 4.2 server.
+        "enable_4_2_compatibility": false,
 
         // The credentials for the rodsadmin user that will act as a proxy
         // for all authenticated users.
         "proxy_admin_account": {
             "username": "<string>",
             "password": "<string>"
-        }
+        },
+
+        // Defines options for the connection pool.
+        "connection_pool": {
+            // The number of connections in the pool.
+            "size": 6,
+
+            // The amount of time that must pass before a connection is
+            // renewed (i.e. replaced).
+            "refresh_timeout_in_seconds": 600,
+
+            // The number of times a connection can be fetched from the pool
+            // before it is refreshed.
+            "max_retrievals_before_refresh": 16,
+
+            // Instructs the connection pool to track changes in resources.
+            // If a change is detected, all connections will be refreshed.
+            "refresh_when_resource_changes_detected": true
+        },
+
+        // The resource to target for all write operations.
+        "resource": "<string>",
+
+        // The maximum number of bytes that can be read from a data object
+        // during a single read operation.
+        "max_number_of_bytes_per_read_operation": 8192,
+
+        // The buffer size used for write operations.
+        "buffer_size_in_bytes_for_write_operations": 8192
     }
 }
 ```
 
-## Running
-
-Docker is required for running the S3 API server. To do so, run the following:
-
-```bash
-docker run -d --name irods_s3_api -v /path/to/your/config.json:/config.json:ro -p 8080:8080 local/irods_s3_api
-```
-
-You can follow the log file by running the following:
-
-```bash
-docker logs -f irods_s3_api
-```
-
-This application can also run against iRODS 4.2.11 and 4.2.12. No adjustments to your configuration file are required.
-
-**IMPORTANT: This project requires the iRODS 4.3.1 runtime and therefore cannot be run on the same machine hosting an iRODS 4.2 server.**
-
-## Connecting with Botocore
+# Connecting with Botocore
 
 As a simple example, this is how you pass that in through botocore, a library from Amazon that provides S3 connectivity.
 
@@ -227,11 +439,11 @@ client = session.create_client("s3",
                                aws_secret_access_key="<secret key>")
 ```
 
-## Disabling Multipart
+# Disabling Multipart
 
 Multipart uploads are not supported at this time.  Therefore, multipart must be disabled in the client.
 
-### Disabling Multipart for AWS CLI
+## Disabling Multipart for AWS CLI
 
 For AWS CLI, multipart uploads can be disabled by setting an arbitrarily large multipart threshold.  Since 5 GB is the largest single part upload allowed by AWS, this is a good choice.
 
@@ -247,7 +459,7 @@ s3 =
 
 To use this with the AWS CLI commands, use the `--profile` flag.  Example: `aws --profile irods_s3_no_multipart`.
 
-### Example for Boto3
+## Example for Boto3
 
 To set the multipart threshold with a boto3 client, do the following: 
 
@@ -256,7 +468,7 @@ config = TransferConfig(multipart_threshold=5*1024*1024*1024)
 self.boto3_client.upload_file(put_filename, bucket_name, key, Config=config)
 ```
 
-### Example of MinIO mc client
+## Example of MinIO mc client
 
 The `mc cp` command has a `--disable-multipart` option for file uploads.  Here is an example of an upload with a `myminio` alias:
 
@@ -266,7 +478,7 @@ mc cp --disable-multipart put_file myminio/bucket_name/put_filename
 
 *Note: MinIO client uses aliases to group URL and keys. Refer to the `mc alias` command for information on setting, listing, and removing aliases.*
 
-## Running Tests
+# Running Tests
 
 Run the following commands to run the test suite.
 
