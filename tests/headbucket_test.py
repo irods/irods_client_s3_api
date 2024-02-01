@@ -7,6 +7,7 @@ from libs.execute import *
 from libs.command import *
 from libs.utility import *
 from datetime import datetime
+from host_port import s3_api_host_port
 
 class HeadBucket_Test(TestCase):
 
@@ -15,7 +16,7 @@ class HeadBucket_Test(TestCase):
     rods_secret_key = 's3_secret_key1'
     alice_key = 's3_key2'
     alice_secret_key = 's3_secret_key2'
-    s3_api_url = 'http://s3-api:8080'
+    s3_api_url = f'http://{s3_api_host_port}'
 
     def __init__(self, *args, **kwargs):
         super(HeadBucket_Test, self).__init__(*args, **kwargs)
@@ -35,8 +36,7 @@ class HeadBucket_Test(TestCase):
                                         aws_secret_access_key=self.alice_secret_key)
 
     def tearDown(self):
-        self.boto3_client_rods.close()
-        self.boto3_client_alice.close()
+        pass
 
     # ======== Tests =========
 

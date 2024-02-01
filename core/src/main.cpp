@@ -6,6 +6,7 @@
 #include "irods/private/s3_api/transport.hpp"
 #include "irods/private/s3_api/process_stash.hpp"
 #include "irods/private/s3_api/version.hpp"
+#include "irods/private/s3_api/configuration.hpp"
 
 #include <irods/connection_pool.hpp>
 #include <irods/fully_qualified_username.hpp>
@@ -205,6 +206,9 @@ constexpr auto default_jsonschema() -> std::string_view
                 "region": {{
                     "type": "string"
                 }},
+                "location_part_upload_files": {{
+                    "type": "string"
+                }},
                 "authentication": {{
                     "type": "object",
                     "properties": {{
@@ -363,11 +367,11 @@ constexpr auto default_jsonschema() -> std::string_view
                 "resource": {{
                     "type": "string"
                 }},
-                "max_number_of_bytes_per_read_operation": {{
+                "put_object_buffer_size_in_bytes": {{
                     "type": "integer",
                     "minimum": 1
                 }},
-                "buffer_size_in_bytes_for_write_operations": {{
+                "get_object_buffer_size_in_bytes": {{
                     "type": "integer",
                     "minimum": 1
                 }}
@@ -379,11 +383,7 @@ constexpr auto default_jsonschema() -> std::string_view
                 "enable_4_2_compatibility",
                 "proxy_admin_account",
                 "connection_pool",
-                "resource",
-                "max_number_of_parallel_write_streams",
-                "max_number_of_bytes_per_read_operation",
-                "buffer_size_in_bytes_for_write_operations",
-                "max_number_of_rows_per_catalog_query"
+                "resource"
             ]
         }}
     }},
@@ -475,8 +475,8 @@ auto print_configuration_template() -> void
 
         "resource": "<string>",
 
-        "max_number_of_bytes_per_read_operation": 8192,
-        "buffer_size_in_bytes_for_write_operations": 8192
+        "put_object_buffer_size_in_bytes": 8192,
+        "get_object_buffer_size_in_bytes": 8192
     }}
 }}
 )");
@@ -761,6 +761,7 @@ auto main(int _argc, char* _argv[]) -> int
 
 		const auto& s3_server_config = config.at("s3_server");
 		set_log_level(s3_server_config);
+
 		spdlog::set_pattern("[%Y-%m-%d %T.%e] [P:%P] [%^%l%$] [T:%t] %v");
 
 		logging::info("Initializing server.");

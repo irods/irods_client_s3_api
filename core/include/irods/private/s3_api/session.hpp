@@ -56,10 +56,15 @@ namespace irods::http
 				stream_, *sp, boost::beast::bind_front_handler(&session::on_write, shared_from_this(), sp->need_eof()));
 		} // send
 
+        boost::beast::flat_buffer& get_buffer()
+        {
+            return buffer_;
+        }
+
 	  private:
 		boost::beast::tcp_stream stream_;
 		boost::beast::flat_buffer buffer_;
-		std::optional<boost::beast::http::request_parser<boost::beast::http::string_body>> parser_;
+		std::optional<boost::beast::http::request_parser<boost::beast::http::empty_body>> parser_;
 		std::shared_ptr<void> res_; // TODO Probably doesn't need to be a shared_ptr anymore. The session owns it and is
 		                            // available for the lifetime of the request.
 		const request_handler_map_type* req_handlers_;

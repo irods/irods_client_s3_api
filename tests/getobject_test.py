@@ -8,6 +8,7 @@ from libs.command import *
 from libs.utility import *
 from datetime import datetime
 from minio import Minio
+from host_port import s3_api_host_port
 
 class GetObject_Test(TestCase):
 
@@ -15,7 +16,6 @@ class GetObject_Test(TestCase):
     bucket_name = 'alice-bucket'
     key = 's3_key2'
     secret_key = 's3_secret_key2'
-    s3_api_host_port = 's3-api:8080'
     s3_api_url = f'http://{s3_api_host_port}'
 
     def __init__(self, *args, **kwargs):
@@ -29,13 +29,13 @@ class GetObject_Test(TestCase):
                                           aws_access_key_id=self.key,
                                           aws_secret_access_key=self.secret_key)
 
-        self.minio_client = Minio(self.s3_api_host_port,
+        self.minio_client = Minio(s3_api_host_port,
                                   access_key=self.key,
                                   secret_key=self.secret_key,
                                   secure=False)
 
     def tearDown(self):
-        self.boto3_client.close()
+        pass
 
     def test_botocore_get_in_bucket_root_small_file(self):
 
@@ -48,7 +48,7 @@ class GetObject_Test(TestCase):
             assert_command(f'iput {put_filename} {self.bucket_irods_path}/{put_filename}')
             with open(get_filename, 'wb') as f:
                     self.boto3_client.download_fileobj(self.bucket_name, put_filename, f)
-            assert_command(f'diff {put_filename} {get_filename}')
+            assert_command(f'diff -q {put_filename} {get_filename}')
 
         finally:
             os.remove(put_filename)
@@ -66,7 +66,7 @@ class GetObject_Test(TestCase):
             assert_command(f'iput {put_filename} {self.bucket_irods_path}/{put_filename}')
             with open(get_filename, 'wb') as f:
                 self.boto3_client.download_fileobj(self.bucket_name, put_filename, f)
-            assert_command(f'diff {put_filename} {get_filename}')
+            assert_command(f'diff -q {put_filename} {get_filename}')
 
         finally:
             os.remove(put_filename)
@@ -86,7 +86,7 @@ class GetObject_Test(TestCase):
             assert_command(f'iput {put_filename} {self.bucket_irods_path}/{put_directory}/{put_filename}')
             with open(get_filename, 'wb') as f:
                 self.boto3_client.download_fileobj(self.bucket_name, f'{put_directory}/{put_filename}', f)
-            assert_command(f'diff {put_filename} {get_filename}')
+            assert_command(f'diff -q {put_filename} {get_filename}')
 
         finally:
             os.remove(put_filename)
@@ -108,7 +108,7 @@ class GetObject_Test(TestCase):
                     f's3 cp s3://{self.bucket_name}/{put_filename} {get_filename}',
                     'STDOUT_SINGLELINE',
                     f'download: s3://{self.bucket_name}/{put_filename} to ./{get_filename}')
-            assert_command(f'diff {put_filename} {get_filename}')
+            assert_command(f'diff -q {put_filename} {get_filename}')
 
         finally:
             os.remove(put_filename)
@@ -130,7 +130,7 @@ class GetObject_Test(TestCase):
                     f's3 cp s3://{self.bucket_name}/{put_filename} {get_filename}',
                     'STDOUT_SINGLELINE',
                     f'download: s3://{self.bucket_name}/{put_filename} to ./{get_filename}')
-            assert_command(f'diff {put_filename} {get_filename}')
+            assert_command(f'diff -q {put_filename} {get_filename}')
 
         finally:
             os.remove(put_filename)
@@ -152,7 +152,7 @@ class GetObject_Test(TestCase):
                     f's3 cp s3://{self.bucket_name}/{put_directory}/{put_filename} {get_filename}',
                     'STDOUT_SINGLELINE',
                     f'download: s3://{self.bucket_name}/{put_directory}/{put_filename} to ./{get_filename}')
-            assert_command(f'diff {put_filename} {get_filename}')
+            assert_command(f'diff -q {put_filename} {get_filename}')
 
         finally:
             os.remove(put_filename)
@@ -176,7 +176,7 @@ class GetObject_Test(TestCase):
                     file_data.write(d)
  
             # compare the put file and get file 
-            assert_command(f'diff {put_filename} {get_filename}')
+            assert_command(f'diff -q {put_filename} {get_filename}')
 
         finally:
             os.remove(put_filename)
@@ -202,7 +202,7 @@ class GetObject_Test(TestCase):
                     file_data.write(d)
  
             # compare the put file and get file 
-            assert_command(f'diff {put_filename} {get_filename}')
+            assert_command(f'diff -q {put_filename} {get_filename}')
 
 
         finally:
@@ -228,7 +228,7 @@ class GetObject_Test(TestCase):
                     file_data.write(d)
  
             # compare the put file and get file 
-            assert_command(f'diff {put_filename} {get_filename}')
+            assert_command(f'diff -q {put_filename} {get_filename}')
 
         finally:
             os.remove(put_filename)

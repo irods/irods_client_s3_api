@@ -12,7 +12,7 @@ Initial effort includes:
   - CompleteMultipartUpload
   - CreateMultipartUpload
   - [x] DeleteObject
-  - DeleteObjects
+  - [x] DeleteObjects
   - [x] GetBucketLocation
   - [x] GetObject
   - GetObjectAcl ?
@@ -284,6 +284,10 @@ Notice how some of the configuration values are wrapped in angle brackets (e.g. 
         // Defines the region the server will report as being a member of.
         "region": "us-east-1",
 
+        // Defines the location where part files are temporarily stored on the irods_s3_api
+        // server before being streamed to iRODS. 
+        "location_part_upload_files": "/tmp",
+
         // Defines options that affect various authentication schemes.
         "authentication": {
             // The amount of time that must pass before checking for expired
@@ -414,12 +418,13 @@ Notice how some of the configuration values are wrapped in angle brackets (e.g. 
         // The resource to target for all write operations.
         "resource": "<string>",
 
-        // The maximum number of bytes that can be read from a data object
-        // during a single read operation.
-        "max_number_of_bytes_per_read_operation": 8192,
+        // The buffer size used to read objects from the client
+        // and write to iRODS.
+        "put_object_buffer_size_in_bytes": 8192,
 
-        // The buffer size used for write operations.
-        "buffer_size_in_bytes_for_write_operations": 8192
+        // The buffer size used to read objects from iRODS
+        // and send to the client.
+        "get_object_buffer_size_in_bytes": 8192
     }
 }
 ```
@@ -484,6 +489,7 @@ Run the following commands to run the test suite.
 
 ```bash
 cd tests/docker
+./build_s3_api.sh
 docker compose build
 docker compose run client
 ```

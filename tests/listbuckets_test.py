@@ -6,6 +6,7 @@ from libs.execute import *
 from libs.command import *
 from libs.utility import *
 from datetime import datetime
+from host_port import s3_api_host_port
 
 class ListBuckets_Test(TestCase):
 
@@ -20,7 +21,7 @@ class ListBuckets_Test(TestCase):
     bucket_irods_path_alice_bucket2 = '/tempZone/home/alice/alice-bucket2'
     bucket_irods_path_test_bucket = '/tempZone/home/alice/test-bucket'
 
-    s3_api_url = 'http://s3-api:8080'
+    s3_api_url = f'http://{s3_api_host_port}'
 
     def __init__(self, *args, **kwargs):
         super(ListBuckets_Test, self).__init__(*args, **kwargs)
@@ -40,8 +41,7 @@ class ListBuckets_Test(TestCase):
                                             aws_secret_access_key=self.secret_key_alice)
 
     def tearDown(self):
-        self.client_rods.close()
-        self.client_alice.close()
+        pass
 
     # ======== Helper Functions =========
 

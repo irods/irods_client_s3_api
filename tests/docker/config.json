@@ -1,6 +1,8 @@
 {
     "s3_server": {
+        "host": "0.0.0.0",
         "port": 8080,
+        "log_level": "debug",
 
         "plugins": {
             "static_bucket_resolver": {
@@ -27,26 +29,58 @@
             }
         },
 
-        "threads": 10,
+        "region": "us-east-1",
+        "location_part_upload_files": "/tmp",
+        "authentication": {
+            "eviction_check_interval_in_seconds": 60,
 
-        "put_object_buffer_size_in_bytes": 8192,
-        "put_object_max_buffer_size_in_bytes": 65536,
-        "get_object_buffer_size_in_bytes": 8192,
-        "region": "us-east-1"
+            "basic": {
+                "timeout_in_seconds": 3600
+            }
+        },
+
+        "requests": {
+            "threads": 10,
+            "max_size_of_request_body_in_bytes": 1000000000,
+            "timeout_in_seconds": 300 
+        },
+
+        "background_io": {
+            "threads": 10 
+        }
 
     },
 
     "irods_client": {
         "host": "irods",
         "port": 1247,
-
         "zone": "tempZone",
 
-        "resource": "newResc",
+        "tls": {
+            "client_server_policy": "<string>",
+            "ca_certificate_file": "<string>",
+            "certificate_chain_file": "<string>",
+            "dh_params_file": "<string>",
+            "verify_server": "<string>"
+        },
+
+        "enable_4_2_compatibility": false,
 
         "proxy_admin_account": {
             "username": "rods",
             "password": "rods"
-        }
+        },
+
+        "connection_pool": {
+            "size": 30,
+            "refresh_timeout_in_seconds": 600,
+            "max_retrievals_before_refresh": 16,
+            "refresh_when_resource_changes_detected": true
+        },
+
+        "resource": "demoResc",
+
+        "put_object_buffer_size_in_bytes": 4096,
+        "get_object_buffer_size_in_bytes": 4096 
     }
 }

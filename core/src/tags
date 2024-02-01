@@ -1,0 +1,29 @@
+!_TAG_FILE_FORMAT	2	/extended format; --format=1 will not append ;" to lines/
+!_TAG_FILE_SORTED	1	/0=unsorted, 1=sorted, 2=foldcase/
+!_TAG_PROGRAM_AUTHOR	Darren Hiebert	/dhiebert@users.sourceforge.net/
+!_TAG_PROGRAM_NAME	Exuberant Ctags	//
+!_TAG_PROGRAM_URL	http://ctags.sourceforge.net	/official site/
+!_TAG_PROGRAM_VERSION	5.9~svn20110310	//
+__asan_default_options	main.cpp	/^extern "C" const char* __asan_default_options()$/;"	f
+__has_feature	main.cpp	58;"	d	file:
+acceptor_	main.cpp	/^	tcp::acceptor acceptor_;$/;"	m	class:listener	file:
+g_mtx	process_stash.cpp	/^	std::shared_mutex g_mtx; \/\/ NOLINT(cppcoreguidelines-avoid-non-const-global-variables, cert-err58-cpp)$/;"	m	namespace:__anon1	file:
+g_stash	process_stash.cpp	/^	std::unordered_map<std::string, boost::any> g_stash; \/\/ NOLINT(cppcoreguidelines-avoid-non-const-global-variables)$/;"	m	namespace:__anon1	file:
+globals	globals.cpp	/^namespace irods::http::globals$/;"	n	class:irods::http	file:
+http	common.cpp	/^namespace irods::http$/;"	n	class:irods	file:
+http	crlf_parser.cpp	/^namespace irods::http$/;"	n	class:irods	file:
+http	session.cpp	/^namespace irods::http$/;"	n	class:irods	file:
+http	transport.cpp	/^namespace irods::http$/;"	n	class:irods	file:
+ioc_	main.cpp	/^	net::io_context& ioc_;$/;"	m	class:listener	file:
+irods	common.cpp	/^namespace irods$/;"	n	class:irods	file:
+listener	main.cpp	/^	listener(net::io_context& ioc, const tcp::endpoint& endpoint, const json& _config)$/;"	f	class:listener
+listener	main.cpp	/^class listener : public std::enable_shared_from_this<listener>$/;"	c	file:
+max_body_size_	main.cpp	/^	const int max_body_size_;$/;"	m	class:listener	file:
+plain_transport	transport.cpp	/^	plain_transport::plain_transport(boost::asio::io_context& _ctx)$/;"	f	class:irods::http::plain_transport
+process_stash	process_stash.cpp	/^namespace irods::http::process_stash$/;"	n	class:irods::http	file:
+session	session.cpp	/^	session::session($/;"	f	class:irods::http::session
+timeout_in_secs_	main.cpp	/^	const int timeout_in_secs_;$/;"	m	class:listener	file:
+tls_transport	transport.cpp	/^	tls_transport::tls_transport(boost::asio::io_context& _ctx, boost::asio::ssl::context& _secure_ctx)$/;"	f	class:irods::http::tls_transport
+transport	transport.cpp	/^	transport::transport(boost::asio::io_context& _ctx)$/;"	f	class:irods::http::transport
+~plain_transport	transport.cpp	/^	plain_transport::~plain_transport()$/;"	f	class:irods::http::plain_transport
+~tls_transport	transport.cpp	/^	tls_transport::~tls_transport()$/;"	f	class:irods::http::tls_transport

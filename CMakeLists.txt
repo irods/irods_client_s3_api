@@ -93,6 +93,7 @@ include(ObjectTargetHelpers)
 
 add_subdirectory(core)
 add_subdirectory(endpoints)
+add_subdirectory(third-party/hmac_sha256)
 
 add_executable(${IRODS_S3_API_BINARY_NAME})
 target_link_objects(
@@ -101,9 +102,19 @@ target_link_objects(
   irods_s3_api_core
   irods_s3_api_endpoint_authentication
   irods_s3_api_endpoint_put_object
+  irods_s3_endpoints
 )
 
-install(TARGETS ${IRODS_S3_API_BINARY_NAME} DESTINATION "${CMAKE_INSTALL_BINDIR}")
+target_include_directories(
+  ${IRODS_S3_API_BINARY_NAME}
+  PRIVATE
+  third-party/hmac_sha256
+)
+
+install(
+    TARGETS
+    ${IRODS_S3_API_BINARY_NAME}
+    DESTINATION "${CMAKE_INSTALL_BINDIR}")
 
 #
 # Packaging Configuration

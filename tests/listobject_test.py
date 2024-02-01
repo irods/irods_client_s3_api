@@ -6,6 +6,7 @@ from libs.execute import *
 from libs.command import *
 from libs.utility import *
 from datetime import datetime
+from host_port import s3_api_host_port
 
 class ListObject_Test(TestCase):
 
@@ -14,7 +15,7 @@ class ListObject_Test(TestCase):
     bucket_name = 'alice-bucket'
     key = 's3_key2'
     secret_key = 's3_secret_key2'
-    s3_api_url = 'http://s3-api:8080'
+    s3_api_url = f'http://{s3_api_host_port}'
 
     def __init__(self, *args, **kwargs):
         super(ListObject_Test, self).__init__(*args, **kwargs)

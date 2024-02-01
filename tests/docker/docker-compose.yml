@@ -17,11 +17,9 @@ services:
     s3-api:
         build:
             context: ../..
-            dockerfile: Dockerfile
+            dockerfile: irods_runner.Dockerfile 
         volumes:
             - ./config.json:/config.json:ro
-        environment:
-            - local_package=/irods-client-rest-cpp_package.deb
         ports:
             - "8080"
         depends_on:

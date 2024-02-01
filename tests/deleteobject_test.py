@@ -9,6 +9,7 @@ from libs.execute import *
 from libs.command import *
 from libs.utility import *
 from datetime import datetime
+from host_port import s3_api_host_port, irods_host
 
 class DeleteObject_Test(TestCase):
 
@@ -18,7 +19,7 @@ class DeleteObject_Test(TestCase):
     bucket_name = 'alice-bucket'
     key = 's3_key2'
     secret_key = 's3_secret_key2'
-    s3_api_url = 'http://s3-api:8080'
+    s3_api_url = f'http://{s3_api_host_port}'
 
     def __init__(self, *args, **kwargs):
         super(DeleteObject_Test, self).__init__(*args, **kwargs)
@@ -32,7 +33,7 @@ class DeleteObject_Test(TestCase):
                                         aws_secret_access_key=self.secret_key)
 
     def tearDown(self):
-        self.boto3_client.close()
+        pass
 
     # ======== Tests =========
 
@@ -113,10 +114,10 @@ class DeleteObject_Test(TestCase):
         try:
             make_arbitrary_file(put_filename, 100*1024)
             assert_command(f'iput {put_filename} {self.bucket_irods_path}/{put_filename}')
-            execute_irods_command_as_user(f'ichmod -M null alice {self.bucket_irods_path}/{put_filename}', 'irods', 1247, 'rods', 'tempZone', 'rods', 'apass')
+            execute_irods_command_as_user(f'ichmod -M null alice {self.bucket_irods_path}/{put_filename}', irods_host, 1247, 'rods', 'tempZone', 'rods', 'apass')
             self.assertRaises(Exception,
                           lambda: self.boto3_client.delete_object(Bucket=self.bucket_name, Key=f'{put_filename}'))
-            execute_irods_command_as_user(f'ichmod -M own alice {self.bucket_irods_path}/{put_filename}', 'irods', 1247, 'rods', 'tempZone', 'rods', 'apass')
+            execute_irods_command_as_user(f'ichmod -M own alice {self.bucket_irods_path}/{put_filename}', irods_host, 1247, 'rods', 'tempZone', 'rods', 'apass')
 
         finally:
             os.remove(put_filename)
