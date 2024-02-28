@@ -831,7 +831,14 @@ auto main(int _argc, char* _argv[]) -> int
 		logging::trace("Initializing thread pool for HTTP requests.");
 		net::thread_pool request_handler_threads(request_thread_count);
 		for (auto i = request_thread_count - 1; i > 0; --i) {
-			net::post(request_handler_threads, [&ioc] { ioc.run(); });
+			net::post(request_handler_threads, [&ioc] {
+				try {
+					ioc.run();
+				}
+				catch (const std::exception& e) {
+					log::error("main: Lost io_context thread due to exception: {}", e.what());
+				}
+			});
 		}
 
 		// Launch eviction check for expired bearer tokens.

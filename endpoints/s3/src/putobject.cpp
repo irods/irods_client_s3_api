@@ -9,7 +9,9 @@
 #include "irods/private/s3_api/configuration.hpp"
 #include "irods/private/s3_api/globals.hpp"
 
+#include <irods/client_connection.hpp>
 #include <irods/dstream.hpp>
+#include <irods/fully_qualified_username.hpp>
 #include <irods/transport/default_transport.hpp>
 
 #include <boost/beast/core/error.hpp>
@@ -28,15 +30,13 @@ namespace beast = boost::beast;
 namespace fs = irods::experimental::filesystem;
 namespace log = irods::http::log;
 
-
-static std::regex upload_id_pattern("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}");
-
 namespace {
+    const std::regex upload_id_pattern("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}");
+
     enum class parsing_state {
        header_begin, header_continue, body, end_of_chunk, parsing_done, parsing_error
     };
 }
-
 
 void manually_parse_chunked_body_write_to_irods_in_background(
     irods::http::session_pointer_type session_ptr,
@@ -44,6 +44,8 @@ void manually_parse_chunked_body_write_to_irods_in_background(
     std::shared_ptr<beast::http::request_parser<boost::beast::http::buffer_body>> parser,
     uint64_t read_buffer_size,
     std::shared_ptr<std::ofstream> ofs,
+    std::shared_ptr<irods::experimental::client_connection> conn,
+    std::shared_ptr<irods::experimental::io::client::native_transport> tp,
     std::shared_ptr<irods::experimental::io::odstream> d,
     bool upload_part,
     parsing_state current_state,
@@ -51,26 +53,113 @@ void manually_parse_chunked_body_write_to_irods_in_background(
     const std::string& parsing_buffer_string,
     const std::string func);
 
-void beast_parse_body_write_to_irods_in_background(
-    irods::http::session_pointer_type session_ptr,
-    beast::http::response<beast::http::empty_body>& response_,
-    std::shared_ptr<beast::http::request_parser<boost::beast::http::buffer_body>> parser,
-    uint64_t read_buffer_size,
-    std::shared_ptr<std::ofstream> ofs,
-    std::shared_ptr<irods::experimental::io::odstream> d,
-    bool upload_part,
-    uint64_t total_bytes_read,
-    const::std::string part_number,
-    const std::string func);
+class incremental_async_read
+    : public std::enable_shared_from_this<incremental_async_read>
+{
+    irods::http::session_pointer_type session_ptr_;
+    beast::http::response<beast::http::empty_body> resp_;
+    std::shared_ptr<beast::http::request_parser<boost::beast::http::buffer_body>> parser_;
+    std::string part_filename_;
+    std::ofstream part_file_;
+    std::vector<char> buffer_;
+    std::size_t total_bytes_read_{};
+
+  public:
+    incremental_async_read(
+        std::shared_ptr<beast::http::request_parser<boost::beast::http::buffer_body>>& _parser,
+        irods::http::session_pointer_type& _session_ptr,
+        beast::http::response<beast::http::empty_body>& _response,
+        std::string _etag,
+        std::string _part_filename)
+        : session_ptr_{_session_ptr->shared_from_this()}
+        , resp_{std::move(_response)}
+        , parser_{_parser}
+        , part_filename_{std::move(_part_filename)}
+        , buffer_(irods::s3::get_put_object_buffer_size_in_bytes())
+    {
+        resp_.version(parser_->get().version());
+        resp_.set("Etag", _etag);
+        resp_.keep_alive(parser_->get().keep_alive());
+
+        log::trace("{}: Opening part file [{}] for writing.", __func__, part_filename_);
+        part_file_.open(part_filename_);
+        if (!part_file_) {
+            auto msg = fmt::format("{}: Failed to open part file for writing [{}].", __func__, _part_filename);
+            log::error(msg);
+            THROW(SYS_INTERNAL_ERR, std::move(msg));
+        }
+
+        parser_->get().body().data = buffer_.data();
+        parser_->get().body().size = buffer_.size();
+    } // constructor
+
+    auto start() -> void
+    {
+        read_from_socket();
+    } // start
+
+  private:
+    auto read_from_socket() -> void
+    {
+        beast::http::async_read(
+            session_ptr_->stream(),
+            session_ptr_->get_buffer(),
+            *parser_,
+            beast::bind_front_handler(&incremental_async_read::on_incremental_async_read,
+                shared_from_this()));
+    } // read_from_socket
+
+    auto on_incremental_async_read(beast::error_code _ec, std::size_t _bytes_transferred) -> void
+    {
+        log::debug("{}: multipart upload: Number of bytes read from socket = [{}]", __func__, _bytes_transferred);
+
+        if (_ec && _ec != beast::http::error::need_buffer) {
+            log::error("{}: multipart upload: Error reading from socket: {}", __func__, _ec.message());
+            resp_.result(beast::http::status::internal_server_error);
+            session_ptr_->send(std::move(resp_)); // Schedules an async write op.
+            return;
+        }
+
+        // The parser's buffer has been filled.
+        //
+        // This work is scheduled on the background thread pool so other threads get a
+        // chance to perform socket IO. Socket IO occurs on foreground threads only.
+        irods::http::globals::background_task([self = shared_from_this()] {
+            const auto byte_count = self->buffer_.size() - self->parser_->get().body().size;
+            log::debug("{}: multipart upload: [{}] bytes in buffer_body for part file [{}].", __func__, byte_count, self->part_filename_);
+
+            self->total_bytes_read_ += byte_count;
+            log::debug("{}: multipart upload: Total bytes [{}] read for part file [{}].", __func__, self->total_bytes_read_, self->part_filename_);
+
+            if (!self->part_file_.write(self->buffer_.data(), byte_count)) {
+                log::error("{}: multipart upload: Error writing [{}] bytes to part file [{}].", __func__, byte_count, self->part_filename_);
+                self->resp_.result(beast::http::status::internal_server_error);
+                self->session_ptr_->send(std::move(self->resp_)); // Schedules an async write op.
+                return;
+            }
+
+            log::debug("{}: multipart upload: Wrote [{}] bytes to part file [{}].", __func__, byte_count, self->part_filename_);
+
+            if (self->parser_->is_done()) {
+                log::trace("{}: Request message has been processed [parser is done]", __func__);
+                self->resp_.result(beast::http::status::ok);
+                self->session_ptr_->send(std::move(self->resp_)); // Schedules an async write op.
+                return;
+            }
+
+            // Reset the parser's buffer_body state and schedule the next asynchronous read operation.
+            self->parser_->get().body().data = self->buffer_.data();
+            self->parser_->get().body().size = self->buffer_.size();
+            self->read_from_socket();
+        });
+    } // on_incremental_async_read
+}; // struct incremental_async_read
 
 void irods::s3::actions::handle_putobject(
     irods::http::session_pointer_type session_ptr,
     beast::http::request_parser<boost::beast::http::empty_body>& empty_body_parser,
     const boost::urls::url_view& url)
 {
-    using irods_default_transport = irods::experimental::io::client::default_transport;
-    using irods_connection = irods::http::connection_facade;
-
     beast::http::response<beast::http::empty_body> response;
 
     // Authenticate
@@ -83,9 +172,6 @@ void irods::s3::actions::handle_putobject(
         session_ptr->send(std::move(response)); 
         return;
     }
-
-    // wrap the connection in a shared pointer as the object must last longer than this routine
-    std::shared_ptr<irods_connection> conn = std::make_shared<irods_connection>(irods::get_connection(*irods_username)); 
 
     // change the parser to a buffer_body parser and wrap in a shared_ptr
     std::shared_ptr parser = std::make_shared<beast::http::request_parser<boost::beast::http::buffer_body>>(std::move(empty_body_parser));
@@ -127,7 +213,16 @@ void irods::s3::actions::handle_putobject(
         response.version(11);
         response.result(beast::http::status::continue_);
         response.set(beast::http::field::server, parser_message["Host"]);
-        session_ptr->send(std::move(response)); 
+
+        beast::error_code ec;
+        beast::http::write(session_ptr->stream(), response, ec);
+        if (ec) {
+            log::error("{}: multipart upload: Error sending [100-continue] response: {}", __func__, ec.message());
+            response.result(beast::http::status::internal_server_error);
+            session_ptr->send(std::move(response)); 
+            return;
+        }
+
         log::debug("{}: Sent 100-continue", __FUNCTION__);
     }
 
@@ -190,50 +285,79 @@ void irods::s3::actions::handle_putobject(
         log::debug("{}: UploadPart detected.  partNumber={} uploadId={}", __FUNCTION__, part_number, upload_id);
     }
 
-    fs::client::create_collections(*conn, path.parent_path());
-
-    // create an output file stream to iRODS - wrap all structs in shared pointers
-    // since these objects will persist than the current routine
-    std::shared_ptr<irods_default_transport> xtrans = std::make_shared<irods_default_transport>(*conn);
-    std::shared_ptr<irods::experimental::io::odstream> d = std::make_shared<irods::experimental::io::odstream>();
-
-    // posix file stream for writing parts locally - wrapped in a shared pointer
-    // since this will persist longer than the current routine
-    std::shared_ptr<std::ofstream> ofs = std::make_shared<std::ofstream>();
-
-    if (upload_part) {
-        ofs->open(upload_part_filename, std::ofstream::out);
-        // TODO fs::resize_file(p, content_length);
-        if (!ofs->is_open()) {
-            log::error("{}: Failed to open stream for writing part", __FUNCTION__);
-            response.result(beast::http::status::internal_server_error);
-            log::debug("{}: returned {}", __FUNCTION__, response.reason());
-            session_ptr->send(std::move(response));
-            return;
-        }
-    } else {
-        d->open(*xtrans, std::move(path), irods::experimental::io::root_resource_name{irods::s3::get_resource()}, std::ios_base::out);
-        if (!d->is_open()) {
-            log::error("{}: Failed to open dstream to iRODS", __FUNCTION__);
-            response.result(beast::http::status::internal_server_error);
-            log::debug("{}: returned {}", __FUNCTION__, response.reason());
-            session_ptr->send(std::move(response));
-            return;
-        }
+    // Make sure the parent collection exists.
+    {
+        auto conn = irods::get_connection(*irods_username); 
+        fs::client::create_collections(conn, path.parent_path());
     }
 
     uint64_t read_buffer_size = irods::s3::get_put_object_buffer_size_in_bytes();
     log::debug("{}: read_buffer_size={}", __FUNCTION__, read_buffer_size);
-
-    std::vector<char> buf_vector(read_buffer_size);
-    parser_message.body().data = buf_vector.data();
-    parser_message.body().size = read_buffer_size; 
 
     response.set("Etag", path.c_str());
     response.set("Connection", "close");
     response.keep_alive(parser_message.keep_alive());
 
     if (special_chunked_header) {
+        using irods_default_transport = irods::experimental::io::client::default_transport;
+        using json_pointer = nlohmann::json::json_pointer;
+
+        // Create a dedicated iRODS connection for the upload.
+
+        const auto& config = irods::http::globals::configuration();
+        const auto& irods_client_config = config.at("irods_client");
+        const auto& zone = irods_client_config.at("zone").get_ref<const std::string&>();
+
+        const auto& rodsadmin_username =
+            irods_client_config.at(json_pointer{"/proxy_admin_account/username"}).get_ref<const std::string&>();
+        auto rodsadmin_password =
+            irods_client_config.at(json_pointer{"/proxy_admin_account/password"}).get_ref<const std::string&>();
+
+        auto conn = std::make_shared<irods::experimental::client_connection>(
+            irods::experimental::defer_authentication,
+            irods_client_config.at("host").get_ref<const std::string&>(),
+            irods_client_config.at("port").get<int>(),
+            irods::experimental::fully_qualified_username{rodsadmin_username, zone},
+            irods::experimental::fully_qualified_username{*irods_username, zone});
+
+        auto* conn_ptr = static_cast<RcComm*>(*conn);
+
+        if (const auto ec = clientLoginWithPassword(conn_ptr, rodsadmin_password.data()); ec < 0) {
+            log::error("{}: clientLoginWithPassword error: {}", __func__, ec);
+            response.result(beast::http::status::internal_server_error);
+            session_ptr->send(std::move(response));
+            return;
+        }
+
+        // create an output file stream to iRODS - wrap all structs in shared pointers
+        // since these objects will persist than the current routine
+        auto tp = std::make_shared<irods_default_transport>(*conn);
+        auto d = std::make_shared<irods::experimental::io::odstream>();
+
+        // posix file stream for writing parts locally - wrapped in a shared pointer
+        // since this will persist longer than the current routine
+        std::shared_ptr<std::ofstream> ofs = std::make_shared<std::ofstream>();
+
+        if (upload_part) {
+            ofs->open(upload_part_filename, std::ofstream::out);
+            // TODO fs::resize_file(p, content_length);
+            if (!ofs->is_open()) {
+                log::error("{}: Failed to open stream for writing part", __FUNCTION__);
+                response.result(beast::http::status::internal_server_error);
+                log::debug("{}: returned {}", __FUNCTION__, response.reason());
+                session_ptr->send(std::move(response));
+                return;
+            }
+        } else {
+            d->open(*tp, std::move(path), irods::experimental::io::root_resource_name{irods::s3::get_resource()});
+            if (!d->is_open()) {
+                log::error("{}: Failed to open dstream to iRODS", __FUNCTION__);
+                response.result(beast::http::status::internal_server_error);
+                log::debug("{}: returned {}", __FUNCTION__, response.reason());
+                session_ptr->send(std::move(response));
+                return;
+            }
+        }
 
         // The eager option instructs the parser to continue reading the buffer once it has completed a
         // structured element (header, chunk header, chunk body). Since we are handling the parsing ourself,
@@ -255,31 +379,20 @@ void irods::s3::actions::handle_putobject(
                 parser,
                 read_buffer_size,
                 ofs,
+                conn,
+                tp,
                 d,
                 upload_part,
                 current_state,
                 chunk_size,
                 parsing_buffer_string,
                 __FUNCTION__);
-
     } else {
-        // Let boost::beast::parser handle the body
-        uint64_t total_bytes_read = 0;
-        beast_parse_body_write_to_irods_in_background(
-                session_ptr,
-                response,
-                parser,
-                read_buffer_size,
-                ofs,
-                d,
-                upload_part,
-                total_bytes_read,
-                part_number,
-                __FUNCTION__);
+        std::make_shared<incremental_async_read>(
+            parser, session_ptr, response, path, upload_part_filename)
+                ->start();
     }
-
-    return;
-}
+} // handle_putobject
 
 void manually_parse_chunked_body_write_to_irods_in_background(
     irods::http::session_pointer_type session_ptr,
@@ -287,6 +400,8 @@ void manually_parse_chunked_body_write_to_irods_in_background(
     std::shared_ptr<beast::http::request_parser<boost::beast::http::buffer_body>> parser,
     uint64_t read_buffer_size,
     std::shared_ptr<std::ofstream> ofs,
+    std::shared_ptr<irods::experimental::client_connection> conn,
+    std::shared_ptr<irods::experimental::io::client::native_transport> tp,
     std::shared_ptr<irods::experimental::io::odstream> d,
     bool upload_part,
     parsing_state current_state,
@@ -299,6 +414,8 @@ void manually_parse_chunked_body_write_to_irods_in_background(
         parser,
         read_buffer_size,
         ofs,
+        conn,
+        tp,
         d,
         upload_part,
         current_state,
@@ -517,11 +634,23 @@ void manually_parse_chunked_body_write_to_irods_in_background(
 
             // if we are done return ok
             if (current_state == parsing_state::parsing_done) {
+                if (upload_part) {
+                    ofs->close();
+                }
+                else {
+                    d->close();
+                }
                 response.result(beast::http::status::ok);
                 log::debug("{}: returned {}:{}", func, response.reason(), __LINE__);
                 session_ptr->send(std::move(response)); 
                 return;
             } else if (current_state == parsing_state::parsing_error) {
+                if (upload_part) {
+                    ofs->close();
+                }
+                else {
+                    d->close();
+                }
                 log::error("{}: Error parsing chunked body", func);
                 response.result(boost::beast::http::status::bad_request);
                 log::debug("{}: returned {}", func, response.reason());
@@ -537,6 +666,8 @@ void manually_parse_chunked_body_write_to_irods_in_background(
                 parser,
                 read_buffer_size,
                 ofs,
+                conn,
+                tp,
                 d,
                 upload_part,
                 current_state,
@@ -544,93 +675,4 @@ void manually_parse_chunked_body_write_to_irods_in_background(
                 parsing_buffer_string,
                 func);
     });
-}
-
-void beast_parse_body_write_to_irods_in_background(
-    irods::http::session_pointer_type session_ptr,
-    beast::http::response<beast::http::empty_body>& response_,
-    std::shared_ptr<beast::http::request_parser<boost::beast::http::buffer_body>> parser,
-    uint64_t read_buffer_size,
-    std::shared_ptr<std::ofstream> ofs,
-    std::shared_ptr<irods::experimental::io::odstream> d,
-    bool upload_part,
-    uint64_t total_bytes_read,
-    const::std::string part_number,
-    const std::string func)
-{
-    irods::http::globals::background_task([session_ptr,
-        response = std::move(response_),
-        parser,
-        read_buffer_size,
-        ofs,
-        d,
-        upload_part,
-        total_bytes_read,
-        part_number,
-        func]() mutable {
-
-        auto& parser_message = parser->get();
-        boost::beast::error_code ec;
-
-        std::vector<char> buf_vector(read_buffer_size);
-        parser_message.body().data = buf_vector.data();
-        parser_message.body().size = read_buffer_size; 
-
-        beast::http::read(session_ptr->stream(), session_ptr->get_buffer(), *parser, ec);
-
-        size_t size_left_in_buffer = parser_message.body().size;
-
-        // need buffer means we have filled the current parser, write it to iRODS
-        if (ec == beast::http::error::need_buffer) {
-            ec = {};
-        }
-
-        if (ec) {
-            log::error("{}: Error when parsing file - {} - part_number={}, total_bytes_read={} size_left_in_buffer={}", func, ec.what(), part_number, total_bytes_read, size_left_in_buffer);
-            response.result(beast::http::status::internal_server_error);
-            log::debug("{}: returned {}", func, response.reason());
-            session_ptr->send(std::move(response));
-            return;
-        }
-
-        size_t bytes_read = read_buffer_size - parser_message.body().size;
-        total_bytes_read += bytes_read;
-        try {
-            log::trace("{}: part_number={}, bytes_read/written={} total_bytes_read/written={} buf_vector.data()={}", func, part_number, bytes_read, total_bytes_read, static_cast<void*>(buf_vector.data()));
-            if (upload_part) {
-                ofs->write((char*) buf_vector.data(), bytes_read);
-                log::trace("{}: part_number={}, wrote {} bytes", func, part_number, bytes_read);
-            } else {
-                d->write((char*) buf_vector.data(), bytes_read);
-                log::trace("{}: part_number={}, wrote {} bytes", func, part_number, bytes_read);
-            }
-        }
-        catch (std::exception& e) {
-            log::error("{}: Exception when writing to file - {}", func, e.what());
-            response.result(beast::http::status::internal_server_error);
-            log::debug("{}: returned {}", func, response.reason());
-            session_ptr->send(std::move(response));
-            return;
-        }
-
-        if (parser->is_done()) {
-            response.result(beast::http::status::ok);
-            log::debug("{}: returned {}", func, response.reason());
-            session_ptr->send(std::move(response)); 
-            return;
-        }
-
-        // schedule a new task to continue
-        beast_parse_body_write_to_irods_in_background(
-                session_ptr,
-                response,
-                parser,
-                read_buffer_size,
-                ofs,
-                d,
-                upload_part,
-                total_bytes_read,
-                part_number,
-                func);
-    });
-}
+} // manually_parse_chunked_body_write_to_irods_in_background

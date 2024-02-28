@@ -81,7 +81,8 @@ namespace irods::http
 		stream_.expires_after(std::chrono::seconds(timeout_in_secs_));
 
 		// Read a request.
-        parser_->eager(false);
+        //parser_->eager(false);
+		log::trace("{}: Scheduled async read of header on socket.", __func__);
 		boost::beast::http::async_read_header(
 			stream_, buffer_, *parser_, boost::beast::bind_front_handler(&session::on_read, shared_from_this()));
 	} // do_read

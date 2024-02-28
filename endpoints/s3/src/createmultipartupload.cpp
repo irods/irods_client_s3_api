@@ -92,6 +92,7 @@ void irods::s3::actions::handle_createmultipartupload(
     std::cout << "------ CreateMultipartUpload Response Body -----" << std::endl;
     std::cout << s.str() << std::endl;
 
+	string_body_response.prepare_payload();
     session_ptr->send(std::move(string_body_response)); 
 
     return;
