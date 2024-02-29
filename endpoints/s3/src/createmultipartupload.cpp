@@ -22,7 +22,7 @@
 namespace asio = boost::asio;
 namespace beast = boost::beast;
 namespace fs = irods::experimental::filesystem;
-namespace log = irods::http::log;
+namespace logging = irods::http::logging;
 
 void irods::s3::actions::handle_createmultipartupload(
     irods::http::session_pointer_type session_ptr,
@@ -34,9 +34,9 @@ void irods::s3::actions::handle_createmultipartupload(
     // Authenticate
     auto irods_username = irods::s3::authentication::authenticates(parser, url);
     if (!irods_username) {
-        log::error("{}: Failed to authenticate.", __FUNCTION__);
+        logging::error("{}: Failed to authenticate.", __FUNCTION__);
         response.result(beast::http::status::forbidden);
-        log::debug("{}: returned {}", __FUNCTION__, response.reason());
+        logging::debug("{}: returned {}", __FUNCTION__, response.reason());
         session_ptr->send(std::move(response)); 
         return;
     }
@@ -56,17 +56,17 @@ void irods::s3::actions::handle_createmultipartupload(
         }
     }
    
-    log::debug("{} s3_bucket={} s3_key={}", __FUNCTION__, s3_bucket.string(), s3_key.string());
+    logging::debug("{} s3_bucket={} s3_key={}", __FUNCTION__, s3_bucket.string(), s3_key.string());
 
     fs::path path;
     if (auto bucket = irods::s3::resolve_bucket(url.segments()); bucket.has_value()) {
         path = bucket.value();
         path = irods::s3::finish_path(path, url.segments());
-        log::debug("{}: CreateMultipartUpload path={}", __FUNCTION__, path.string());
+        logging::debug("{}: CreateMultipartUpload path={}", __FUNCTION__, path.string());
     } else {
-        log::error("{}: Failed to resolve bucket", __FUNCTION__);
+        logging::error("{}: Failed to resolve bucket", __FUNCTION__);
         response.result(beast::http::status::forbidden);
-        log::debug("{}: returned {}", __FUNCTION__, response.reason());
+        logging::debug("{}: returned {}", __FUNCTION__, response.reason());
         session_ptr->send(std::move(response)); 
         return;
     }
@@ -94,6 +94,4 @@ void irods::s3::actions::handle_createmultipartupload(
 
 	string_body_response.prepare_payload();
     session_ptr->send(std::move(string_body_response)); 
-
-    return;
 }

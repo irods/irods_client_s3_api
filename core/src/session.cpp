@@ -82,7 +82,6 @@ namespace irods::http
 
 		// Read a request.
         //parser_->eager(false);
-		log::trace("{}: Scheduled async read of header on socket.", __func__);
 		boost::beast::http::async_read_header(
 			stream_, buffer_, *parser_, boost::beast::bind_front_handler(&session::on_read, shared_from_this()));
 	} // do_read
@@ -109,7 +108,6 @@ namespace irods::http
 		// Process client request and send a response.
 		//
 
-        // TODO the parser probably is invalidated?
 		auto& req_ = parser_->get();
 
 		// Print the headers.
@@ -127,7 +125,7 @@ namespace irods::http
 		logging::debug("{}: Needs EOF: {}", __func__, req_.need_eof());
 
         std::string url_string = static_cast<std::string>(req_.find("Host")->value()).append(req_.target());
-		log::debug("{}: Candidate url string: {}", __func__, url_string);
+		logging::debug("{}: Candidate url string: {}", __func__, url_string);
 
 		namespace http = boost::beast::http;
 
@@ -147,7 +145,7 @@ namespace irods::http
                     auto f = params.find("list-type");
 
                     if (f != params.end() && (*f).value == "2") {
-		                log::debug("{}: ListObjects detected", __func__);
+		                logging::debug("{}: ListObjects detected", __func__);
                         auto shared_this = shared_from_this();
 		                irods::http::globals::background_task(
 		                	[shared_this, &parser = this->parser_]() mutable {
@@ -161,7 +159,7 @@ namespace irods::http
                 }
                 else {
                     if (req_.target() == "/") {
-		                log::debug("{}: ListBuckets detected", __func__);
+		                logging::debug("{}: ListBuckets detected", __func__);
                         auto shared_this = shared_from_this();
 		                irods::http::globals::background_task(
 		                	[shared_this, &parser = this->parser_]() mutable {
@@ -174,7 +172,7 @@ namespace irods::http
                     }
                     else if (params.find("location") != params.end()) {
                         // This is GetBucketLocation
-		                log::debug("{}: GetBucketLocation detected", __func__);
+		                logging::debug("{}: GetBucketLocation detected", __func__);
                         boost::beast::http::response<boost::beast::http::string_body> response;
                         std::string s3_region = irods::s3::get_s3_region();
                         boost::property_tree::ptree document;
@@ -189,15 +187,23 @@ namespace irods::http
                         send(std::move(response)); 
                     }
                     else if (params.find("object-lock") != params.end()) {
-		                log::debug("{}: GetObjectLockConfiguration detected", __func__);
+		                logging::debug("{}: GetObjectLockConfiguration detected", __func__);
                         boost::beast::http::response<boost::beast::http::string_body> response;
                         response.body() = "<?xml version='1.0' encoding='utf-8'?>"
                                       "<ObjectLockConfiguration/>";
                         response.result(boost::beast::http::status::ok);
                         send(std::move(response)); 
                     }
+                    else if (params.find("tagging") != params.end()) {
+		                logging::debug("{}: GetObjectTagging detected", __func__);
+                        boost::beast::http::response<boost::beast::http::string_body> response;
+                        response.body() = "<?xml version='1.0' encoding='utf-8'?>"
+                                      "<Tagging><TagSet/></Tagging>";
+                        response.result(boost::beast::http::status::ok);
+                        send(std::move(response)); 
+                    }
                     else {
-		                log::debug("{}: GetObject detected", __func__);
+		                logging::debug("{}: GetObject detected", __func__);
                         auto shared_this = shared_from_this();
 		                irods::http::globals::background_task(
 		                	[shared_this, &parser = this->parser_]() mutable {
@@ -212,7 +218,7 @@ namespace irods::http
                 break;
             case boost::beast::http::verb::put:
                 if (req_.find("x-amz-copy-source") != req_.end()) {
-		            log::debug("{}: CopyObject detected", __func__);
+		            logging::debug("{}: CopyObject detected", __func__);
                     auto shared_this = shared_from_this();
 		            irods::http::globals::background_task(
 		            	[shared_this, &parser = this->parser_]() mutable {
@@ -225,7 +231,7 @@ namespace irods::http
                 }
                 else {
                     // putobject
-		            log::debug("{}: PutObject detected", __func__);
+		            logging::debug("{}: PutObject detected", __func__);
                     auto shared_this = shared_from_this();
 		            irods::http::globals::background_task(
 		            	[shared_this, &parser = this->parser_]() mutable {
@@ -239,11 +245,11 @@ namespace irods::http
                 break;
             case boost::beast::http::verb::delete_:
                 if (segments.empty()) {
-		            log::debug("{}: DeleteBucket detected?", __func__);
+		            logging::debug("{}: DeleteBucket detected?", __func__);
                     send(irods::http::fail(http::status::not_implemented));
                 }
                 else {
-		            log::debug("{}: DeleteObject detected", __func__);
+		            logging::debug("{}: DeleteObject detected", __func__);
                     auto shared_this = shared_from_this();
 		            irods::http::globals::background_task(
 		            	[shared_this, &parser = this->parser_]() mutable {
@@ -258,7 +264,7 @@ namespace irods::http
             case boost::beast::http::verb::head:
                 // Determine if it is HeadBucket or HeadObject 
                 if (1 == segments.size()) {
-		            log::debug("{}: HeadBucket detected", __func__);
+		            logging::debug("{}: HeadBucket detected", __func__);
                     auto shared_this = shared_from_this();
 		            irods::http::globals::background_task(
 		            	[shared_this, &parser = this->parser_]() mutable {
@@ -270,7 +276,7 @@ namespace irods::http
 			        });
                 }
                 else {
-		            log::debug("{}: HeadObject detected", __func__);
+		            logging::debug("{}: HeadObject detected", __func__);
                     auto shared_this = shared_from_this();
 		            irods::http::globals::background_task(
 		            	[shared_this, &parser = this->parser_]() mutable {
@@ -285,7 +291,7 @@ namespace irods::http
             case boost::beast::http::verb::post:
                 // check for DeleteObjects
                 if (params.contains("delete")) {
-		            log::debug("{}: DeleteObjects detected", __func__);
+		            logging::debug("{}: DeleteObjects detected", __func__);
                     auto shared_this = shared_from_this();
 		            irods::http::globals::background_task(
 		            	[shared_this, &parser = this->parser_]() mutable {
@@ -297,7 +303,7 @@ namespace irods::http
 			        });
                 }
                 else if (const auto upload_id_param = url.params().find("uploadId"); upload_id_param != url.params().end()) {
-		            log::debug("{}: CompleteMultipartUpload detected", __func__);
+		            logging::debug("{}: CompleteMultipartUpload detected", __func__);
                     auto shared_this = shared_from_this();
 		            irods::http::globals::background_task(
 		            	[shared_this, &parser = this->parser_]() mutable {
@@ -309,7 +315,7 @@ namespace irods::http
 			        });
                 } 
                 else {
-		            log::debug("{}: CreateMultipartUpload detected", __func__);
+		            logging::debug("{}: CreateMultipartUpload detected", __func__);
                     auto shared_this = shared_from_this();
 		            irods::http::globals::background_task(
 		            	[shared_this, &parser = this->parser_]() mutable {
@@ -322,33 +328,10 @@ namespace irods::http
                 }
                 break;
             default:
-		        log::error("{}: Someone tried to make an HTTP request with a method that is not yet supported", __func__);
+		        logging::error("{}: Someone tried to make an HTTP request with a method that is not yet supported", __func__);
                 send(irods::http::fail(http::status::not_implemented));
         }
 
-		/*try {
-#ifdef IRODS_WRITE_REQUEST_TO_TEMP_FILE
-			std::ofstream{"/tmp/http_request.txt"}.write(req_.body().c_str(), (std::streamsize) req_.body().size());
-#endif
-
-			// "host" is a placeholder that's used so that get_url_path() can parse the URL correctly.
-			const auto path = irods::http::get_url_path(fmt::format("http://host{}", req_.target()));
-			if (!path) {
-				send(irods::http::fail(http::status::bad_request));
-				return;
-			}
-
-			if (const auto iter = req_handlers_->find(*path); iter != std::end(*req_handlers_)) {
-				(iter->second)(shared_from_this(), req_);
-				return;
-			}
-
-			send(irods::http::fail(http::status::not_found));
-		}
-		catch (const std::exception& e) {
-			logging::error("{}: {}", __func__, e.what());
-			send(irods::http::fail(http::status::internal_server_error));
-		}*/
 	} // on_read
 
 	auto session::on_write(bool close, boost::beast::error_code ec, std::size_t bytes_transferred) -> void

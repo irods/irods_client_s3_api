@@ -37,7 +37,7 @@
 namespace asio = boost::asio;
 namespace beast = boost::beast;
 namespace fs = irods::experimental::filesystem;
-namespace log = irods::http::log;
+namespace logging = irods::http::logging;
 
 void irods::s3::actions::handle_deleteobject(
         irods::http::session_pointer_type session_ptr,
@@ -51,7 +51,7 @@ void irods::s3::actions::handle_deleteobject(
     auto irods_username = irods::s3::authentication::authenticates(parser, url);
     if (!irods_username) {
         response.result(beast::http::status::forbidden);
-        log::debug("{}: returned {}", __FUNCTION__, response.reason());
+        logging::debug("{}: returned {}", __FUNCTION__, response.reason());
         session_ptr->send(std::move(response)); 
         return;
     }
@@ -67,37 +67,37 @@ void irods::s3::actions::handle_deleteobject(
     }
     else {
         response.result(beast::http::status::not_found);
-        log::debug("{}: Could not find bucket", __FUNCTION__);
-        log::debug("{}: returned {}", __FUNCTION__, response.reason());
+        logging::debug("{}: Could not find bucket", __FUNCTION__);
+        logging::debug("{}: returned {}", __FUNCTION__, response.reason());
         session_ptr->send(std::move(response)); 
         return;
     }
-    log::debug("{}: Requested to delete {}", __FUNCTION__, path.string());
+    logging::debug("{}: Requested to delete {}", __FUNCTION__, path.string());
 
     try {
         if (fs::client::exists(conn, path) && not fs::client::is_collection(conn, path)) {
             if (fs::client::remove(conn, path, experimental::filesystem::remove_options::no_trash)) {
-                log::debug("{}: Remove {} successful", __FUNCTION__, path.string());
+                logging::debug("{}: Remove {} successful", __FUNCTION__, path.string());
                 response.result(beast::http::status::ok);
             }
             else {
                 response.result(beast::http::status::forbidden);
             }
-            log::debug("{}: returned {}", __FUNCTION__, response.reason());
+            logging::debug("{}: returned {}", __FUNCTION__, response.reason());
             session_ptr->send(std::move(response)); 
             return;
         }
         else {
-            log::debug("{}: Could not find file {}", __FUNCTION__, path.string());
+            logging::debug("{}: Could not find file {}", __FUNCTION__, path.string());
             response.result(beast::http::status::not_found);
-            log::debug("{}: returned {}", __FUNCTION__, response.reason());
+            logging::debug("{}: returned {}", __FUNCTION__, response.reason());
             session_ptr->send(std::move(response)); 
             return;
         }
     }
     catch (irods::exception& e) {
         beast::http::response<beast::http::empty_body> response;
-        log::debug("{}: Exception encountered", __FUNCTION__);
+        logging::debug("{}: Exception encountered", __FUNCTION__);
 
         switch (e.code()) {
             case USER_ACCESS_DENIED:
@@ -111,14 +111,13 @@ void irods::s3::actions::handle_deleteobject(
                 response.result(beast::http::status::internal_server_error);
                 break;
         }
-        log::debug("{}: returned {}", __FUNCTION__, response.reason());
+        logging::debug("{}: returned {}", __FUNCTION__, response.reason());
         session_ptr->send(std::move(response)); 
         return;
     }
     catch (...) {
         response.result(beast::http::status::not_found);
-        log::debug("{}: returned {}", __FUNCTION__, response.reason());
+        logging::debug("{}: returned {}", __FUNCTION__, response.reason());
         session_ptr->send(std::move(response)); 
     }
-    return;
 }

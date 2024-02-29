@@ -42,7 +42,7 @@
 namespace asio = boost::asio;
 namespace beast = boost::beast;
 namespace fs = irods::experimental::filesystem;
-namespace log = irods::http::log;
+namespace logging = irods::http::logging;
 
 void irods::s3::actions::handle_deleteobjects(
         irods::http::session_pointer_type session_ptr,
@@ -56,7 +56,7 @@ void irods::s3::actions::handle_deleteobjects(
     auto irods_username = irods::s3::authentication::authenticates(empty_body_parser, url);
     if (!irods_username) {
         response.result(beast::http::status::forbidden);
-        log::debug("{}: returned {}", __FUNCTION__, response.reason());
+        logging::debug("{}: returned {}", __FUNCTION__, response.reason());
         session_ptr->send(std::move(response)); 
         return;
     }
@@ -76,8 +76,8 @@ void irods::s3::actions::handle_deleteobjects(
     }
     else {
         response.result(beast::http::status::not_found);
-        log::debug("{}: Could not find bucket", __FUNCTION__);
-        log::debug("{}: returned {}", __FUNCTION__, response.reason());
+        logging::debug("{}: Could not find bucket", __FUNCTION__);
+        logging::debug("{}: returned {}", __FUNCTION__, response.reason());
         session_ptr->send(std::move(response)); 
         return;
     }
@@ -85,7 +85,7 @@ void irods::s3::actions::handle_deleteobjects(
     // read and parse the body
     std::string& request_body = parser.get().body();
 
-    log::debug("{}: request_body:\n{}", __FUNCTION__, request_body);
+    logging::debug("{}: request_body:\n{}", __FUNCTION__, request_body);
     boost::property_tree::ptree request_body_property_tree;
     try {
         std::stringstream ss;
@@ -93,16 +93,16 @@ void irods::s3::actions::handle_deleteobjects(
         boost::property_tree::read_xml(ss, request_body_property_tree);
     }
     catch (boost::property_tree::xml_parser_error &e) {
-        log::debug("{}: Could not parse XML body.", __FUNCTION__);
+        logging::debug("{}: Could not parse XML body.", __FUNCTION__);
         response.result(boost::beast::http::status::bad_request);
-        log::debug("{}: returned {}", __FUNCTION__, response.reason());
+        logging::debug("{}: returned {}", __FUNCTION__, response.reason());
         session_ptr->send(std::move(response)); 
         return;
     }
     catch (...) {
-        log::debug("{}: Unknown error parsing XML body.", __FUNCTION__);
+        logging::debug("{}: Unknown error parsing XML body.", __FUNCTION__);
         response.result(boost::beast::http::status::bad_request);
-        log::debug("{}: returned {}", __FUNCTION__, response.reason());
+        logging::debug("{}: returned {}", __FUNCTION__, response.reason());
         session_ptr->send(std::move(response)); 
         return;
     }
@@ -116,7 +116,7 @@ void irods::s3::actions::handle_deleteobjects(
             const std::string& tag = v.first;
             if (tag == "Quiet") {
                 quiet_flag = v.second.get_value<bool>();
-                log::debug("{}: quiet tag value={}", __FUNCTION__, v.second.data());
+                logging::debug("{}: quiet tag value={}", __FUNCTION__, v.second.data());
                 continue;
             }
             else if (tag == "Object") {
@@ -127,45 +127,45 @@ void irods::s3::actions::handle_deleteobjects(
         }
     }
     catch (...) {
-        log::debug("{}: Error parsing XML body.", __FUNCTION__);
+        logging::debug("{}: Error parsing XML body.", __FUNCTION__);
         response.result(boost::beast::http::status::bad_request);
-        log::debug("{}: returned {}", __FUNCTION__, response.reason());
+        logging::debug("{}: returned {}", __FUNCTION__, response.reason());
         session_ptr->send(std::move(response)); 
         return;
     }
-    log::debug("{}: quiet_flag={}", __FUNCTION__, quiet_flag);
+    logging::debug("{}: quiet_flag={}", __FUNCTION__, quiet_flag);
     for (const auto& [key, value] : key_map) {
-        log::debug("{}: key={}", __FUNCTION__, key);
+        logging::debug("{}: key={}", __FUNCTION__, key);
         try {
             if (fs::client::exists(conn, key) && not fs::client::is_collection(conn, key)) {
                 if (fs::client::remove(conn, key, experimental::filesystem::remove_options::no_trash)) {
-                    log::debug("{}: Remove {} successful", __FUNCTION__, key);
+                    logging::debug("{}: Remove {} successful", __FUNCTION__, key);
                     key_map[key] = "Success";
                 }
                 else {
-                    log::debug("{}: Deletion of key {} failed", __FUNCTION__, key);
+                    logging::debug("{}: Deletion of key {} failed", __FUNCTION__, key);
                     key_map[key] = "InternalError";
                 }
             }
             else {
-                log::debug("{}: Could not find object {}", __FUNCTION__, key);
+                logging::debug("{}: Could not find object {}", __FUNCTION__, key);
                 key_map[key] = "NoSuchKey";
             }
         }
         catch (irods::exception& e) {
             beast::http::response<beast::http::empty_body> response;
-            log::debug("{}: Exception encountered", __FUNCTION__);
+            logging::debug("{}: Exception encountered", __FUNCTION__);
 
             switch (e.code()) {
                 case USER_ACCESS_DENIED:
                 case CAT_NO_ACCESS_PERMISSION:
-                    log::debug("{}: No access to delete key {}", __FUNCTION__, key);
+                    logging::debug("{}: No access to delete key {}", __FUNCTION__, key);
                     key_map[key] = "AccessDenied";
                     // keep the value false meaning the deletion for this key failed
                     break;
                 default:
                     // unknown exception, just keep the deletion status as false for this object 
-                    log::debug("{}: Unknown exception when deleting key {}", __FUNCTION__, key);
+                    logging::debug("{}: Unknown exception when deleting key {}", __FUNCTION__, key);
                     key_map[key] = "InternalError";
                     break;
             }
@@ -228,9 +228,8 @@ void irods::s3::actions::handle_deleteobjects(
 
     boost::property_tree::write_xml(s, document, settings);
     response.body() = s.str();
-    log::debug("{}: response\n{}", __FUNCTION__, s.str());
+    logging::debug("{}: response\n{}", __FUNCTION__, s.str());
     response.result(boost::beast::http::status::ok);
-    log::debug("{}: returned {}", __FUNCTION__, response.reason());
+    logging::debug("{}: returned {}", __FUNCTION__, response.reason());
     session_ptr->send(std::move(response)); 
-    return;
 }

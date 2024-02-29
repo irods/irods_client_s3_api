@@ -8,7 +8,7 @@
 
 std::unique_ptr<rcComm_t, irods::s3::__detail::rcComm_Deleter> irods::s3::get_connection(const std::optional<std::string>& _client_username)
 {
-    namespace log = irods::http::log;
+    namespace logging = irods::http::logging;
     std::unique_ptr<rcComm_t, irods::s3::__detail::rcComm_Deleter> result = nullptr;
     // For some reason it isn't working with the assignment operator
 
@@ -30,11 +30,11 @@ std::unique_ptr<rcComm_t, irods::s3::__detail::rcComm_Deleter> irods::s3::get_co
     }
 
     if (nullptr == result || err.status) {
-        log::error(err.msg);
+        logging::error(err.msg);
     }
 
     if (const int ec = clientLoginWithPassword(result.get(), const_cast<char*>(password.c_str())); ec < 0) {
-        log::error("Failed to log in");
+        logging::error("Failed to log in");
         // TODO The connection should be dropped at this point and an exception or error
         // should be returned to the user.
     }

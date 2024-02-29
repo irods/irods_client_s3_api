@@ -105,12 +105,6 @@ target_link_objects(
   irods_s3_endpoints
 )
 
-target_include_directories(
-  ${IRODS_S3_API_BINARY_NAME}
-  PRIVATE
-  third-party/hmac_sha256
-)
-
 install(
     TARGETS
     ${IRODS_S3_API_BINARY_NAME}

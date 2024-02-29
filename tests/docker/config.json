@@ -30,7 +30,7 @@
         },
 
         "region": "us-east-1",
-        "location_part_upload_files": "/tmp",
+        "multipart_upload_part_files_directory": "/tmp",
         "authentication": {
             "eviction_check_interval_in_seconds": 60,
 

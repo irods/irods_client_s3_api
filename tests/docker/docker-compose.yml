@@ -14,7 +14,7 @@ services:
             timeout: 10s
             retries: 20 
 
-    s3-api:
+    irods-s3-api:
         build:
             context: ../..
             dockerfile: irods_runner.Dockerfile 
@@ -32,7 +32,7 @@ services:
             dockerfile: client.ubuntu20.Dockerfile
         depends_on:
             - irods
-            - s3-api
+            - irods-s3-api
         volumes:
             - ../../:/irods_client_s3_cpp 
             

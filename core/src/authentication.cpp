@@ -40,8 +40,8 @@ namespace
     std::string
     get_user_signing_key(const std::string_view secret_key, const std::string_view date, const std::string_view region)
     {
-        namespace log = irods::http::log;
-        log::debug("date time component is {}", date);
+        namespace logging = irods::http::logging;
+        logging::debug("date time component is {}", date);
         auto date_key = irods::s3::authentication::hmac_sha_256(std::string("AWS4").append(secret_key), date);
         auto date_region_key = irods::s3::authentication::hmac_sha_256(date_key, region);
         auto date_region_service_key = irods::s3::authentication::hmac_sha_256(date_region_key, "s3");
@@ -53,9 +53,9 @@ namespace
     // Turn the url into the 'canon form'
     std::string canonicalize_url(const boost::urls::url_view& url)
     {
-        namespace log = irods::http::log;
+        namespace logging = irods::http::logging;
         std::stringstream result;
-        log::debug("{}:{} ({}) url={}", __FILE__, __LINE__, __FUNCTION__, url.path());
+        logging::debug("{}:{} ({}) url={}", __FILE__, __LINE__, __FUNCTION__, url.path());
         for (const auto i : url.segments()) {
             result << '/' << uri_encode(i);
         }
@@ -75,7 +75,7 @@ namespace
         const boost::urls::url_view& url,
         const std::vector<std::string>& signed_headers)
     {
-        namespace log = irods::http::log;
+        namespace logging = irods::http::logging;
 
         // At various points the signature process wants various fields to be sorted.
         // so reusing this can at least avoid some of the duplicate allocations and such
@@ -136,7 +136,7 @@ namespace
             fields_str += i;
             fields_str += ",";
         }
-        log::debug(fields_str);
+        logging::debug(fields_str);
         for (const auto& field : sorted_fields) {
             auto val = static_cast<std::string>(parser.get().at(boost::string_view(field.data(), field.length())));
             std::string key(field);
@@ -196,7 +196,7 @@ std::optional<std::string> irods::s3::authentication::authenticates(
     const boost::beast::http::request_parser<boost::beast::http::empty_body>& parser,
     const boost::urls::url_view& url)
 {
-    namespace log = irods::http::log;
+    namespace logging = irods::http::logging;
 
     std::vector<std::string> auth_fields, credential_fields, signed_headers;
     // should be equal to something like
@@ -221,17 +221,17 @@ std::optional<std::string> irods::s3::authentication::authenticates(
     boost::split(signed_headers, auth_fields[1], boost::is_any_of(";"));
 
     auto canonical_request = canonicalize_request(parser, url, signed_headers);
-    log::debug("========== Canon request ==========\n{}", canonical_request);
+    logging::debug("========== Canon request ==========\n{}", canonical_request);
 
     auto sts = string_to_sign(parser, date, region, canonical_request);
-    log::debug("======== String to sign ===========\n{}", sts);
-    log::debug("===================================");
+    logging::debug("======== String to sign ===========\n{}", sts);
+    logging::debug("===================================");
 
-    log::trace("Searching for user with access_key_id={}", access_key_id);
+    logging::trace("Searching for user with access_key_id={}", access_key_id);
     auto irods_user = irods::s3::authentication::get_iRODS_user(access_key_id);
 
     if (!irods_user) {
-        log::debug("Authentication Error: No iRODS username mapped to access key ID [{}]", access_key_id);
+        logging::debug("Authentication Error: No iRODS username mapped to access key ID [{}]", access_key_id);
         return std::nullopt;
     }
 
@@ -239,9 +239,9 @@ std::optional<std::string> irods::s3::authentication::authenticates(
         irods::s3::authentication::get_user_secret_key(access_key_id).value(), date, region);
     auto computed_signature = hex_encode(hmac_sha_256(signing_key, sts));
 
-    log::debug("Computed: [{}]", computed_signature);
+    logging::debug("Computed: [{}]", computed_signature);
 
-    log::debug("Actual Signature: [{}]", signature);
+    logging::debug("Actual Signature: [{}]", signature);
 
     return (computed_signature == signature) ? irods_user : std::nullopt;
 }

@@ -25,4 +25,4 @@ namespace irods::s3::authentication
     std::optional<std::string> get_user_secret_key(const std::string_view access_key);
 
 } //namespace irods::s3::authentication
-#endif
+#endif // IRODS_S3_API_AUTHENTICATION_HPP

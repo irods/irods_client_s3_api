@@ -206,7 +206,7 @@ constexpr auto default_jsonschema() -> std::string_view
                 "region": {{
                     "type": "string"
                 }},
-                "location_part_upload_files": {{
+                "multipart_upload_part_files_directory": {{
                     "type": "string"
                 }},
                 "authentication": {{
@@ -383,7 +383,9 @@ constexpr auto default_jsonschema() -> std::string_view
                 "enable_4_2_compatibility",
                 "proxy_admin_account",
                 "connection_pool",
-                "resource"
+                "resource",
+                "put_object_buffer_size_in_bytes",
+                "get_object_buffer_size_in_bytes"
             ]
         }}
     }},
@@ -836,7 +838,7 @@ auto main(int _argc, char* _argv[]) -> int
 					ioc.run();
 				}
 				catch (const std::exception& e) {
-					log::error("main: Lost io_context thread due to exception: {}", e.what());
+					logging::error("main: Lost io_context thread due to exception: {}", e.what());
 				}
 			});
 		}

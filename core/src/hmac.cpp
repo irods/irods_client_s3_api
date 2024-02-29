@@ -14,11 +14,11 @@ namespace irods::s3::authentication
 {
     std::string hmac_sha_256(const std::string_view& key, const std::string_view& data)
     {
-        namespace log = irods::http::log;
+        namespace logging = irods::http::logging;
         unsigned char result[32];
         unsigned int result_size = 32;
         hmac_sha256(key.data(), key.length(), data.data(), data.length(), result, 32);
-        log::trace("HMAC size is {} bytes", result_size);
+        logging::trace("HMAC size is {} bytes", result_size);
         return std::string(std::string_view((char*) result, 32));
     }
 

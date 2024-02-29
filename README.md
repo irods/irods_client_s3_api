@@ -9,15 +9,15 @@ Implements a subset of the Amazon S3 API:
 
 Initial effort includes:
   - [x] CopyObject
-  - CompleteMultipartUpload
-  - CreateMultipartUpload
+  - [x] CompleteMultipartUpload
+  - [x] CreateMultipartUpload
   - [x] DeleteObject
   - [x] DeleteObjects
   - [x] GetBucketLocation
   - [x] GetObject
   - GetObjectAcl ?
   - [x] GetObjectLockConfiguration
-  - GetObjectTagging ?
+  - [x] GetObjectTagging
   - [x] HeadBucket
   - [x] HeadObject
   - [x] ListBuckets
@@ -26,7 +26,7 @@ Initial effort includes:
   - [x] PutObject
   - PutObjectAcl ?
   - PutObjectTagging ?
-  - UploadPart
+  - [x] UploadPart
   - UploadPartCopy ?
 
 Goal is to support the equivalent of:
@@ -40,10 +40,12 @@ Goal is to support the equivalent of:
 
 ## Multipart Uploads
 
-Multipart uploads are an important part of S3, however, they aren't simple to implement and have substantial performance
-and storage implications for a naive approach. As of now, this API does not attempt to provide that functionality.
+Multipart uploads have not been implemented for copy operations where `x-amz-copy-source` and `x-amz-copy-source-range` are used.
+When performing a copy from one iRODS file to another, multipart uploads should be disabled.
 
 See [Disabling Multipart](#disabling-multipart) for details.
+
+Multipart uploads of a local file is supported.
 
 ## Tagging
 
@@ -284,9 +286,9 @@ Notice how some of the configuration values are wrapped in angle brackets (e.g. 
         // Defines the region the server will report as being a member of.
         "region": "us-east-1",
 
-        // Defines the location where part files are temporarily stored on the irods_s3_api
-        // server before being streamed to iRODS. 
-        "location_part_upload_files": "/tmp",
+        // Defines the location where part files are temporarily stored
+        // on the irods_s3_api server before being streamed to iRODS. 
+        "multipart_upload_part_files_directory": "/tmp",
 
         // Defines options that affect various authentication schemes.
         "authentication": {

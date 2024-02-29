@@ -14,7 +14,7 @@
 namespace asio = boost::asio;
 namespace beast = boost::beast;
 namespace fs = irods::experimental::filesystem;
-namespace log = irods::http::log;
+namespace logging = irods::http::logging;
 
 const static std::string_view date_format{"{:%a, %d %b %Y %H:%M:%S GMT}"};
 
@@ -31,7 +31,7 @@ void irods::s3::actions::handle_headobject(
 
         if (!irods_username) {
             response.result(beast::http::status::forbidden);
-            log::debug("{}: returned {}", __FUNCTION__, response.reason());
+            logging::debug("{}: returned {}", __FUNCTION__, response.reason());
             session_ptr->send(std::move(response)); 
             return;
        }
@@ -44,9 +44,9 @@ void irods::s3::actions::handle_headobject(
            path = irods::s3::finish_path(path, url.segments());
        }
        else {
-           log::error("Failed to resolve bucket");
+           logging::error("Failed to resolve bucket");
            response.result(beast::http::status::forbidden);
-           log::debug("{}: returned {}", __FUNCTION__, response.reason());
+           logging::debug("{}: returned {}", __FUNCTION__, response.reason());
            session_ptr->send(std::move(response)); 
            return;
        }
@@ -65,7 +65,7 @@ void irods::s3::actions::handle_headobject(
 
            if (!can_see) {
                response.result(boost::beast::http::status::forbidden);
-               log::debug("{}: returned {}", __FUNCTION__, response.reason());
+               logging::debug("{}: returned {}", __FUNCTION__, response.reason());
                session_ptr->send(std::move(response)); 
                return;
            }
@@ -79,12 +79,12 @@ void irods::s3::actions::handle_headobject(
            std::time_t last_write_time__time_t = std::chrono::system_clock::to_time_t(last_write_time__time_point);
            std::string last_write_time__str = irods::s3::api::common_routines::convert_time_t_to_str(last_write_time__time_t, date_format);
            response.insert(beast::http::field::last_modified, last_write_time__str);
-           log::debug("{}: returned {}", __FUNCTION__, response.reason());
+           logging::debug("{}: returned {}", __FUNCTION__, response.reason());
            session_ptr->send(std::move(response)); 
            return;
        } else {
            response.result(boost::beast::http::status::not_found);
-           log::debug("{}: returned {}", __FUNCTION__, response.reason());
+           logging::debug("{}: returned {}", __FUNCTION__, response.reason());
            session_ptr->send(std::move(response)); 
            return;
            /*return irods::s3::api::common_routines::send_error_response(
@@ -97,7 +97,7 @@ void irods::s3::actions::handle_headobject(
        }
     }
     catch (std::system_error& e) {
-        log::error("{}: {}", __FUNCTION__, e.what());
+        logging::error("{}: {}", __FUNCTION__, e.what());
         switch (e.code().value()) {
             case USER_ACCESS_DENIED:
             case CAT_NO_ACCESS_PERMISSION:
@@ -109,7 +109,7 @@ void irods::s3::actions::handle_headobject(
         }
     }
    
-    log::debug("{}: returned {}", __FUNCTION__, response.reason());
+    logging::debug("{}: returned {}", __FUNCTION__, response.reason());
     session_ptr->send(std::move(response)); 
     return;
 }

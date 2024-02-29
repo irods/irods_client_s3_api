@@ -33,7 +33,6 @@ target_include_directories(
   irods_s3_endpoints
   PRIVATE
   "${IRODS_S3_API_PROJECT_SOURCE_DIR}/core/include"
-  "${IRODS_S3_API_PROJECT_SOURCE_DIR}/core/include"
   "${IRODS_S3_API_PROJECT_BINARY_DIR}/core/include"
   "${IRODS_S3_API_PROJECT_SOURCE_DIR}/endpoints/shared/include"
   "${IRODS_EXTERNALS_FULLPATH_BOOST}/include"

@@ -36,24 +36,20 @@
 namespace asio = boost::asio;
 namespace beast = boost::beast;
 namespace fs = irods::experimental::filesystem;
-namespace log = irods::http::log;
+namespace logging = irods::http::logging;
 
 namespace {
 
     std::regex upload_id_pattern("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}");
 
     // store offsets and lengths for each part
-    struct part_info_t {
+    struct part_info {
         std::string part_filename;
         uint64_t part_offset;
         uint64_t part_size;
     };
 
-    struct upload_status_t {
-        /*upload_status_t()
-            : task_done_counter(0)
-            , fail_flag(false)
-        {}*/
+    struct upload_status {
         int task_done_counter = 0;
         bool fail_flag = false;
         std::string error_string;
@@ -70,9 +66,9 @@ void irods::s3::actions::handle_completemultipartupload(
     // Authenticate
     auto irods_username = irods::s3::authentication::authenticates(empty_body_parser, url);
     if (!irods_username) {
-        log::error("{}: Failed to authenticate.", __FUNCTION__);
+        logging::error("{}: Failed to authenticate.", __FUNCTION__);
         response.result(beast::http::status::forbidden);
-        log::debug("{}: returned {}", __FUNCTION__, response.reason());
+        logging::debug("{}: returned {}", __FUNCTION__, response.reason());
         session_ptr->send(std::move(response)); 
         return;
     }
@@ -92,17 +88,17 @@ void irods::s3::actions::handle_completemultipartupload(
         }
     }
     
-    log::debug("{} s3_bucket={} s3_key={}", __FUNCTION__, s3_bucket.string(), s3_key.string());
+    logging::debug("{} s3_bucket={} s3_key={}", __FUNCTION__, s3_bucket.string(), s3_key.string());
 
     fs::path path;
     if (auto bucket = irods::s3::resolve_bucket(url.segments()); bucket.has_value()) {
         path = bucket.value();
         path = irods::s3::finish_path(path, url.segments());
-        log::debug("{}: CompleteMultipartUpload path={}", __FUNCTION__, path.string());
+        logging::debug("{}: CompleteMultipartUpload path={}", __FUNCTION__, path.string());
     } else {
-        log::error("{}: Failed to resolve bucket", __FUNCTION__);
+        logging::error("{}: Failed to resolve bucket", __FUNCTION__);
         response.result(beast::http::status::forbidden);
-        log::debug("{}: returned {}", __FUNCTION__, response.reason());
+        logging::debug("{}: returned {}", __FUNCTION__, response.reason());
         session_ptr->send(std::move(response)); 
         return;
     }
@@ -116,9 +112,9 @@ void irods::s3::actions::handle_completemultipartupload(
     }
 
     if (upload_id.empty()) {
-        log::error("{}: Did not receive a an uploadId", __FUNCTION__);
+        logging::error("{}: Did not receive a an uploadId", __FUNCTION__);
         response.result(beast::http::status::bad_request);
-        log::debug("{}: returned {}", __FUNCTION__, response.reason());
+        logging::debug("{}: returned {}", __FUNCTION__, response.reason());
         session_ptr->send(std::move(response)); 
         return;
     }
@@ -126,9 +122,9 @@ void irods::s3::actions::handle_completemultipartupload(
     // Do not allow an upload_id that is not in the format we have defined. People could do bad things
     // if we didn't enforce this.
     if (!std::regex_match(upload_id, upload_id_pattern)) {
-        log::error("{}: Upload ID {} was not in expected format.", __FUNCTION__, upload_id);
+        logging::error("{}: Upload ID {} was not in expected format.", __FUNCTION__, upload_id);
         response.result(beast::http::status::bad_request);
-        log::debug("{}: returned {}", __FUNCTION__, response.reason());
+        logging::debug("{}: returned {}", __FUNCTION__, response.reason());
         session_ptr->send(std::move(response)); 
         return;
     }
@@ -142,7 +138,7 @@ void irods::s3::actions::handle_completemultipartupload(
     beast::http::read(session_ptr->stream().socket(), session_ptr->get_buffer(), parser);
 
     std::string& request_body = parser.get().body();
-    log::debug("{}: request_body\n{}", __FUNCTION__, request_body);
+    logging::debug("{}: request_body\n{}", __FUNCTION__, request_body);
 
     int max_part_number = -1;
     int min_part_number = 1000;
@@ -172,16 +168,16 @@ void irods::s3::actions::handle_completemultipartupload(
         }
     }
     catch (boost::property_tree::xml_parser_error &e) {
-        log::debug("{}: Could not parse XML body.", __FUNCTION__);
+        logging::debug("{}: Could not parse XML body.", __FUNCTION__);
         response.result(boost::beast::http::status::bad_request);
-        log::debug("{}: returned {}", __FUNCTION__, response.reason());
+        logging::debug("{}: returned {}", __FUNCTION__, response.reason());
         session_ptr->send(std::move(response)); 
         return;
     }
     catch (...) {
-        log::debug("{}: Unknown error parsing XML body.", __FUNCTION__);
+        logging::debug("{}: Unknown error parsing XML body.", __FUNCTION__);
         response.result(boost::beast::http::status::bad_request);
-        log::debug("{}: returned {}", __FUNCTION__, response.reason());
+        logging::debug("{}: returned {}", __FUNCTION__, response.reason());
         session_ptr->send(std::move(response)); 
         return;
     }
@@ -190,41 +186,41 @@ void irods::s3::actions::handle_completemultipartupload(
     // with 1 and the largest part number is the same as the count of
     // part numbers.  We could later check that each part number is included...
     if (min_part_number != 1) {
-        log::debug("{}: Part numbers did not start with 1.", __FUNCTION__);
+        logging::debug("{}: Part numbers did not start with 1.", __FUNCTION__);
         response.result(boost::beast::http::status::bad_request);
-        log::debug("{}: returned {}", __FUNCTION__, response.reason());
+        logging::debug("{}: returned {}", __FUNCTION__, response.reason());
         session_ptr->send(std::move(response)); 
         return;
     }
 
     if (max_part_number != part_number_count) {
-        log::debug("{}: Missing at least one part number.", __FUNCTION__);
+        logging::debug("{}: Missing at least one part number.", __FUNCTION__);
         response.result(boost::beast::http::status::bad_request);
-        log::debug("{}: returned {}", __FUNCTION__, response.reason());
+        logging::debug("{}: returned {}", __FUNCTION__, response.reason());
         session_ptr->send(std::move(response)); 
         return;
     }
 
     // build up a vector filenames, offsets, and lengths for each part
-    std::vector<part_info_t> part_info_vector;
+    std::vector<part_info> part_info_vector;
     part_info_vector.reserve(max_part_number);
 
     // get the base location for the part files
     const nlohmann::json& config = irods::http::globals::configuration();
     std::string part_file_location = config.value(
-            nlohmann::json::json_pointer{"/s3_server/location_part_upload_files"}, ".");
+            nlohmann::json::json_pointer{"/s3_server/multipart_upload_part_files_directory"}, ".");
 
     uint64_t offset_counter = 0;
     for (int current_part_number = 1; current_part_number <= max_part_number; ++current_part_number) {
-        std::string part_filename = part_file_location + "/" + upload_id + "." + std::to_string(current_part_number);
+        std::string part_filename = part_file_location + "/irods_s3_api_" + upload_id + "." + std::to_string(current_part_number);
         try {
             auto part_size = std::filesystem::file_size(part_filename);
             part_info_vector.push_back({part_filename, offset_counter, part_size});
             offset_counter += part_size;
         } catch (fs::filesystem_error& e) {
-            log::error("{}: Failed locate part", __FUNCTION__);
+            logging::error("{}: Failed locate part", __FUNCTION__);
             response.result(beast::http::status::internal_server_error);
-            log::debug("{}: returned {}", __FUNCTION__, response.reason());
+            logging::debug("{}: returned {}", __FUNCTION__, response.reason());
             session_ptr->send(std::move(response));
             return;
         }
@@ -232,7 +228,7 @@ void irods::s3::actions::handle_completemultipartupload(
 
     uint64_t read_buffer_size = irods::s3::get_put_object_buffer_size_in_bytes();
 
-    upload_status_t upload_status;
+    upload_status upload_status_object;
     std::condition_variable cv;
     std::mutex cv_mutex;
 
@@ -242,19 +238,19 @@ void irods::s3::actions::handle_completemultipartupload(
     d.open(xtrans, path, irods::experimental::io::root_resource_name{irods::s3::get_resource()}, std::ios::out | std::ios::trunc);
 
     if (!d.is_open()) {
-        log::error("{}: {} Failed open data stream to iRODS - path={}", __FUNCTION__, upload_id, path.string());
+        logging::error("{}: {} Failed open data stream to iRODS - path={}", __FUNCTION__, upload_id, path.string());
         response.result(beast::http::status::internal_server_error);
-        log::debug("{}: returned {}", __FUNCTION__, response.reason());
+        logging::debug("{}: returned {}", __FUNCTION__, response.reason());
         session_ptr->send(std::move(response));
         return;
     }
 
-    auto& replica_token = d.replica_token();
-    auto& replica_number = d.replica_number();
+    const auto& replica_token = d.replica_token();
+    const auto& replica_number = d.replica_number();
 
     // start tasks on thread pool for part uploads 
     for (int current_part_number = 1; current_part_number <= max_part_number; ++current_part_number) {
-        log::debug("{}: pushing upload work on thread pool {}-{} : [filename={}][offset={}][size={}]",
+        logging::debug("{}: pushing upload work on thread pool {}-{} : [filename={}][offset={}][size={}]",
                 __FUNCTION__,
                 upload_id,
                 current_part_number,
@@ -268,7 +264,7 @@ void irods::s3::actions::handle_completemultipartupload(
             path,
             &cv_mutex,
             &cv,
-            &upload_status,
+            &upload_status_object,
             &replica_token,
             &replica_number,
             current_part_number,
@@ -282,12 +278,12 @@ void irods::s3::actions::handle_completemultipartupload(
             uint64_t read_write_byte_counter = 0;
 
             // upon exit, increment the task_done_counter and notify the coordinating thread
-            const irods::at_scope_exit signal_done{ [&cv_mutex, &cv, &upload_status, upload_id, current_part_number, part_offset, part_size, &read_write_byte_counter, func]() {
+            const irods::at_scope_exit signal_done{ [&cv_mutex, &cv, &upload_status_object, upload_id, current_part_number, part_offset, part_size, &read_write_byte_counter, func]() {
                {
                    std::lock_guard<std::mutex> lk(cv_mutex);
-                   (upload_status.task_done_counter)++;
+                   (upload_status_object.task_done_counter)++;
                }
-               log::debug("{}: upload_id={} part_number={} wrote {} bytes at offset {} - part_size={}", func, upload_id, current_part_number, read_write_byte_counter, part_offset, part_size);
+               logging::debug("{}: upload_id={} part_number={} wrote {} bytes at offset {} - part_size={}", func, upload_id, current_part_number, read_write_byte_counter, part_offset, part_size);
                cv.notify_one();
             }};
 
@@ -300,11 +296,11 @@ void irods::s3::actions::handle_completemultipartupload(
 
             if (!ifs.is_open()) {
                 std::lock_guard<std::mutex> lk(cv_mutex);
-                upload_status.fail_flag = true;
+                upload_status_object.fail_flag = true;
                 std::stringstream ss;
                 ss << "Failed to part file for reading" << part_filename;
-                upload_status.error_string = ss.str(); 
-                log::error("{}: {} upload_id={} part_number={}", func, upload_status.error_string, upload_id, current_part_number);
+                upload_status_object.error_string = ss.str(); 
+                logging::error("{}: {} upload_id={} part_number={}", func, upload_status_object.error_string, upload_id, current_part_number);
                 return;
             }
 
@@ -317,11 +313,11 @@ void irods::s3::actions::handle_completemultipartupload(
 
             if (!ds.is_open()) {
                 std::lock_guard<std::mutex> lk(cv_mutex);
-                upload_status.fail_flag = true;
+                upload_status_object.fail_flag = true;
                 std::stringstream ss;
                 ss << "Failed to open dstream to iRODS path=" << path;
-                upload_status.error_string = ss.str(); 
-                log::error("{}: {} upload_id={} part_number={}", func, upload_status.error_string, upload_id, current_part_number);
+                upload_status_object.error_string = ss.str(); 
+                logging::error("{}: {} upload_id={} part_number={}", func, upload_status_object.error_string, upload_id, current_part_number);
                 return;
             }
 
@@ -334,7 +330,7 @@ void irods::s3::actions::handle_completemultipartupload(
                 // if someone failed then bail
                 {
                     std::lock_guard<std::mutex> lk(cv_mutex);
-                    if (upload_status.fail_flag) {
+                    if (upload_status_object.fail_flag) {
                         break;
                     }
                 }
@@ -348,9 +344,9 @@ void irods::s3::actions::handle_completemultipartupload(
 
                     if (ds.fail()) {
                         std::lock_guard<std::mutex> lk(cv_mutex);
-                        upload_status.fail_flag = true;
-                        upload_status.error_string = "Failed in writing part to iRODS";
-                        log::error("{}: {} upload_id={} part_number={}", func, upload_status.error_string, upload_id, current_part_number);
+                        upload_status_object.fail_flag = true;
+                        upload_status_object.error_string = "Failed in writing part to iRODS";
+                        logging::error("{}: {} upload_id={} part_number={}", func, upload_status_object.error_string, upload_id, current_part_number);
                         break;
                     }
                 }
@@ -364,11 +360,10 @@ void irods::s3::actions::handle_completemultipartupload(
     }
 
     // wait until all threads are complete
-    // TODO: put a timer on this
     std::unique_lock<std::mutex> lk(cv_mutex);
-    cv.wait(lk, [&upload_status, max_part_number, func = __FUNCTION__]() {
-            log::debug("{}: wait: task_done_counter is {}", func, upload_status.task_done_counter);
-            return upload_status.task_done_counter == max_part_number; });
+    cv.wait(lk, [&upload_status_object, max_part_number, func = __FUNCTION__]() {
+            logging::debug("{}: wait: task_done_counter is {}", func, upload_status_object.task_done_counter);
+            return upload_status_object.task_done_counter == max_part_number; });
 
     d.close();
 
@@ -378,10 +373,10 @@ void irods::s3::actions::handle_completemultipartupload(
     }
 
     // check to see if any threads failed
-    if (upload_status.fail_flag) {
-        log::error("{}: {}", __FUNCTION__, upload_status.error_string);
+    if (upload_status_object.fail_flag) {
+        logging::error("{}: {}", __FUNCTION__, upload_status_object.error_string);
         response.result(beast::http::status::internal_server_error);
-        log::debug("{}: returned {}", __FUNCTION__, response.reason());
+        logging::debug("{}: returned {}", __FUNCTION__, response.reason());
         session_ptr->send(std::move(response));
         return;
     }
@@ -410,9 +405,9 @@ void irods::s3::actions::handle_completemultipartupload(
 
     boost::property_tree::write_xml(s, document, settings);
     string_body_response.body() = s.str();
-    log::debug("{}: response\n{}", __FUNCTION__, s.str());
+    logging::debug("{}: response\n{}", __FUNCTION__, s.str());
     string_body_response.result(boost::beast::http::status::ok);
-    log::debug("{}: returned {}", __FUNCTION__, string_body_response.reason());
+    logging::debug("{}: returned {}", __FUNCTION__, string_body_response.reason());
     session_ptr->send(std::move(string_body_response)); 
     return;
 }

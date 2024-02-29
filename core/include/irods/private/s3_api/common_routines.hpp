@@ -1,12 +1,13 @@
 #ifndef IRODS_S3_API_COMMON_ROUTINES_HPP
 #define IRODS_S3_API_COMMON_ROUTINES_HPP
 
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-
 #include <string>
 
 #include <fmt/format.h>
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 #include <fmt/chrono.h>
+#pragma clang diagnostic pop 
 
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_generators.hpp>
@@ -36,7 +37,7 @@ namespace irods::s3::api::common_routines {
         boost::beast::http::response<boost::beast::http::string_body> response;
 
         std::string request_id = boost::lexical_cast<std::string>(boost::uuids::random_generator()());
-        irods::http::log::error("{}: {} - {}", func, request_id, message);
+        irods::http::logging::error("{}: {} - {}", func, request_id, message);
         response.result(status_code);
         response.set(boost::beast::http::field::content_type, "text/xml");
 
@@ -59,8 +60,8 @@ namespace irods::s3::api::common_routines {
         response.prepare_payload();
 
         // log and send the response
-        irods::http::log::debug("{}: {} - returned {}", func, request_id, response.reason());
-        irods::http::log::debug("{}: {} - response xml\n{}", func, request_id, response.body());
+        irods::http::logging::debug("{}: {} - returned {}", func, request_id, response.reason());
+        irods::http::logging::debug("{}: {} - response xml\n{}", func, request_id, response.body());
         session_ptr->send(std::move(response)); 
         return;
     }

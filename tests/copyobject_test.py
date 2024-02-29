@@ -155,7 +155,7 @@ class CopyObject_Test(TestCase):
         try:
             make_arbitrary_file(put_filename, 100*1024)
             assert_command(f'iput {put_filename} {self.bucket_irods_path}/{put_filename}')
-            assert_command(f'aws --profile s3_api_alice --endpoint-url {self.s3_api_url} '
+            assert_command(f'aws --profile s3_api_alice_nomultipart --endpoint-url {self.s3_api_url} '
                     f's3 cp s3://{self.bucket_name}/{put_filename} s3://{self.bucket_name}/{copy_filename}',
                     'STDOUT_SINGLELINE',
                     f'copy: s3://{self.bucket_name}/{put_filename} to s3://{self.bucket_name}/{copy_filename}')
@@ -179,7 +179,7 @@ class CopyObject_Test(TestCase):
             make_arbitrary_file(overwritten_filename, 100)
             assert_command(f'iput {put_filename} {self.bucket_irods_path}/{put_filename}')
             assert_command(f'iput {overwritten_filename} {self.bucket_irods_path}/{copy_filename}')  # file to be overwritten
-            assert_command(f'aws --profile s3_api_alice --endpoint-url {self.s3_api_url} '
+            assert_command(f'aws --profile s3_api_alice_nomultipart --endpoint-url {self.s3_api_url} '
                     f's3 cp s3://{self.bucket_name}/{put_filename} s3://{self.bucket_name}/{copy_filename}',
                     'STDOUT_SINGLELINE',
                     f'copy: s3://{self.bucket_name}/{put_filename} to s3://{self.bucket_name}/{copy_filename}')
@@ -201,7 +201,7 @@ class CopyObject_Test(TestCase):
         try:
             make_arbitrary_file(put_filename, 20*1024*1024)
             assert_command(f'iput {put_filename} {self.bucket_irods_path}/{put_filename}')
-            assert_command(f'aws --profile s3_api_alice --endpoint-url {self.s3_api_url} '
+            assert_command(f'aws --profile s3_api_alice_nomultipart --endpoint-url {self.s3_api_url} '
                     f's3 cp s3://{self.bucket_name}/{put_filename} s3://{self.bucket_name}/{copy_filename}',
                     'STDOUT_SINGLELINE',
                     f'copy: s3://{self.bucket_name}/{put_filename} to s3://{self.bucket_name}/{copy_filename}')
@@ -225,7 +225,7 @@ class CopyObject_Test(TestCase):
             make_arbitrary_file(put_filename, 20*1024*1024)
             assert_command(f'imkdir {self.bucket_irods_path}/{put_directory}')
             assert_command(f'iput {put_filename} {self.bucket_irods_path}/{put_directory}/{put_filename}')
-            assert_command(f'aws --profile s3_api_alice --endpoint-url {self.s3_api_url} '
+            assert_command(f'aws --profile s3_api_alice_nomultipart --endpoint-url {self.s3_api_url} '
                     f's3 cp s3://{self.bucket_name}/{put_directory}/{put_filename} s3://{self.bucket_name}/{copy_directory}/{copy_filename}',
                     'STDOUT_SINGLELINE',
                     f'copy: s3://{self.bucket_name}/{put_directory}/{put_filename} to s3://{self.bucket_name}/{copy_directory}/{copy_filename}')
@@ -249,7 +249,7 @@ class CopyObject_Test(TestCase):
             make_arbitrary_file(put_filename, 20*1024*1024)
             assert_command(f'imkdir {self.bucket_irods_path}/{put_directory}')
             assert_command(f'iput {put_filename} {self.bucket_irods_path}/{put_directory}/{put_filename}')
-            assert_command(f'aws --profile s3_api_alice --endpoint-url {self.s3_api_url} '
+            assert_command(f'aws --profile s3_api_alice_nomultipart --endpoint-url {self.s3_api_url} '
                     f's3 cp s3://{self.bucket_name}/{put_directory}/{put_filename} s3://{self.bucket_name2}/{copy_directory}/{copy_filename}',
                     'STDOUT_SINGLELINE',
                     f'copy: s3://{self.bucket_name}/{put_directory}/{put_filename} to s3://{self.bucket_name2}/{copy_directory}/{copy_filename}')

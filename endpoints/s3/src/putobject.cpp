@@ -28,7 +28,7 @@
 namespace asio = boost::asio;
 namespace beast = boost::beast;
 namespace fs = irods::experimental::filesystem;
-namespace log = irods::http::log;
+namespace logging = irods::http::logging;
 
 namespace {
     const std::regex upload_id_pattern("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}");
@@ -53,40 +53,63 @@ void manually_parse_chunked_body_write_to_irods_in_background(
     const std::string& parsing_buffer_string,
     const std::string func);
 
+        /*std::make_shared<incremental_async_read>(
+            parser, session_ptr, response, path, upload_part, upload_part_filename)
+                ->start();*/
 class incremental_async_read
     : public std::enable_shared_from_this<incremental_async_read>
 {
     irods::http::session_pointer_type session_ptr_;
     beast::http::response<beast::http::empty_body> resp_;
     std::shared_ptr<beast::http::request_parser<boost::beast::http::buffer_body>> parser_;
+    std::string irods_path_;
+    bool upload_part_flag_;
     std::string part_filename_;
     std::ofstream part_file_;
+    irods::experimental::io::odstream odstream_;
     std::vector<char> buffer_;
     std::size_t total_bytes_read_{};
-
+    std::shared_ptr<irods::experimental::client_connection> conn_;
+    irods::experimental::io::client::default_transport tp_;
   public:
     incremental_async_read(
         std::shared_ptr<beast::http::request_parser<boost::beast::http::buffer_body>>& _parser,
         irods::http::session_pointer_type& _session_ptr,
         beast::http::response<beast::http::empty_body>& _response,
-        std::string _etag,
-        std::string _part_filename)
+        std::string _irods_path,
+        bool _upload_part_flag,
+        std::string _part_filename,
+        std::shared_ptr<irods::experimental::client_connection> _conn)
         : session_ptr_{_session_ptr->shared_from_this()}
         , resp_{std::move(_response)}
         , parser_{_parser}
+        , irods_path_{_irods_path}
+        , upload_part_flag_{_upload_part_flag}
         , part_filename_{std::move(_part_filename)}
         , buffer_(irods::s3::get_put_object_buffer_size_in_bytes())
+        , conn_{_conn}
+        , tp_{*conn_}
     {
         resp_.version(parser_->get().version());
-        resp_.set("Etag", _etag);
+        resp_.set("Etag", _irods_path);
         resp_.keep_alive(parser_->get().keep_alive());
 
-        log::trace("{}: Opening part file [{}] for writing.", __func__, part_filename_);
-        part_file_.open(part_filename_);
-        if (!part_file_) {
-            auto msg = fmt::format("{}: Failed to open part file for writing [{}].", __func__, _part_filename);
-            log::error(msg);
-            THROW(SYS_INTERNAL_ERR, std::move(msg));
+        if (upload_part_flag_) {
+            logging::trace("{}: Opening part file [{}] for writing.", __func__, part_filename_);
+            part_file_.open(part_filename_);
+            if (!part_file_) {
+                auto msg = fmt::format("{}: Failed to open part file for writing [{}].", __func__, _part_filename);
+                logging::error(msg);
+                THROW(SYS_INTERNAL_ERR, std::move(msg));
+            }
+        } else {
+            logging::trace("{}: Opening iRODS file [{}] for writing.", __func__, part_filename_);
+            odstream_.open(tp_, std::move(irods_path_), irods::experimental::io::root_resource_name{irods::s3::get_resource()});
+            if (!odstream_) {
+                auto msg = fmt::format("{}: Failed to open irods file for writing [{}].", __func__, _irods_path);
+                logging::error(msg);
+                THROW(SYS_INTERNAL_ERR, std::move(msg));
+            }
         }
 
         parser_->get().body().data = buffer_.data();
@@ -111,10 +134,10 @@ class incremental_async_read
 
     auto on_incremental_async_read(beast::error_code _ec, std::size_t _bytes_transferred) -> void
     {
-        log::debug("{}: multipart upload: Number of bytes read from socket = [{}]", __func__, _bytes_transferred);
+        logging::debug("{}: multipart upload: Number of bytes read from socket = [{}]", __func__, _bytes_transferred);
 
         if (_ec && _ec != beast::http::error::need_buffer) {
-            log::error("{}: multipart upload: Error reading from socket: {}", __func__, _ec.message());
+            logging::error("{}: multipart upload: Error reading from socket: {}", __func__, _ec.message());
             resp_.result(beast::http::status::internal_server_error);
             session_ptr_->send(std::move(resp_)); // Schedules an async write op.
             return;
@@ -126,22 +149,38 @@ class incremental_async_read
         // chance to perform socket IO. Socket IO occurs on foreground threads only.
         irods::http::globals::background_task([self = shared_from_this()] {
             const auto byte_count = self->buffer_.size() - self->parser_->get().body().size;
-            log::debug("{}: multipart upload: [{}] bytes in buffer_body for part file [{}].", __func__, byte_count, self->part_filename_);
+            logging::debug("{}: multipart upload: [{}] bytes in buffer_body for part file [{}].", __func__, byte_count, self->part_filename_);
 
             self->total_bytes_read_ += byte_count;
-            log::debug("{}: multipart upload: Total bytes [{}] read for part file [{}].", __func__, self->total_bytes_read_, self->part_filename_);
+            logging::debug("{}: multipart upload: Total bytes [{}] read for part file [{}].", __func__, self->total_bytes_read_, self->part_filename_);
 
-            if (!self->part_file_.write(self->buffer_.data(), byte_count)) {
-                log::error("{}: multipart upload: Error writing [{}] bytes to part file [{}].", __func__, byte_count, self->part_filename_);
-                self->resp_.result(beast::http::status::internal_server_error);
-                self->session_ptr_->send(std::move(self->resp_)); // Schedules an async write op.
-                return;
+            if (self->upload_part_flag_) {
+                if (!self->part_file_.write(self->buffer_.data(), byte_count)) {
+                    logging::error("{}: multipart upload: Error writing [{}] bytes to part file [{}].", __func__, byte_count, self->part_filename_);
+                    self->resp_.result(beast::http::status::internal_server_error);
+                    self->session_ptr_->send(std::move(self->resp_)); // Schedules an async write op.
+                    return;
+                }
+                logging::debug("{}: multipart upload: Wrote [{}] bytes to part file [{}].", __func__, byte_count, self->part_filename_);
+            } else {
+                if (!self->odstream_.write(self->buffer_.data(), byte_count)) {
+                    logging::error("{}: multipart upload: Error writing [{}] bytes to iRODS data object [{}].", __func__, byte_count, self->irods_path_);
+                    self->resp_.result(beast::http::status::internal_server_error);
+                    self->session_ptr_->send(std::move(self->resp_)); // Schedules an async write op.
+                    return;
+                }
+                logging::debug("{}: multipart upload: Wrote [{}] bytes to iRODS file [{}].", __func__, byte_count, self->irods_path_);
             }
 
-            log::debug("{}: multipart upload: Wrote [{}] bytes to part file [{}].", __func__, byte_count, self->part_filename_);
-
             if (self->parser_->is_done()) {
-                log::trace("{}: Request message has been processed [parser is done]", __func__);
+                if (self->upload_part_flag_) {
+                    self->part_file_.close();
+                }
+                else {
+                    self->odstream_.close();
+                }
+
+                logging::trace("{}: Request message has been processed [parser is done]", __func__);
                 self->resp_.result(beast::http::status::ok);
                 self->session_ptr_->send(std::move(self->resp_)); // Schedules an async write op.
                 return;
@@ -160,15 +199,17 @@ void irods::s3::actions::handle_putobject(
     beast::http::request_parser<boost::beast::http::empty_body>& empty_body_parser,
     const boost::urls::url_view& url)
 {
+    using json_pointer = nlohmann::json::json_pointer;
+
     beast::http::response<beast::http::empty_body> response;
 
     // Authenticate
     auto irods_username = irods::s3::authentication::authenticates(empty_body_parser, url);
 
     if (!irods_username) {
-        log::error("{}: Failed to authenticate.", __FUNCTION__);
+        logging::error("{}: Failed to authenticate.", __FUNCTION__);
         response.result(beast::http::status::forbidden);
-        log::debug("{}: returned {}", __FUNCTION__, response.reason());
+        logging::debug("{}: returned {}", __FUNCTION__, response.reason());
         session_ptr->send(std::move(response)); 
         return;
     }
@@ -184,7 +225,7 @@ void irods::s3::actions::handle_putobject(
     if (header != parser_message.end() && header->value() == "STREAMING-AWS4-HMAC-SHA256-PAYLOAD") {
         special_chunked_header = true;
     }
-    log::debug("{} special_chunk_header: {}", __FUNCTION__, special_chunked_header);
+    logging::debug("{} special_chunk_header: {}", __FUNCTION__, special_chunked_header);
 
     // See if we have chunked set.  If so turn off special chunked header flag as the
     // parser will handle it.
@@ -201,9 +242,9 @@ void irods::s3::actions::handle_putobject(
     if (!chunked_flag) {
         header = parser_message.find("Content-Length");
         if (header == parser_message.end()) {
-            log::error("{} Neither Content-Length nor chunked mode were set.", __FUNCTION__);
+            logging::error("{} Neither Content-Length nor chunked mode were set.", __FUNCTION__);
             response.result(boost::beast::http::status::bad_request);
-            log::debug("{}: returned {}", __FUNCTION__, response.reason());
+            logging::debug("{}: returned {}", __FUNCTION__, response.reason());
             session_ptr->send(std::move(response));
             return;
         }
@@ -217,13 +258,13 @@ void irods::s3::actions::handle_putobject(
         beast::error_code ec;
         beast::http::write(session_ptr->stream(), response, ec);
         if (ec) {
-            log::error("{}: multipart upload: Error sending [100-continue] response: {}", __func__, ec.message());
+            logging::error("{}: multipart upload: Error sending [100-continue] response: {}", __func__, ec.message());
             response.result(beast::http::status::internal_server_error);
             session_ptr->send(std::move(response)); 
             return;
         }
 
-        log::debug("{}: Sent 100-continue", __FUNCTION__);
+        logging::debug("{}: Sent 100-continue", __FUNCTION__);
     }
 
     fs::path path;
@@ -232,13 +273,13 @@ void irods::s3::actions::handle_putobject(
         path = irods::s3::finish_path(path, url.segments());
     }
     else {
-        log::error("{}: Failed to resolve bucket", __FUNCTION__);
+        logging::error("{}: Failed to resolve bucket", __FUNCTION__);
         response.result(beast::http::status::not_found);
-        log::debug("{}: returned {}", __FUNCTION__, response.reason());
+        logging::debug("{}: returned {}", __FUNCTION__, response.reason());
         session_ptr->send(std::move(response)); 
         return;
     }
-    log::debug("{}: Path [{}]", __FUNCTION__, path.string());
+    logging::debug("{}: Path [{}]", __FUNCTION__, path.string());
 
     // check to see if this is a part upload
     bool upload_part = false;
@@ -256,21 +297,21 @@ void irods::s3::actions::handle_putobject(
         // either partNumber or uploadId provided
         upload_part = true;
         if (part_number.empty()) {
-            log::error("{}: UploadPart detected but partNumber was not provided.", __FUNCTION__);
+            logging::error("{}: UploadPart detected but partNumber was not provided.", __FUNCTION__);
             response.result(beast::http::status::bad_request);
-            log::debug("{}: returned {}", __FUNCTION__, response.reason());
+            logging::debug("{}: returned {}", __FUNCTION__, response.reason());
             session_ptr->send(std::move(response));
             return;
         } else if (upload_id.empty()) {
-            log::error("{}: UploadPart detected but upload_id was not provided.", __FUNCTION__);
+            logging::error("{}: UploadPart detected but upload_id was not provided.", __FUNCTION__);
             response.result(beast::http::status::bad_request);
-            log::debug("{}: returned {}", __FUNCTION__, response.reason());
+            logging::debug("{}: returned {}", __FUNCTION__, response.reason());
             session_ptr->send(std::move(response));
             return;
         } else if (!std::regex_match(upload_id, upload_id_pattern)) {
-            log::error("{}: Upload ID {} was not in expected format.", __FUNCTION__, upload_id);
+            logging::error("{}: Upload ID {} was not in expected format.", __FUNCTION__, upload_id);
             response.result(beast::http::status::bad_request);
-            log::debug("{}: returned {}", __FUNCTION__, response.reason());
+            logging::debug("{}: returned {}", __FUNCTION__, response.reason());
             session_ptr->send(std::move(response)); 
             return;
         }
@@ -278,11 +319,11 @@ void irods::s3::actions::handle_putobject(
         // get the base location for the part files
         const nlohmann::json& config = irods::http::globals::configuration();
         std::string part_file_location = config.value(
-                nlohmann::json::json_pointer{"/s3_server/location_part_upload_files"}, ".");
+                json_pointer{"/s3_server/multipart_upload_part_files_directory"}, ".");
 
         // the current part file full path
-        upload_part_filename = part_file_location + "/" + upload_id + "." + part_number;
-        log::debug("{}: UploadPart detected.  partNumber={} uploadId={}", __FUNCTION__, part_number, upload_id);
+        upload_part_filename = part_file_location + "/irods_s3_api_" + upload_id + "." + part_number;
+        logging::debug("{}: UploadPart detected.  partNumber={} uploadId={}", __FUNCTION__, part_number, upload_id);
     }
 
     // Make sure the parent collection exists.
@@ -292,42 +333,40 @@ void irods::s3::actions::handle_putobject(
     }
 
     uint64_t read_buffer_size = irods::s3::get_put_object_buffer_size_in_bytes();
-    log::debug("{}: read_buffer_size={}", __FUNCTION__, read_buffer_size);
+    logging::debug("{}: read_buffer_size={}", __FUNCTION__, read_buffer_size);
 
     response.set("Etag", path.c_str());
     response.set("Connection", "close");
     response.keep_alive(parser_message.keep_alive());
 
+    // Create a dedicated iRODS connection for the upload.
+    const auto& config = irods::http::globals::configuration();
+    const auto& irods_client_config = config.at("irods_client");
+    const auto& zone = irods_client_config.at("zone").get_ref<const std::string&>();
+
+    const auto& rodsadmin_username =
+        irods_client_config.at(json_pointer{"/proxy_admin_account/username"}).get_ref<const std::string&>();
+    auto rodsadmin_password =
+        irods_client_config.at(json_pointer{"/proxy_admin_account/password"}).get_ref<const std::string&>();
+
+    auto conn = std::make_shared<irods::experimental::client_connection>(
+        irods::experimental::defer_authentication,
+        irods_client_config.at("host").get_ref<const std::string&>(),
+        irods_client_config.at("port").get<int>(),
+        irods::experimental::fully_qualified_username{rodsadmin_username, zone},
+        irods::experimental::fully_qualified_username{*irods_username, zone});
+
+    auto* conn_ptr = static_cast<RcComm*>(*conn);
+
+    if (const auto ec = clientLoginWithPassword(conn_ptr, rodsadmin_password.data()); ec < 0) {
+        logging::error("{}: clientLoginWithPassword error: {}", __func__, ec);
+        response.result(beast::http::status::internal_server_error);
+        session_ptr->send(std::move(response));
+        return;
+    }
+
     if (special_chunked_header) {
         using irods_default_transport = irods::experimental::io::client::default_transport;
-        using json_pointer = nlohmann::json::json_pointer;
-
-        // Create a dedicated iRODS connection for the upload.
-
-        const auto& config = irods::http::globals::configuration();
-        const auto& irods_client_config = config.at("irods_client");
-        const auto& zone = irods_client_config.at("zone").get_ref<const std::string&>();
-
-        const auto& rodsadmin_username =
-            irods_client_config.at(json_pointer{"/proxy_admin_account/username"}).get_ref<const std::string&>();
-        auto rodsadmin_password =
-            irods_client_config.at(json_pointer{"/proxy_admin_account/password"}).get_ref<const std::string&>();
-
-        auto conn = std::make_shared<irods::experimental::client_connection>(
-            irods::experimental::defer_authentication,
-            irods_client_config.at("host").get_ref<const std::string&>(),
-            irods_client_config.at("port").get<int>(),
-            irods::experimental::fully_qualified_username{rodsadmin_username, zone},
-            irods::experimental::fully_qualified_username{*irods_username, zone});
-
-        auto* conn_ptr = static_cast<RcComm*>(*conn);
-
-        if (const auto ec = clientLoginWithPassword(conn_ptr, rodsadmin_password.data()); ec < 0) {
-            log::error("{}: clientLoginWithPassword error: {}", __func__, ec);
-            response.result(beast::http::status::internal_server_error);
-            session_ptr->send(std::move(response));
-            return;
-        }
 
         // create an output file stream to iRODS - wrap all structs in shared pointers
         // since these objects will persist than the current routine
@@ -340,20 +379,19 @@ void irods::s3::actions::handle_putobject(
 
         if (upload_part) {
             ofs->open(upload_part_filename, std::ofstream::out);
-            // TODO fs::resize_file(p, content_length);
             if (!ofs->is_open()) {
-                log::error("{}: Failed to open stream for writing part", __FUNCTION__);
+                logging::error("{}: Failed to open stream for writing part", __FUNCTION__);
                 response.result(beast::http::status::internal_server_error);
-                log::debug("{}: returned {}", __FUNCTION__, response.reason());
+                logging::debug("{}: returned {}", __FUNCTION__, response.reason());
                 session_ptr->send(std::move(response));
                 return;
             }
         } else {
             d->open(*tp, std::move(path), irods::experimental::io::root_resource_name{irods::s3::get_resource()});
             if (!d->is_open()) {
-                log::error("{}: Failed to open dstream to iRODS", __FUNCTION__);
+                logging::error("{}: Failed to open dstream to iRODS", __FUNCTION__);
                 response.result(beast::http::status::internal_server_error);
-                log::debug("{}: returned {}", __FUNCTION__, response.reason());
+                logging::debug("{}: returned {}", __FUNCTION__, response.reason());
                 session_ptr->send(std::move(response));
                 return;
             }
@@ -389,7 +427,7 @@ void irods::s3::actions::handle_putobject(
                 __FUNCTION__);
     } else {
         std::make_shared<incremental_async_read>(
-            parser, session_ptr, response, path, upload_part_filename)
+            parser, session_ptr, response, path, upload_part, upload_part_filename, conn)
                 ->start();
     }
 } // handle_putobject
@@ -444,9 +482,9 @@ void manually_parse_chunked_body_write_to_irods_in_background(
             }
 
             if (ec) {
-                log::error("{}: Error when parsing file - {}", func, ec.what());
+                logging::error("{}: Error when parsing file - {}", func, ec.what());
                 response.result(beast::http::status::internal_server_error);
-                log::debug("{}: returned {}", func, response.reason());
+                logging::debug("{}: returned {}", func, response.reason());
                 session_ptr->send(std::move(response));
                 return;
             }
@@ -468,7 +506,7 @@ void manually_parse_chunked_body_write_to_irods_in_background(
 
             // if we have read all from the parser but need more bytes enter error state
             if (parser->is_done() && need_more) {
-                log::error("{}: Ran out of bytes before finished parsing", func);
+                logging::error("{}: Ran out of bytes before finished parsing", func);
                 current_state = parsing_state::parsing_error;
                 break;
             }
@@ -509,14 +547,14 @@ void manually_parse_chunked_body_write_to_irods_in_background(
                                     current_state = parsing_state::body;
                                 }
                             } else {
-                                log::error("{}: bad chunk size: {}", func, chunk_size_str);
+                                logging::error("{}: bad chunk size: {}", func, chunk_size_str);
                                 current_state = parsing_state::parsing_error;
                             }
                         } else if (!parser->is_done()) {
                             need_more = true;
                         } else {
                             // we have received all of the bytes but do not have "<hex>\r\n" sequence
-                            log::error("{}: Malformed chunk header", func);
+                            logging::error("{}: Malformed chunk header", func);
                             current_state = parsing_state::parsing_error;
                         }
                     } else {
@@ -533,7 +571,7 @@ void manually_parse_chunked_body_write_to_irods_in_background(
                             parsing_buffer_string = parsing_buffer_string.substr(semicolon_location+1);
                             current_state = parsing_state::header_continue;
                         } else {
-                            log::error("{}: bad chunk size: {}", func, chunk_size_str);
+                            logging::error("{}: bad chunk size: {}", func, chunk_size_str);
                             current_state = parsing_state::parsing_error;
                         }
                     }
@@ -557,7 +595,7 @@ void manually_parse_chunked_body_write_to_irods_in_background(
                     } else {
                         // we have read all the bytes but do not have a \r\n at the end
                         // of the header line
-                        log::error("{}: Malformed chunk header", func);
+                        logging::error("{}: Malformed chunk header", func);
                         current_state = parsing_state::parsing_error;
                     }
                     break;
@@ -577,9 +615,9 @@ void manually_parse_chunked_body_write_to_irods_in_background(
                             }
                         }
                         catch (std::exception& e) {
-                            log::error("{}: Exception when writing to file - {}", func, e.what());
+                            logging::error("{}: Exception when writing to file - {}", func, e.what());
                             response.result(beast::http::status::internal_server_error);
-                            log::debug("{}: returned {}", func, response.reason());
+                            logging::debug("{}: returned {}", func, response.reason());
                             session_ptr->send(std::move(response));
                             return;
                         }
@@ -615,7 +653,7 @@ void manually_parse_chunked_body_write_to_irods_in_background(
 
                     size_t newline_location = parsing_buffer_string.find("\r\n");
                     if (newline_location != 0) {
-                        log::error("{}: Invalid chunk end sequence", func);
+                        logging::error("{}: Invalid chunk end sequence", func);
                         current_state = parsing_state::parsing_error;
                     } else {
                         // remove \r\n and go to next chunk
@@ -641,7 +679,7 @@ void manually_parse_chunked_body_write_to_irods_in_background(
                     d->close();
                 }
                 response.result(beast::http::status::ok);
-                log::debug("{}: returned {}:{}", func, response.reason(), __LINE__);
+                logging::debug("{}: returned {}:{}", func, response.reason(), __LINE__);
                 session_ptr->send(std::move(response)); 
                 return;
             } else if (current_state == parsing_state::parsing_error) {
@@ -651,9 +689,9 @@ void manually_parse_chunked_body_write_to_irods_in_background(
                 else {
                     d->close();
                 }
-                log::error("{}: Error parsing chunked body", func);
+                logging::error("{}: Error parsing chunked body", func);
                 response.result(boost::beast::http::status::bad_request);
-                log::debug("{}: returned {}", func, response.reason());
+                logging::debug("{}: returned {}", func, response.reason());
                 session_ptr->send(std::move(response));
                 return;
             }
