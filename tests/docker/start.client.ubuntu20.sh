@@ -14,4 +14,5 @@ mc alias set s3-api-rods http://irods-s3-api:8080 s3_key1 s3_secret_key1
 
 #### Run All Tests ####
 cd /irods_client_s3_cpp/tests
+export AWS_EC2_METADATA_DISABLED=true
 python3 run_all_tests.py
