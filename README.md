@@ -97,7 +97,7 @@ If everything succeeds, you will have a DEB package in the local directory you m
 
 ## The Runner Image
 
-The runner image is responsible for running the iRODS S3 API. Building the runner image requires the DEB package the iRODS S3 API to exist on the local machine. See the previous section for details on generating the package.
+The runner image is responsible for running the iRODS S3 API. Building the runner image requires the DEB package for the iRODS S3 API to exist on the local machine. See the previous section for details on generating the package.
 
 To build the image, run the following command:
 ```bash
@@ -181,7 +181,7 @@ make package # Use -j to use more parallelism.
 
 Upon success, you should have an installable package.
 
-If you run into issues, try checking if the git submodules exist on your machine and you're running an up-to-date version of Docker.
+If you run into issues, try checking if the git submodules exist on your machine.
 
 ## Running without Docker
 
