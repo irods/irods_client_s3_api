@@ -25,73 +25,75 @@ namespace fs = irods::experimental::filesystem;
 namespace logging = irods::http::logging;
 
 void irods::s3::actions::handle_createmultipartupload(
-    irods::http::session_pointer_type session_ptr,
-    boost::beast::http::request_parser<boost::beast::http::empty_body>& parser,
-    const boost::urls::url_view& url)
+	irods::http::session_pointer_type session_ptr,
+	boost::beast::http::request_parser<boost::beast::http::empty_body>& parser,
+	const boost::urls::url_view& url)
 {
-    beast::http::response<beast::http::empty_body> response;
+	beast::http::response<beast::http::empty_body> response;
 
-    // Authenticate
-    auto irods_username = irods::s3::authentication::authenticates(parser, url);
-    if (!irods_username) {
-        logging::error("{}: Failed to authenticate.", __FUNCTION__);
-        response.result(beast::http::status::forbidden);
-        logging::debug("{}: returned {}", __FUNCTION__, response.reason());
-        session_ptr->send(std::move(response)); 
-        return;
-    }
+	// Authenticate
+	auto irods_username = irods::s3::authentication::authenticates(parser, url);
+	if (!irods_username) {
+		logging::error("{}: Failed to authenticate.", __FUNCTION__);
+		response.result(beast::http::status::forbidden);
+		logging::debug("{}: returned {}", __FUNCTION__, response.reason());
+		session_ptr->send(std::move(response));
+		return;
+	}
 
-    auto conn = irods::get_connection(*irods_username);
-    
-    std::filesystem::path s3_bucket;
-    std::filesystem::path s3_key;
+	auto conn = irods::get_connection(*irods_username);
 
-    bool on_bucket = true;
-    for (auto seg : url.encoded_segments()) {
-        if (on_bucket) {
-            on_bucket = false;
-            s3_bucket = seg.decode();
-        } else {
-            s3_key = s3_key / seg.decode();
-        }
-    }
-   
-    logging::debug("{} s3_bucket={} s3_key={}", __FUNCTION__, s3_bucket.string(), s3_key.string());
+	std::filesystem::path s3_bucket;
+	std::filesystem::path s3_key;
 
-    fs::path path;
-    if (auto bucket = irods::s3::resolve_bucket(url.segments()); bucket.has_value()) {
-        path = bucket.value();
-        path = irods::s3::finish_path(path, url.segments());
-        logging::debug("{}: CreateMultipartUpload path={}", __FUNCTION__, path.string());
-    } else {
-        logging::error("{}: Failed to resolve bucket", __FUNCTION__);
-        response.result(beast::http::status::forbidden);
-        logging::debug("{}: returned {}", __FUNCTION__, response.reason());
-        session_ptr->send(std::move(response)); 
-        return;
-    }
+	bool on_bucket = true;
+	for (auto seg : url.encoded_segments()) {
+		if (on_bucket) {
+			on_bucket = false;
+			s3_bucket = seg.decode();
+		}
+		else {
+			s3_key = s3_key / seg.decode();
+		}
+	}
 
-    beast::http::response<beast::http::string_body> string_body_response(std::move(response));
-    string_body_response.result(boost::beast::http::status::ok);
+	logging::debug("{} s3_bucket={} s3_key={}", __FUNCTION__, s3_bucket.string(), s3_key.string());
 
-    // create the UploadId
-    std::string upload_id = boost::lexical_cast<std::string>(boost::uuids::random_generator()());
+	fs::path path;
+	if (auto bucket = irods::s3::resolve_bucket(url.segments()); bucket.has_value()) {
+		path = bucket.value();
+		path = irods::s3::finish_path(path, url.segments());
+		logging::debug("{}: CreateMultipartUpload path={}", __FUNCTION__, path.string());
+	}
+	else {
+		logging::error("{}: Failed to resolve bucket", __FUNCTION__);
+		response.result(beast::http::status::forbidden);
+		logging::debug("{}: returned {}", __FUNCTION__, response.reason());
+		session_ptr->send(std::move(response));
+		return;
+	}
 
-    boost::property_tree::ptree document;
-    document.add("InitiateMultipartUploadResult", "");
-    document.add("InitiateMultipartUploadResult.Bucket", s3_bucket.c_str());
-    document.add("InitiateMultipartUploadResult.Key", s3_key.c_str());
-    document.add("InitiateMultipartUploadResult.UploadId", upload_id.c_str());
+	beast::http::response<beast::http::string_body> string_body_response(std::move(response));
+	string_body_response.result(boost::beast::http::status::ok);
 
-    std::stringstream s;
-    boost::property_tree::xml_parser::xml_writer_settings<std::string> settings;
-    settings.indent_char = ' ';
-    settings.indent_count = 4;
-    boost::property_tree::write_xml(s, document, settings);
-    string_body_response.body() = s.str();
-    std::cout << "------ CreateMultipartUpload Response Body -----" << std::endl;
-    std::cout << s.str() << std::endl;
+	// create the UploadId
+	std::string upload_id = boost::lexical_cast<std::string>(boost::uuids::random_generator()());
+
+	boost::property_tree::ptree document;
+	document.add("InitiateMultipartUploadResult", "");
+	document.add("InitiateMultipartUploadResult.Bucket", s3_bucket.c_str());
+	document.add("InitiateMultipartUploadResult.Key", s3_key.c_str());
+	document.add("InitiateMultipartUploadResult.UploadId", upload_id.c_str());
+
+	std::stringstream s;
+	boost::property_tree::xml_parser::xml_writer_settings<std::string> settings;
+	settings.indent_char = ' ';
+	settings.indent_count = 4;
+	boost::property_tree::write_xml(s, document, settings);
+	string_body_response.body() = s.str();
+	std::cout << "------ CreateMultipartUpload Response Body -----" << std::endl;
+	std::cout << s.str() << std::endl;
 
 	string_body_response.prepare_payload();
-    session_ptr->send(std::move(string_body_response)); 
+	session_ptr->send(std::move(string_body_response));
 }

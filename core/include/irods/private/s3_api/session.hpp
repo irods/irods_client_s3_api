@@ -56,10 +56,10 @@ namespace irods::http
 				stream_, *sp, boost::beast::bind_front_handler(&session::on_write, shared_from_this(), sp->need_eof()));
 		} // send
 
-        boost::beast::flat_buffer& get_buffer()
-        {
-            return buffer_;
-        }
+		boost::beast::flat_buffer& get_buffer()
+		{
+			return buffer_;
+		}
 
 	  private:
 		boost::beast::tcp_stream stream_;
