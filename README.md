@@ -38,10 +38,10 @@ Goal is to support the equivalent of:
 
 # Limitations / What's Missing
 
-## Multipart Uploads
+## Multipart
 
-Multipart uploads have not been implemented for copy operations where `x-amz-copy-source` and `x-amz-copy-source-range` are used.
-When performing a copy from one iRODS file to another, multipart uploads should be disabled.
+Multipart has not been implemented for copy operations where `x-amz-copy-source` and `x-amz-copy-source-range` are used.
+When performing a copy from one iRODS file to another, multipart should be disabled.
 
 See [Disabling Multipart](#disabling-multipart) for details.
 
@@ -448,13 +448,13 @@ client = session.create_client("s3",
 
 # Disabling Multipart
 
-Multipart uploads are not supported at this time.  Therefore, multipart must be disabled in the client.
+Multipart copies are not supported at this time.  Therefore, multipart must be disabled in the client.
 
 ## Disabling Multipart for AWS CLI
 
-For AWS CLI, multipart uploads can be disabled by setting an arbitrarily large multipart threshold.  Since 5 GB is the largest single part upload allowed by AWS, this is a good choice.
+For AWS CLI, multipart can be disabled by setting an arbitrarily large multipart threshold.  Since 5 GB is the largest single part allowed by AWS, this is a good choice.
 
-To disable multipart uploads, set the `multipart_threshold` in the ~/.aws/credentials file for the profile in question.  For example, you could create a profile called `irods_s3_no_multipart` with the following in the credentials file.
+To disable multipart, set the `multipart_threshold` in the ~/.aws/credentials file for the profile in question.  For example, you could create a profile called `irods_s3_no_multipart` with the following in the credentials file.
 
 ```
 [irods_s3_no_multipart]
@@ -477,7 +477,7 @@ self.boto3_client.upload_file(put_filename, bucket_name, key, Config=config)
 
 ## Example of MinIO mc client
 
-The `mc cp` command has a `--disable-multipart` option for file uploads.  Here is an example of an upload with a `myminio` alias:
+The `mc cp` command has a `--disable-multipart` option.  Here is an example of a copy with a `myminio` alias:
 
 ```bash
 mc cp --disable-multipart put_file myminio/bucket_name/put_filename
