@@ -26,7 +26,6 @@ target_include_directories(
   "${IRODS_S3_API_PROJECT_BINARY_DIR}/core/include"
   "${IRODS_S3_API_PROJECT_SOURCE_DIR}/endpoints/shared/include"
   "${IRODS_EXTERNALS_FULLPATH_BOOST}/include"
-  "${IRODS_EXTERNALS_FULLPATH_SPDLOG}/include"
 )
 
 if (IRODS_VERSION VERSION_GREATER "4.3.1")
@@ -34,6 +33,7 @@ if (IRODS_VERSION VERSION_GREATER "4.3.1")
     irods_s3_api_endpoint_authentication
     PUBLIC
     fmt::fmt
+    spdlog::spdlog
   )
 else()
   target_link_libraries(
@@ -46,6 +46,7 @@ else()
     irods_s3_api_endpoint_authentication
     PRIVATE
     "${IRODS_EXTERNALS_FULLPATH_FMT}/include"
+    "${IRODS_EXTERNALS_FULLPATH_SPDLOG}/include"
   )
 endif()
 

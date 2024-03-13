@@ -93,6 +93,8 @@ find_package(OpenSSL REQUIRED COMPONENTS Crypto SSL)
 if (IRODS_VERSION VERSION_GREATER "4.3.1")
   find_package(fmt "8.1.1"
     HINTS "${IRODS_EXTERNALS_FULLPATH_FMT}")
+  find_package(spdlog "1.9.2"
+    HINTS "${IRODS_EXTERNALS_FULLPATH_SPDLOG}")
 endif()
 
 include(ObjectTargetHelpers)
