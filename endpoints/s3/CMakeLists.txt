@@ -25,7 +25,6 @@ target_link_libraries(
   irods_s3_endpoints
   PRIVATE
   irods_client
-  CURL::libcurl
   nlohmann_json::nlohmann_json
 )
 
