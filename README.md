@@ -496,6 +496,8 @@ docker compose build
 docker compose run client
 ```
 
+*Note: If you get an error like `'name' does not match any of the regexes: '^x-'` then you will need to upgrade your version of docker compose.*
+
 The test output will appear in the terminal.  Once the tests complete run the following to cleanup:
 
 ```bash

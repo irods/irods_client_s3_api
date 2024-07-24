@@ -64,6 +64,11 @@ class PutObject_Test(TestCase):
             assert_command(f'iget {self.bucket_irods_path}/{put_filename} {get_filename}')
             assert_command(f'diff -q {put_filename} {get_filename}')
 
+            # perform upload a second time to make sure original file was closed properly
+            self.boto3_client.upload_file(put_filename, self.bucket_name, put_filename)
+            assert_command(f'iget -f {self.bucket_irods_path}/{put_filename} {get_filename}')
+            assert_command(f'diff -q {put_filename} {get_filename}')
+
         finally:
             os.remove(put_filename)
             os.remove(get_filename)
@@ -120,6 +125,14 @@ class PutObject_Test(TestCase):
                     'STDOUT_SINGLELINE',
                     f'upload: ./{put_filename} to s3://{self.bucket_name}/{put_filename}')
             assert_command(f'iget {self.bucket_irods_path}/{put_filename} {get_filename}')
+            assert_command(f'diff -q {put_filename} {get_filename}')
+
+            # perform upload a second time to make sure original file was closed properly
+            assert_command(f'aws --profile s3_api_alice --endpoint-url {self.s3_api_url} '
+                    f's3 cp {put_filename} s3://{self.bucket_name}/{put_filename}',
+                    'STDOUT_SINGLELINE',
+                    f'upload: ./{put_filename} to s3://{self.bucket_name}/{put_filename}')
+            assert_command(f'iget -f {self.bucket_irods_path}/{put_filename} {get_filename}')
             assert_command(f'diff -q {put_filename} {get_filename}')
 
         finally:
@@ -179,6 +192,13 @@ class PutObject_Test(TestCase):
                     'STDOUT_SINGLELINE',
                     'large_file')
             assert_command(f'iget {self.bucket_irods_path}/{put_filename} {get_filename}')
+            assert_command(f'diff -q {put_filename} {get_filename}')
+
+            # perform upload a second time to make sure original file was closed properly
+            assert_command(f'mc cp {put_filename} s3-api-alice/{self.bucket_name}/{put_filename}',
+                    'STDOUT_SINGLELINE',
+                    'large_file')
+            assert_command(f'iget -f {self.bucket_irods_path}/{put_filename} {get_filename}')
             assert_command(f'diff -q {put_filename} {get_filename}')
 
         finally:
