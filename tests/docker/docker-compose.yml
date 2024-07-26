@@ -1,4 +1,5 @@
 version: '3'
+name: s3-api
 
 services:
     irods:
