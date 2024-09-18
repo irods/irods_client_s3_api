@@ -67,5 +67,10 @@ namespace irods::s3::actions
 		boost::beast::http::request_parser<boost::beast::http::empty_body>& parser,
 		const boost::urls::url_view&);
 
+	void handle_abortmultipartupload(
+		irods::http::session_pointer_type sess_ptr,
+		boost::beast::http::request_parser<boost::beast::http::empty_body>& parser,
+		const boost::urls::url_view&);
+
 } //namespace irods::s3::actions
 #endif
