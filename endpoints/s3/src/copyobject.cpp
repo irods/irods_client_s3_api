@@ -24,7 +24,7 @@ void irods::s3::actions::handle_copyobject(
 	auto irods_username = irods::s3::authentication::authenticates(parser, url);
 	if (!irods_username) {
 		response.result(beast::http::status::forbidden);
-		logging::debug("{}: returned {}", __FUNCTION__, response.reason());
+		logging::debug("{}: returned [{}]", __FUNCTION__, response.reason());
 		session_ptr->send(std::move(response));
 		return;
 	}
@@ -39,7 +39,7 @@ void irods::s3::actions::handle_copyobject(
 	else {
 		logging::debug("{}: Could not locate source path", __FUNCTION__);
 		response.result(beast::http::status::not_found);
-		logging::debug("{}: returned {}", __FUNCTION__, response.reason());
+		logging::debug("{}: returned [{}]", __FUNCTION__, response.reason());
 		session_ptr->send(std::move(response));
 		return;
 	}
@@ -49,13 +49,13 @@ void irods::s3::actions::handle_copyobject(
 	else {
 		logging::debug("{}: Could not locate destination path", __FUNCTION__);
 		response.result(beast::http::status::not_found);
-		logging::debug("{}: returned {}", __FUNCTION__, response.reason());
+		logging::debug("{}: returned [{}]", __FUNCTION__, response.reason());
 		session_ptr->send(std::move(response));
 		return;
 	}
 	if (source_path.empty() || destination_path.empty()) {
 		response.result(beast::http::status::not_found);
-		logging::debug("{}: returned {}", __FUNCTION__, response.reason());
+		logging::debug("{}: returned [{}]", __FUNCTION__, response.reason());
 		session_ptr->send(std::move(response));
 		return;
 	}
@@ -75,14 +75,14 @@ void irods::s3::actions::handle_copyobject(
 				response.result(beast::http::status::internal_server_error);
 				break;
 		}
-		logging::debug("{}: returned {}", __FUNCTION__, response.reason());
+		logging::debug("{}: returned [{}]", __FUNCTION__, response.reason());
 		session_ptr->send(std::move(response));
 		return;
 	}
 	catch (std::system_error& e) {
 		logging::error("{}: {}", __FUNCTION__, e.what());
 		response.result(beast::http::status::internal_server_error);
-		logging::debug("{}: returned {}", __FUNCTION__, response.reason());
+		logging::debug("{}: returned [{}]", __FUNCTION__, response.reason());
 		session_ptr->send(std::move(response));
 		return;
 	}
@@ -92,7 +92,7 @@ void irods::s3::actions::handle_copyobject(
 	// md5 sum appended to the path of the object. This makes it both content-sensitive and location sensitive.
 	beast::http::response<beast::http::string_body> string_body_response(std::move(response));
 	string_body_response.body() = "<CopyObjectResult><ETag>TBD</ETag></CopyObjectResult>";
-	logging::debug("{}: returned {}", __FUNCTION__, string_body_response.reason());
+	logging::debug("{}: returned [{}]", __FUNCTION__, string_body_response.reason());
 	session_ptr->send(std::move(string_body_response));
 	return;
 }

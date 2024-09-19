@@ -51,7 +51,7 @@ void irods::s3::actions::handle_deleteobject(
 	auto irods_username = irods::s3::authentication::authenticates(parser, url);
 	if (!irods_username) {
 		response.result(beast::http::status::forbidden);
-		logging::debug("{}: returned {}", __FUNCTION__, response.reason());
+		logging::debug("{}: returned [{}]", __FUNCTION__, response.reason());
 		session_ptr->send(std::move(response));
 		return;
 	}
@@ -68,7 +68,7 @@ void irods::s3::actions::handle_deleteobject(
 	else {
 		response.result(beast::http::status::not_found);
 		logging::debug("{}: Could not find bucket", __FUNCTION__);
-		logging::debug("{}: returned {}", __FUNCTION__, response.reason());
+		logging::debug("{}: returned [{}]", __FUNCTION__, response.reason());
 		session_ptr->send(std::move(response));
 		return;
 	}
@@ -83,14 +83,14 @@ void irods::s3::actions::handle_deleteobject(
 			else {
 				response.result(beast::http::status::forbidden);
 			}
-			logging::debug("{}: returned {}", __FUNCTION__, response.reason());
+			logging::debug("{}: returned [{}]", __FUNCTION__, response.reason());
 			session_ptr->send(std::move(response));
 			return;
 		}
 		else {
 			logging::debug("{}: Could not find file {}", __FUNCTION__, path.string());
 			response.result(beast::http::status::not_found);
-			logging::debug("{}: returned {}", __FUNCTION__, response.reason());
+			logging::debug("{}: returned [{}]", __FUNCTION__, response.reason());
 			session_ptr->send(std::move(response));
 			return;
 		}
@@ -111,13 +111,13 @@ void irods::s3::actions::handle_deleteobject(
 				response.result(beast::http::status::internal_server_error);
 				break;
 		}
-		logging::debug("{}: returned {}", __FUNCTION__, response.reason());
+		logging::debug("{}: returned [{}]", __FUNCTION__, response.reason());
 		session_ptr->send(std::move(response));
 		return;
 	}
 	catch (...) {
 		response.result(beast::http::status::not_found);
-		logging::debug("{}: returned {}", __FUNCTION__, response.reason());
+		logging::debug("{}: returned [{}]", __FUNCTION__, response.reason());
 		session_ptr->send(std::move(response));
 	}
 }

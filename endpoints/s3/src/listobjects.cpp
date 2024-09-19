@@ -44,7 +44,7 @@ void irods::s3::actions::handle_listobjects_v2(
 	auto irods_username = irods::s3::authentication::authenticates(parser, url);
 	if (!irods_username) {
 		response.result(beast::http::status::forbidden);
-		logging::debug("{}: returned {}", __FUNCTION__, response.reason());
+		logging::debug("{}: returned [{}]", __FUNCTION__, response.reason());
 		session_ptr->send(std::move(response));
 		return;
 	}
@@ -58,7 +58,7 @@ void irods::s3::actions::handle_listobjects_v2(
 	}
 	else {
 		response.result(beast::http::status::not_found);
-		logging::debug("{}: returned {}", __FUNCTION__, response.reason());
+		logging::debug("{}: returned [{}]", __FUNCTION__, response.reason());
 		session_ptr->send(std::move(response));
 		return;
 	}
@@ -262,6 +262,6 @@ void irods::s3::actions::handle_listobjects_v2(
 	string_body_response.body() = s.str();
 
 	logging::debug("{}: response body {}", __FUNCTION__, s.str());
-	logging::debug("{}: returned {}", __FUNCTION__, string_body_response.reason());
+	logging::debug("{}: returned [{}]", __FUNCTION__, string_body_response.reason());
 	session_ptr->send(std::move(string_body_response));
 }

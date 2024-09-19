@@ -93,7 +93,7 @@ void irods::s3::actions::handle_getobject(
 	if (!irods_username) {
 		logging::error("{}: Failed to authenticate.", __FUNCTION__);
 		response.result(beast::http::status::forbidden);
-		logging::debug("{}: returned {}", __FUNCTION__, response.reason());
+		logging::debug("{}: returned [{}]", __FUNCTION__, response.reason());
 		session_ptr->send(std::move(response));
 		return;
 	}
@@ -106,7 +106,7 @@ void irods::s3::actions::handle_getobject(
 	else {
 		logging::error("{}: Failed to resolve bucket", __FUNCTION__);
 		response.result(beast::http::status::not_found);
-		logging::debug("{}: returned {}", __FUNCTION__, response.reason());
+		logging::debug("{}: returned [{}]", __FUNCTION__, response.reason());
 		session_ptr->send(std::move(response));
 		return;
 	}
@@ -153,7 +153,7 @@ void irods::s3::actions::handle_getobject(
 			if (range_parts.size() != 2) {
 				logging::error("{}: The provided range format has not been implemented.", __FUNCTION__);
 				response.result(beast::http::status::not_implemented);
-				logging::debug("{}: returned {}", __FUNCTION__, response.reason());
+				logging::debug("{}: returned [{}]", __FUNCTION__, response.reason());
 				session_ptr->send(std::move(response));
 				return;
 			}
@@ -167,7 +167,7 @@ void irods::s3::actions::handle_getobject(
 			catch (const boost::bad_lexical_cast&) {
 				logging::error("{}: Could not cast the start or end range to a size_t.", __FUNCTION__);
 				response.result(beast::http::status::not_implemented);
-				logging::debug("{}: returned {}", __FUNCTION__, response.reason());
+				logging::debug("{}: returned [{}]", __FUNCTION__, response.reason());
 				session_ptr->send(std::move(response));
 				return;
 			}
@@ -177,7 +177,7 @@ void irods::s3::actions::handle_getobject(
 				"{}: The provided range format has not been implemented - does not begin with \"bytes=\".",
 				__FUNCTION__);
 			response.result(beast::http::status::not_implemented);
-			logging::debug("{}: returned {}", __FUNCTION__, response.reason());
+			logging::debug("{}: returned [{}]", __FUNCTION__, response.reason());
 			session_ptr->send(std::move(response));
 			return;
 		}
@@ -219,7 +219,7 @@ void irods::s3::actions::handle_getobject(
 				logging::error("{}: Fail/badbit set", __FUNCTION__);
 				persistent_data_ptr->response.result(beast::http::status::forbidden);
 				persistent_data_ptr->response.body().more = false;
-				logging::debug("{}: returned {}", __FUNCTION__, persistent_data_ptr->response.reason());
+				logging::debug("{}: returned [{}]", __FUNCTION__, persistent_data_ptr->response.reason());
 				session_ptr->send(std::move(persistent_data_ptr->response));
 				return;
 			}
@@ -227,7 +227,7 @@ void irods::s3::actions::handle_getobject(
 			beast::http::write_header(session_ptr->stream().socket(), persistent_data_ptr->serializer, ec);
 			if (ec) {
 				persistent_data_ptr->response.result(beast::http::status::internal_server_error);
-				logging::debug("{}: returned {}", __FUNCTION__, persistent_data_ptr->response.reason());
+				logging::debug("{}: returned [{}]", __FUNCTION__, persistent_data_ptr->response.reason());
 				session_ptr->send(std::move(persistent_data_ptr->response));
 				return;
 			}
@@ -261,19 +261,19 @@ void irods::s3::actions::handle_getobject(
 				break;
 		}
 
-		logging::debug("{}: returned {}", __FUNCTION__, response.reason());
+		logging::debug("{}: returned [{}]", __FUNCTION__, response.reason());
 		session_ptr->send(std::move(response));
 	}
 	catch (std::exception& e) {
 		logging::error("{}: Exception {}", __FUNCTION__, e.what());
 		response.result(beast::http::status::internal_server_error);
-		logging::debug("{}: returned {}", __FUNCTION__, response.reason());
+		logging::debug("{}: returned [{}]", __FUNCTION__, response.reason());
 		session_ptr->send(std::move(response));
 	}
 	catch (...) {
 		logging::error("{}: Unknown exception encountered", __FUNCTION__);
 		response.result(beast::http::status::internal_server_error);
-		logging::debug("{}: returned {}", __FUNCTION__, response.reason());
+		logging::debug("{}: returned [{}]", __FUNCTION__, response.reason());
 		session_ptr->send(std::move(response));
 	}
 
@@ -334,7 +334,7 @@ void read_from_irods_send_to_client(
 			if (offset > range_end) {
 				persistent_data_ptr->response.body().more = false;
 				logging::debug(
-					"{} returned {} error={}", __FUNCTION__, persistent_data_ptr->response.reason(), ec.message());
+					"{} returned [{}] error={}", __FUNCTION__, persistent_data_ptr->response.reason(), ec.message());
 				return;
 			}
 

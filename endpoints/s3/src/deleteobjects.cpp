@@ -56,7 +56,7 @@ void irods::s3::actions::handle_deleteobjects(
 	auto irods_username = irods::s3::authentication::authenticates(empty_body_parser, url);
 	if (!irods_username) {
 		response.result(beast::http::status::forbidden);
-		logging::debug("{}: returned {}", __FUNCTION__, response.reason());
+		logging::debug("{}: returned [{}]", __FUNCTION__, response.reason());
 		session_ptr->send(std::move(response));
 		return;
 	}
@@ -77,7 +77,7 @@ void irods::s3::actions::handle_deleteobjects(
 	else {
 		response.result(beast::http::status::not_found);
 		logging::debug("{}: Could not find bucket", __FUNCTION__);
-		logging::debug("{}: returned {}", __FUNCTION__, response.reason());
+		logging::debug("{}: returned [{}]", __FUNCTION__, response.reason());
 		session_ptr->send(std::move(response));
 		return;
 	}
@@ -95,14 +95,14 @@ void irods::s3::actions::handle_deleteobjects(
 	catch (boost::property_tree::xml_parser_error& e) {
 		logging::debug("{}: Could not parse XML body.", __FUNCTION__);
 		response.result(boost::beast::http::status::bad_request);
-		logging::debug("{}: returned {}", __FUNCTION__, response.reason());
+		logging::debug("{}: returned [{}]", __FUNCTION__, response.reason());
 		session_ptr->send(std::move(response));
 		return;
 	}
 	catch (...) {
 		logging::debug("{}: Unknown error parsing XML body.", __FUNCTION__);
 		response.result(boost::beast::http::status::bad_request);
-		logging::debug("{}: returned {}", __FUNCTION__, response.reason());
+		logging::debug("{}: returned [{}]", __FUNCTION__, response.reason());
 		session_ptr->send(std::move(response));
 		return;
 	}
@@ -129,7 +129,7 @@ void irods::s3::actions::handle_deleteobjects(
 	catch (...) {
 		logging::debug("{}: Error parsing XML body.", __FUNCTION__);
 		response.result(boost::beast::http::status::bad_request);
-		logging::debug("{}: returned {}", __FUNCTION__, response.reason());
+		logging::debug("{}: returned [{}]", __FUNCTION__, response.reason());
 		session_ptr->send(std::move(response));
 		return;
 	}
@@ -230,6 +230,6 @@ void irods::s3::actions::handle_deleteobjects(
 	response.body() = s.str();
 	logging::debug("{}: response\n{}", __FUNCTION__, s.str());
 	response.result(boost::beast::http::status::ok);
-	logging::debug("{}: returned {}", __FUNCTION__, response.reason());
+	logging::debug("{}: returned [{}]", __FUNCTION__, response.reason());
 	session_ptr->send(std::move(response));
 }

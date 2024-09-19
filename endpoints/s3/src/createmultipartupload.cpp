@@ -36,7 +36,7 @@ void irods::s3::actions::handle_createmultipartupload(
 	if (!irods_username) {
 		logging::error("{}: Failed to authenticate.", __FUNCTION__);
 		response.result(beast::http::status::forbidden);
-		logging::debug("{}: returned {}", __FUNCTION__, response.reason());
+		logging::debug("{}: returned [{}]", __FUNCTION__, response.reason());
 		session_ptr->send(std::move(response));
 		return;
 	}
@@ -68,7 +68,7 @@ void irods::s3::actions::handle_createmultipartupload(
 	else {
 		logging::error("{}: Failed to resolve bucket", __FUNCTION__);
 		response.result(beast::http::status::forbidden);
-		logging::debug("{}: returned {}", __FUNCTION__, response.reason());
+		logging::debug("{}: returned [{}]", __FUNCTION__, response.reason());
 		session_ptr->send(std::move(response));
 		return;
 	}

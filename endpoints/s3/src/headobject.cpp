@@ -31,7 +31,7 @@ void irods::s3::actions::handle_headobject(
 
 		if (!irods_username) {
 			response.result(beast::http::status::forbidden);
-			logging::debug("{}: returned {}", __FUNCTION__, response.reason());
+			logging::debug("{}: returned [{}]", __FUNCTION__, response.reason());
 			session_ptr->send(std::move(response));
 			return;
 		}
@@ -46,7 +46,7 @@ void irods::s3::actions::handle_headobject(
 		else {
 			logging::error("Failed to resolve bucket");
 			response.result(beast::http::status::forbidden);
-			logging::debug("{}: returned {}", __FUNCTION__, response.reason());
+			logging::debug("{}: returned [{}]", __FUNCTION__, response.reason());
 			session_ptr->send(std::move(response));
 			return;
 		}
@@ -64,7 +64,7 @@ void irods::s3::actions::handle_headobject(
 
 			if (!can_see) {
 				response.result(boost::beast::http::status::forbidden);
-				logging::debug("{}: returned {}", __FUNCTION__, response.reason());
+				logging::debug("{}: returned [{}]", __FUNCTION__, response.reason());
 				session_ptr->send(std::move(response));
 				return;
 			}
@@ -80,13 +80,13 @@ void irods::s3::actions::handle_headobject(
 			std::string last_write_time__str =
 				irods::s3::api::common_routines::convert_time_t_to_str(last_write_time__time_t, date_format);
 			response.insert(beast::http::field::last_modified, last_write_time__str);
-			logging::debug("{}: returned {}", __FUNCTION__, response.reason());
+			logging::debug("{}: returned [{}]", __FUNCTION__, response.reason());
 			session_ptr->send(std::move(response));
 			return;
 		}
 		else {
 			response.result(boost::beast::http::status::not_found);
-			logging::debug("{}: returned {}", __FUNCTION__, response.reason());
+			logging::debug("{}: returned [{}]", __FUNCTION__, response.reason());
 			session_ptr->send(std::move(response));
 			return;
 			/*return irods::s3::api::common_routines::send_error_response(
@@ -111,7 +111,7 @@ void irods::s3::actions::handle_headobject(
 		}
 	}
 
-	logging::debug("{}: returned {}", __FUNCTION__, response.reason());
+	logging::debug("{}: returned [{}]", __FUNCTION__, response.reason());
 	session_ptr->send(std::move(response));
 	return;
 }

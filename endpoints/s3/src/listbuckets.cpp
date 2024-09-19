@@ -46,7 +46,7 @@ void irods::s3::actions::handle_listbuckets(
 
 	if (!irods_username) {
 		response.result(beast::http::status::forbidden);
-		logging::debug("{}: returned {}", __FUNCTION__, response.reason());
+		logging::debug("{}: returned [{}]", __FUNCTION__, response.reason());
 		session_ptr->send(std::move(response));
 		return;
 	}
@@ -102,7 +102,7 @@ void irods::s3::actions::handle_listbuckets(
 	boost::property_tree::write_xml(s, document, settings);
 	string_body_response.body() = s.str();
 	logging::debug("{}: return string:\n{}", __FUNCTION__, s.str());
-	logging::debug("{}: returned {}", __FUNCTION__, string_body_response.reason());
+	logging::debug("{}: returned [{}]", __FUNCTION__, string_body_response.reason());
 	session_ptr->send(std::move(string_body_response));
 	return;
 }
