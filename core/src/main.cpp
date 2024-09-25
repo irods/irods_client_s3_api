@@ -97,35 +97,10 @@ class listener : public std::enable_shared_from_this<listener>
 	                         .get<int>()}
 		, timeout_in_secs_{_config.at(json::json_pointer{"/s3_server/requests/timeout_in_seconds"}).get<int>()}
 	{
-		beast::error_code ec;
-
-		// Open the acceptor
-		acceptor_.open(endpoint.protocol(), ec);
-		if (ec) {
-			irods::fail(ec, "open");
-			return;
-		}
-
-		// Allow address reuse
-		acceptor_.set_option(net::socket_base::reuse_address(true), ec);
-		if (ec) {
-			irods::fail(ec, "set_option");
-			return;
-		}
-
-		// Bind to the server address
-		acceptor_.bind(endpoint, ec);
-		if (ec) {
-			irods::fail(ec, "bind");
-			return;
-		}
-
-		// Start listening for connections
-		acceptor_.listen(net::socket_base::max_listen_connections, ec);
-		if (ec) {
-			irods::fail(ec, "listen");
-			return;
-		}
+		acceptor_.open(endpoint.protocol());
+		acceptor_.set_option(net::socket_base::reuse_address(true));
+		acceptor_.bind(endpoint);
+		acceptor_.listen(net::socket_base::max_listen_connections);
 	} // listener (constructor)
 
 	// Start accepting incoming connections.
