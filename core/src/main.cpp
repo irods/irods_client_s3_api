@@ -785,6 +785,11 @@ auto main(int _argc, char* _argv[]) -> int
 		logging::trace("Initializing TLS.");
 		init_tls(config);
 
+		// Ignore SIGPIPE. The iRODS networking code assumes SIGPIPE is ignored so that broken
+		// socket connections can be detected at the call site. This MUST be called before any
+		// iRODS connections are established.
+		std::signal(SIGPIPE, SIG_IGN); // NOLINT(cppcoreguidelines-pro-type-cstyle-cast)
+
 		std::unique_ptr<irods::connection_pool> conn_pool;
 
 		if (!config.at(json::json_pointer{"/irods_client/enable_4_2_compatibility"}).get<bool>()) {
@@ -803,24 +808,16 @@ auto main(int _argc, char* _argv[]) -> int
 		std::make_shared<listener>(ioc, tcp::endpoint{address, port}, config)->run();
 
 		// SIGINT and SIGTERM instruct the server to shut down.
-		// Ignore SIGPIPE. The iRODS networking code assumes SIGPIPE is ignored or caught.
 		logging::trace("Initializing signal handlers.");
-		net::signal_set signals{ioc, SIGINT, SIGTERM, SIGPIPE};
 
-		const std::function<void(const beast::error_code&, int)> process_signals =
-			[&ioc, &signals, &process_signals](const beast::error_code&, int _signal) {
-				if (SIGPIPE == _signal) {
-					signals.async_wait(process_signals);
-					return;
-				}
+		net::signal_set signals{ioc, SIGINT, SIGTERM};
 
-				// Stop the io_context. This will cause run() to return immediately, eventually destroying
-			    // the io_context and all of the sockets in it.
-				logging::warn("Received signal [{}]. Shutting down.", _signal);
-				ioc.stop();
-			};
-
-		signals.async_wait(process_signals);
+		signals.async_wait([&ioc](const beast::error_code&, int _signal) {
+			// Stop the io_context. This will cause run() to return immediately, eventually destroying
+			// the io_context and all of the sockets in it.
+			logging::warn("Received signal [{}]. Shutting down.", _signal);
+			ioc.stop();
+		});
 
 		// Launch the requested number of dedicated backgroup I/O threads.
 		// These threads are used for long running tasks (e.g. reading/writing bytes, database, etc.)
