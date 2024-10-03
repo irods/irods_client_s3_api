@@ -7,7 +7,7 @@ A project that presents an iRODS Zone as S3 compatible storage.
 Implements a subset of the Amazon S3 API:
   - https://docs.aws.amazon.com/AmazonS3/latest/API/API_Operations.html
 
-Initial effort includes:
+This API currently supports:
   - [x] CopyObject
   - [x] CompleteMultipartUpload
   - [x] CreateMultipartUpload
@@ -29,7 +29,7 @@ Initial effort includes:
   - [x] UploadPart
   - UploadPartCopy ?
 
-Goal is to support the equivalent of:
+The goal is to support the equivalent of:
  - ils - `aws s3 ls s3://bucketname/a/b/c/`
  - iput - `aws s3 cp localfile s3://bucketname/a/b/c/filename`
  - iget - `aws s3 cp s3://bucketname/a/b/c/filename localfile`
