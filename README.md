@@ -8,6 +8,7 @@ Implements a subset of the Amazon S3 API:
   - https://docs.aws.amazon.com/AmazonS3/latest/API/API_Operations.html
 
 This API currently supports:
+  - [x] AbortMultipartUpload
   - [x] CopyObject
   - [x] CompleteMultipartUpload
   - [x] CreateMultipartUpload
