@@ -136,7 +136,7 @@ void irods::s3::actions::handle_abortmultipartupload(
 	}
 
 	// delete the entry in the replica_token_number_and_odstream_map
-	if (part_shmem::replica_token_number_and_odstream_map.find(upload_id) ==
+	if (part_shmem::replica_token_number_and_odstream_map.find(upload_id) !=
 	    part_shmem::replica_token_number_and_odstream_map.end())
 	{
 		// Read all of the shared pointers in the tuple to make sure they are destructed in
