@@ -31,7 +31,10 @@ find_package(Threads REQUIRED)
 
 include("${IRODS_TARGETS_PATH}")
 include(GNUInstallDirs)
-include(UseLibCXX)
+
+if (IRODS_VERSION VERSION_LESS 4.90.0)
+  include(UseLibCXX)
+endif()
 
 if (NOT CMAKE_CONFIGURATION_TYPES AND NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the type of build {Debug, Release}." FORCE)
