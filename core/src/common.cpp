@@ -21,9 +21,22 @@
 #include <boost/algorithm/string.hpp>
 
 #include <curl/curl.h>
+#include <fmt/format.h>
 #include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>
+
 #include <string>
+#include <type_traits>
+
+template <>
+struct fmt::formatter<CURLUcode> : fmt::formatter<std::underlying_type_t<CURLUcode>>
+{
+	constexpr auto format(const CURLUcode& e, format_context& ctx) const
+	{
+		return fmt::formatter<std::underlying_type_t<CURLUcode>>::format(
+			static_cast<std::underlying_type_t<CURLUcode>>(e), ctx);
+	}
+};
 
 namespace irods::http
 {

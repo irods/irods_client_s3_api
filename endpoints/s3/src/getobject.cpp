@@ -38,6 +38,8 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/lexical_cast.hpp>
 
+#include <ios>
+
 namespace asio = boost::asio;
 namespace beast = boost::beast;
 namespace fs = irods::experimental::filesystem;
@@ -328,7 +330,7 @@ void read_from_irods_send_to_client(
 				return;
 			}
 
-			logging::trace("{}: Wrote {} bytes total.  offset={}", func, size, offset);
+			logging::trace("{}: Wrote {} bytes total.  offset={}", func, static_cast<std::streamoff>(size), offset);
 
 			// If we have now read beyond the range_end then we are done. Return.
 			if (offset > range_end) {
