@@ -58,8 +58,8 @@ namespace irods::http
 	{
 		authorization_scheme auth_scheme;
 		std::string username;
-		std::chrono::steady_clock::time_point expires_at; 
-		// TODO Store an expiration timestamp here. Post discush: let it expire and send reauth code to client.
+		std::chrono::steady_clock::time_point expires_at;
+		// TODO(#144): Store an expiration timestamp here. Post discush: let it expire and send reauth code to client.
 		// Perhaps a purge timestamp as well. This is an optimization situation.
 	}; // struct authenticated_client_info
 
