@@ -86,10 +86,14 @@ namespace
 		std::ios state(nullptr);
 		state.copyfmt(result);
 
+		// HTTP Verb
 		result << parser.get().method_string() << '\n';
 		result.copyfmt(result); // re store former formatting
+
+		// Canonical URI
 		result << canonicalize_url(url) << '\n';
-		// Canonicalize query string
+
+		// Canonical Query String
 		{
 			bool first = true;
 			// Changing it to a pair enables us to sort easily.
@@ -106,6 +110,15 @@ namespace
 				});
 			std::sort(params.begin(), params.end());
 			for (const auto& param : params) {
+				// Regarding Query Parameter-based authentication, the S3 documentation says the following:
+				// "The Canonical Query String must include all the query parameters from the preceding table except
+				// for X-Amz-Signature."
+				// Since signatures are not used in generating themselves, exclude them for all authentication types.
+				if ("X-Amz-Signature" == param.first) {
+					continue;
+				}
+
+				// The Query Parameters come from the URL, so they are already URI-encoded.
 				result << (first ? "" : "&") << param.first;
 				result << '=' << param.second;
 
@@ -114,6 +127,7 @@ namespace
 		}
 		result << '\n';
 
+		// Canonical Headers
 		for (const auto& header : parser.get()) {
 			if (std::find(signed_headers.begin(), signed_headers.end(), to_lower(header.name_string())) !=
 			    signed_headers.end()) {
@@ -121,7 +135,6 @@ namespace
 			}
 		}
 
-		// Produce the 'canonical headers'
 		std::sort(sorted_fields.begin(), sorted_fields.end(), [](const auto& lhs, const auto& rhs) {
 			const auto result = std::mismatch(
 				lhs.cbegin(),
@@ -152,8 +165,7 @@ namespace
 
 		sorted_fields.clear();
 
-		// and the signed header list
-
+		// Signed Headers
 		for (const auto& hd : signed_headers) {
 			sorted_fields.push_back(hd);
 		}
@@ -168,8 +180,7 @@ namespace
 			result << '\n';
 		}
 
-		//and the payload signature
-
+		// Hashed Payload
 		if (auto req = parser.get().find("X-Amz-Content-SHA256"); req != parser.get().end()) {
 			result << req->value();
 		}
@@ -179,21 +190,8 @@ namespace
 
 		return result.str();
 	}
-
-	std::string string_to_sign(
-		const boost::beast::http::request_parser<boost::beast::http::empty_body>& parser,
-		const std::string_view date,
-		const std::string_view region,
-		const std::string_view canonical_request)
-	{
-		std::stringstream result;
-		result << "AWS4-HMAC-SHA256\n";
-		result << parser.get().at("X-Amz-Date") << '\n';
-		result << date << '/' << region << "/s3/aws4_request\n";
-		result << irods::s3::authentication::hex_encode(irods::s3::authentication::hash_sha_256(canonical_request));
-		return result.str();
-	}
 } //namespace
+
 std::optional<std::string> irods::s3::authentication::authenticates(
 	const boost::beast::http::request_parser<boost::beast::http::empty_body>& parser,
 	const boost::urls::url_view& url)
@@ -201,31 +199,82 @@ std::optional<std::string> irods::s3::authentication::authenticates(
 	namespace logging = irods::http::logging;
 
 	std::vector<std::string> auth_fields, credential_fields, signed_headers;
-	// should be equal to something like
-	// [ 'AWS4-SHA256-HMAC Credential=...', 'SignedHeaders=...', 'Signature=...']
 
-	boost::split(auth_fields, parser.get().at("Authorization"), boost::is_any_of(","));
+	std::string signature;
+	std::string signature_timestamp;
 
-	// Strip the names and such
-	for (auto& field : auth_fields) {
-		field = field.substr(field.find('=') + 1);
+	const auto& parsed_message = parser.get();
+	const auto authorization_iter = parsed_message.find("Authorization");
+	if (parsed_message.end() == authorization_iter) {
+		// If there is no Authorization header in the parsed message, we may be dealing with a presigned URL.
+		const auto& params = url.params();
+
+		// The Credential parameter contains the information normally included in the Authorization header.
+		const auto credentials_iter = params.find("X-Amz-Credential");
+		if (params.end() == credentials_iter) {
+			logging::debug("No Authorization header or X-Amz-Credential parameter found.");
+			return std::nullopt;
+		}
+		boost::split(credential_fields, (*credentials_iter).value, boost::is_any_of("/"));
+
+		// The Date query parameter indicates when the request was signed and is required.
+		const auto date_iter = params.find("X-Amz-Date");
+		if (params.end() == date_iter) {
+			logging::debug("No X-Amz-Date query parameter found.");
+			return std::nullopt;
+		}
+		signature_timestamp = (*date_iter).value;
+
+		// Get the SignedHeaders from the query parameters. This must include at least "host".
+		const auto signed_headers_iter = params.find("X-Amz-SignedHeaders");
+		if (params.end() == credentials_iter) {
+			logging::debug("No X-Amz-SignedHeaders query parameters found.");
+			return std::nullopt;
+		}
+		boost::split(signed_headers, (*signed_headers_iter).value, boost::is_any_of(";"));
+
+		// The actual Signature must be provided so that we can verify the calculated signature.
+		const auto signature_iter = params.find("X-Amz-Signature");
+		if (params.end() == signature_iter) {
+			logging::debug("No X-Amz-Signature query parameter found.");
+			return std::nullopt;
+		}
+		signature = (*signature_iter).value;
+	}
+	else {
+		// should be equal to something like
+		// [ 'AWS4-SHA256-HMAC Credential=...', 'SignedHeaders=...', 'Signature=...']
+		boost::split(auth_fields, (*authorization_iter).value(), boost::is_any_of(","));
+
+		// Strip the names and such
+		for (auto& field : auth_fields) {
+			field = field.substr(field.find('=') + 1);
+		}
+
+		// Break up the credential field.
+		boost::split(credential_fields, auth_fields[0], boost::is_any_of("/"));
+
+		signature = auth_fields[2];
+
+		boost::split(signed_headers, auth_fields[1], boost::is_any_of(";"));
+
+		signature_timestamp = parsed_message.at("X-Amz-Date");
 	}
 
-	// Break up the credential field.
-	boost::split(credential_fields, auth_fields[0], boost::is_any_of("/"));
+	const auto& access_key_id = credential_fields[0];
+	const auto& date = credential_fields[1];
+	const auto& region = credential_fields[2];
 
-	auto& access_key_id = credential_fields[0]; // This is the username.
-	auto& date = credential_fields[1];
-	auto& region = credential_fields[2];
-
-	auto& signature = auth_fields[2];
-
-	boost::split(signed_headers, auth_fields[1], boost::is_any_of(";"));
-
-	auto canonical_request = canonicalize_request(parser, url, signed_headers);
+	const auto canonical_request = canonicalize_request(parser, url, signed_headers);
 	logging::debug("========== Canon request ==========\n{}", canonical_request);
 
-	auto sts = string_to_sign(parser, date, region, canonical_request);
+	const auto sts = fmt::format(
+		"AWS4-HMAC-SHA256\n{}\n{}/{}/s3/aws4_request\n{}",
+		signature_timestamp,
+		date,
+		region,
+		irods::s3::authentication::hex_encode(irods::s3::authentication::hash_sha_256(canonical_request)));
+
 	logging::debug("======== String to sign ===========\n{}", sts);
 	logging::debug("===================================");
 
@@ -237,6 +286,8 @@ std::optional<std::string> irods::s3::authentication::authenticates(
 		return std::nullopt;
 	}
 
+	// TODO(#147): Check to make sure that the date is not more than 7 days old. That is the maximum amount of time
+	// that a signing key should be valid.
 	auto signing_key =
 		get_user_signing_key(irods::s3::authentication::get_user_secret_key(access_key_id).value(), date, region);
 	auto computed_signature = hex_encode(hmac_sha_256(signing_key, sts));
@@ -246,4 +297,4 @@ std::optional<std::string> irods::s3::authentication::authenticates(
 	logging::debug("Actual Signature: [{}]", signature);
 
 	return (computed_signature == signature) ? irods_user : std::nullopt;
-}
+} // irods::s3::authentication::authenticates
