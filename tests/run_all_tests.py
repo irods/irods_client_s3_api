@@ -9,6 +9,7 @@ import listbuckets_test
 import listobject_test
 import putobject_test
 import abortmultipartupload_test
+import presignedurl_test
 
 
 def run_some_tests():
@@ -22,6 +23,7 @@ def run_some_tests():
             headobject_test.HeadObject_Test,
             listbuckets_test.ListBuckets_Test,
             listobject_test.ListObject_Test,
+            presignedurl_test.PresignedURL_Test,
             putobject_test.PutObject_Test,
             abortmultipartupload_test.AbortMultipartUpload_Test]
 
