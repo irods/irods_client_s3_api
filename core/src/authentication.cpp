@@ -4,14 +4,18 @@
 #include "irods/private/s3_api/log.hpp"
 
 #include <algorithm>
-#include <iostream>
+#include <chrono>
+#include <ctime>
 #include <iomanip>
+#include <iostream>
 #include <sstream>
 
 #include <boost/algorithm/string.hpp>
 
 #include <irods/rcMisc.h>
 #include <irods/rodsKeyWdDef.h>
+
+#include <date/date.h>
 
 namespace
 {
@@ -190,6 +194,57 @@ namespace
 
 		return result.str();
 	}
+
+	auto request_is_expired(const std::string& signature_timestamp, const std::string& expiration_time) -> bool
+	{
+		namespace logging = irods::http::logging;
+		// Maximum time request can be valid is 7 days, and here it is being represented in seconds.
+		constexpr long long maximum_time_request_can_be_valid_in_seconds = 7 * 24 * 60 * 60;
+		constexpr const char* iso_8601_datetime_format = "%Y%m%dT%H%M%SZ";
+		try {
+			std::chrono::time_point<std::chrono::system_clock> tp;
+			std::istringstream is{signature_timestamp};
+			// TODO(#154): Replace date::from_stream with std::chrono::from_stream once we get to Clang 19 / gcc 14.
+			date::from_stream(is, iso_8601_datetime_format, tp);
+			if (is.fail()) {
+				// TODO(#151): Should we actually return an error in this case?
+				logging::debug(
+					"{}: An error occurred when parsing signature timestamp [{}].", __func__, signature_timestamp);
+				return true;
+			}
+
+			// The expiration time should be a string coming from a query parameter or some other part of a request.
+			// It should represent the number of seconds from the time that the request was signed that the
+			// signature is valid.
+			const auto expiration_in_seconds = std::stoll(expiration_time);
+			if (expiration_in_seconds < 0 || expiration_in_seconds > maximum_time_request_can_be_valid_in_seconds) {
+				// The expiration time must be a positive integer in the range [0, 604800]. Otherwise, consider the
+				// request expired.
+				// TODO(#151): Should we actually return an error in this case?
+				logging::debug(
+					"{}: Expiration time invalid: [{}]. Must be in range [0, 604800].",
+					__func__,
+					expiration_in_seconds);
+				return true;
+			}
+
+			if (tp > std::chrono::system_clock::now()) {
+				// If the request is from the future, reject it. It's not "expired", but it should not be processed.
+				logging::debug("{}: Request was signed at a time in the future: [{}].", __func__, signature_timestamp);
+				return true;
+			}
+
+			const auto time_of_expiration = tp + std::chrono::seconds{expiration_in_seconds};
+			return std::chrono::system_clock::now() > time_of_expiration;
+		}
+		catch (const std::exception& e) {
+			// Failed to interpret expiration timestamp, so, consider it expired.
+			logging::debug("{}: Caught exception: {}", __func__, e.what());
+		}
+		// If we reach here, consider the request expired. Some sort of error has occurred.
+		// TODO(#151): Should we actually return an error in this case?
+		return true;
+	} // request_is_expired
 } //namespace
 
 std::optional<std::string> irods::s3::authentication::authenticates(
@@ -224,6 +279,22 @@ std::optional<std::string> irods::s3::authentication::authenticates(
 			return std::nullopt;
 		}
 		signature_timestamp = (*date_iter).value;
+
+		// Need to make sure the credentials haven't expired yet.
+		const auto expiration_iter = params.find("X-Amz-Expires");
+		if (params.end() == expiration_iter) {
+			logging::debug("No X-Amz-Expires query parameter found.");
+			return std::nullopt;
+		}
+		const auto& expiration_time = (*expiration_iter).value;
+
+		// Make sure the request is not expired. Check the Date + Expire time against current server time. This can
+		// happen before or after the signature has been calculated because it will be incorrect if the client tampered
+		// with the Date or Expire times.
+		if (request_is_expired(signature_timestamp, expiration_time)) {
+			logging::debug("Authenticating request failed: Request expired.");
+			return std::nullopt;
+		}
 
 		// Get the SignedHeaders from the query parameters. This must include at least "host".
 		const auto signed_headers_iter = params.find("X-Amz-SignedHeaders");
