@@ -96,6 +96,17 @@ docker run -it --rm \
 
 If everything succeeds, you will have a DEB package in the local directory you mapped to **/packages_output**.
 
+### Using a build cache
+
+In order to keep build artifacts around for faster iteration on build times, include another volume mount for `/_build_s3_api` into which build artifacts can be stored in the host filesystem:
+```bash
+docker run -it --rm \
+    -v /path/to/irods_client_s3_api:/s3_api_source:ro \
+    -v /path/to/build_directory:/_build_s3_api \
+    -v /path/to/packages_directory:/packages_output \
+    irods-s3-api-builder
+```
+
 ## The Runner Image
 
 The runner image is responsible for running the iRODS S3 API. Building the runner image requires the DEB package for the iRODS S3 API to exist on the local machine. See the previous section for details on generating the package.
