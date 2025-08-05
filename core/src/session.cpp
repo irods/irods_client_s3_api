@@ -254,6 +254,10 @@ namespace irods::http
 						irods::s3::actions::handle_abortmultipartupload(shared_this, *parser, url_view);
 					});
 				}
+				else if (params.find("tagging") != params.end()) {
+					logging::debug("{}: DeleteObjectTagging detected", __func__);
+					send(irods::http::fail(http::status::not_implemented));
+				}
 				else {
 					logging::debug("{}: DeleteObject detected", __func__);
 					auto shared_this = shared_from_this();
