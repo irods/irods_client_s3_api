@@ -1,3 +1,6 @@
 [submodule "third-party/hmac_sha256"]
 	path = third-party/hmac_sha256
 	url = https://github.com/h5p9sl/hmac_sha256
+[submodule "third-party/date"]
+	path = third-party/date
+	url = https://github.com/HowardHinnant/date

@@ -54,6 +54,7 @@ target_include_directories(
   PRIVATE
   "${CMAKE_CURRENT_SOURCE_DIR}/include"
   "${CMAKE_CURRENT_BINARY_DIR}/include"
+  "${IRODS_S3_API_PROJECT_SOURCE_DIR}/third-party/date/include"
   "${IRODS_S3_API_PROJECT_SOURCE_DIR}/endpoints/shared/include"
   "${IRODS_EXTERNALS_FULLPATH_BOOST}/include"
 )
