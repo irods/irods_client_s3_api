@@ -8,6 +8,7 @@
 #include <irods/irods_exception.hpp>
 #include <irods/rodsErrorTable.h>
 
+#include <boost/beast/core/string_type.hpp>
 #include <boost/beast/http/status.hpp>
 #include <boost/beast/http/message.hpp>
 #include <boost/beast/http/string_body.hpp>
@@ -15,6 +16,8 @@
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_generators.hpp>
 #include <boost/uuid/uuid_io.hpp>
+
+#include <fmt/format.h>
 
 #include <chrono>
 #include <memory>
@@ -202,5 +205,16 @@ namespace irods
 		return std::strncpy(_dst, _src, N - 1);
 	} // strncpy_null_terminated
 } // namespace irods
+
+#if FMT_VERSION >= 100000 && FMT_VERSION < 110000
+template <>
+struct fmt::formatter<boost::beast::string_view> : fmt::formatter<std::string_view>
+{
+	constexpr auto format(const boost::beast::string_view& _str, format_context& ctx) const
+	{
+		return fmt::formatter<std::string_view>::format(static_cast<std::string_view>(_str), ctx);
+	}
+};
+#endif
 
 #endif // IRODS_S3_API_ENDPOINT_COMMON_HPP
