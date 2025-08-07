@@ -16,6 +16,10 @@ set(IRODS_S3_API_VERSION "${IRODS_CLIENT_VERSION}")
 set(IRODS_PACKAGE_REVISION "0")
 
 include(IrodsExternals)
+if (IRODS_VERSION VERSION_LESS 5.0.2)
+  # Prior to 5.0.2, the iRODS CMake package configuration did not expose jsoncons
+  IRODS_MACRO_CHECK_DEPENDENCY_SET_FULLPATH(JSONCONS jsoncons0.178.0-0)
+endif()
 
 include(IrodsCXXCompiler)
 set(CMAKE_CXX_STANDARD ${IRODS_CXX_STANDARD})

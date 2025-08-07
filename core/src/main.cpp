@@ -41,6 +41,9 @@
 #include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>
 
+#include <jsoncons/json.hpp>
+#include <jsoncons_ext/jsonschema/jsonschema.hpp>
+
 #include <algorithm>
 #include <chrono>
 #include <csignal>
@@ -508,49 +511,45 @@ auto is_valid_configuration(const std::string& _schema_path, const std::string& 
 	try {
 		fmt::print("Validating configuration file ...\n");
 
-		const auto validate_config = [&_config_path](const std::string_view _schema_path) -> int {
-			constexpr std::string_view python_code = "import json, jsonschema; "
-													 "config_file = open('{}'); "
-													 "config = json.load(config_file); "
-													 "config_file.close(); "
-													 "schema_file = open('{}'); "
-													 "schema = json.load(schema_file); "
-													 "schema_file.close(); "
-													 "jsonschema.validate(config, schema);";
+		namespace jsonschema = jsoncons::jsonschema;
 
-			return boost::process::system(
-				boost::process::search_path("python3"), "-c", fmt::format(python_code, _config_path, _schema_path));
-		};
+		std::ifstream in{_config_path};
+		if (!in) {
+			fmt::print(stderr, "Could not open configuration file for validation.\n");
+			return false;
+		}
+		const auto config = jsoncons::json::parse(in);
 
-		std::string schema;
-		int ec = -1;
-
+		jsoncons::json schema;
 		if (_schema_path.empty()) {
 			fmt::print("No JSON schema file provided. Using default.\n");
-
-			constexpr const char* default_schema_file_path = "/tmp/default_irods_s3_api_jsonschema.json";
-
-			if (std::ofstream out{default_schema_file_path}; out) {
-				out << fmt::format(default_jsonschema());
-			}
-			else {
-				fmt::print(stderr, "Could not create local schema file for validation.\n");
-				return false;
-			}
-
-			ec = validate_config(default_schema_file_path);
+			schema = jsoncons::json::parse(default_jsonschema());
 		}
 		else {
 			fmt::print("Using user-provided schema file [{}].\n", _schema_path);
-			ec = validate_config(_schema_path);
+			std::ifstream in{_schema_path};
+			if (!in) {
+				fmt::print(stderr, "Could not open schema file for validation.\n");
+				return false;
+			}
+			schema = jsoncons::json::parse(in);
+		}
+		const auto compiled = jsonschema::make_json_schema(std::move(schema));
+
+		jsoncons::json_decoder<jsoncons::ojson> decoder;
+		compiled.validate(config, decoder);
+		const auto json_result = decoder.get_result();
+
+		if (!json_result.empty()) {
+			std::ostringstream out;
+			out << pretty_print(json_result);
+			fmt::print(stderr, "Configuration failed validation.\n");
+			fmt::print(stderr, "{}\n", out.str());
+			return false;
 		}
 
-		if (ec == 0) {
-			fmt::print("Configuration passed validation!\n");
-			return true;
-		}
-
-		fmt::print(stderr, "Configuration failed validation.\n");
+		fmt::print("Configuration passed validation!\n");
+		return true;
 	}
 	catch (const std::system_error& e) {
 		fmt::print(stderr, "Error: {}\n", e.what());
@@ -727,7 +726,7 @@ auto main(int _argc, char* _argv[]) -> int
 		}
 
 		if (vm.count("dump-default-jsonschema") > 0) {
-			fmt::print(default_jsonschema());
+			fmt::print("{}\n", default_jsonschema());
 			return 0;
 		}
 
