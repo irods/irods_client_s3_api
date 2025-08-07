@@ -17,6 +17,11 @@
 #include <irods/switch_user.h>
 #include <irods/ticketAdmin.h>
 
+#ifdef IRODS_DEV_PACKAGE_IS_AT_LEAST_IRODS_5
+#  include <irods/authenticate.h>
+#  include <irods/irods_auth_constants.hpp> // For AUTH_PASSWORD_KEY.
+#endif // IRODS_DEV_PACKAGE_IS_AT_LEAST_IRODS_5
+
 #include <boost/any.hpp>
 #include <boost/algorithm/string.hpp>
 
@@ -460,9 +465,16 @@ namespace irods
 
 			auto* conn_ptr = static_cast<RcComm*>(conn);
 
-			if (const auto ec = clientLoginWithPassword(conn_ptr, rodsadmin_password.data()); ec < 0) {
-				http::logging::error("{}: clientLoginWithPassword error: {}", __func__, ec);
-				THROW(SYS_INTERNAL_ERR, "clientLoginWithPassword error.");
+#ifdef IRODS_DEV_PACKAGE_IS_AT_LEAST_IRODS_5
+			const auto json_input =
+				nlohmann::json{{"scheme", "native"}, {irods::AUTH_PASSWORD_KEY, rodsadmin_password}};
+			if (const auto ec = rc_authenticate_client(conn_ptr, json_input.dump().c_str()); ec < 0)
+#else
+			if (const auto ec = clientLoginWithPassword(conn_ptr, rodsadmin_password.data()); ec < 0)
+#endif // IRODS_DEV_PACKAGE_IS_AT_LEAST_IRODS_5
+			{
+				http::logging::error("{}: iRODS authentication error: {}", __func__, ec);
+				THROW(SYS_INTERNAL_ERR, "iRODS authentication error.");
 			}
 
 			return irods::http::connection_facade{std::move(conn)};

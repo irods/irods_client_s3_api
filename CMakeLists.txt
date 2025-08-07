@@ -58,6 +58,13 @@ endif()
 
 add_compile_options(-Wall -Wextra -Wpedantic)
 
+if (IRODS_VERSION VERSION_GREATER_EQUAL 4.90.0)
+  # TODO(irods/irods#8580): Remove once library_features.h provides macros to detect the new functions.
+  # iRODS 5 deprecates the clientLogin-family of functions and introduces new support functions for
+  # authentication. This macro signals that the new functions are available.
+  add_compile_definitions(IRODS_DEV_PACKAGE_IS_AT_LEAST_IRODS_5)
+endif()
+
 option(IRODS_ENABLE_ADDRESS_SANITIZER "Enables detection of memory leaks and other features provided by Address Sanitizer." OFF)
 if (IRODS_ENABLE_ADDRESS_SANITIZER)
   # Make sure the correct llvm-symbolizer binary is available to Address Sanitizer. This binary

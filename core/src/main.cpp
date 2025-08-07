@@ -15,6 +15,11 @@
 #include <irods/rcMisc.h>
 #include <irods/rodsClient.h>
 
+#ifdef IRODS_DEV_PACKAGE_IS_AT_LEAST_IRODS_5
+#  include <irods/authenticate.h>
+#  include <irods/irods_auth_constants.hpp> // For AUTH_PASSWORD_KEY.
+#endif // IRODS_DEV_PACKAGE_IS_AT_LEAST_IRODS_5
+
 #include <boost/beast/core.hpp>
 #include <boost/beast/core/flat_buffer.hpp>
 #include <boost/beast/http.hpp>
@@ -630,7 +635,13 @@ auto init_irods_connection_pool(const json& _config) -> std::unique_ptr<irods::c
 		irods::experimental::fully_qualified_username{username, zone},
 		irods::experimental::fully_qualified_username{username, zone},
 		[pw = rodsadmin.at("password").get<std::string>()](RcComm& _comm) mutable {
-			if (const auto ec = clientLoginWithPassword(&_comm, pw.data()); ec != 0) {
+#ifdef IRODS_DEV_PACKAGE_IS_AT_LEAST_IRODS_5
+			const auto json_input = nlohmann::json{{"scheme", "native"}, {irods::AUTH_PASSWORD_KEY, pw.data()}};
+			if (const auto ec = rc_authenticate_client(&_comm, json_input.dump().c_str()); ec != 0)
+#else
+			if (const auto ec = clientLoginWithPassword(&_comm, pw.data()); ec != 0)
+#endif // IRODS_DEV_PACKAGE_IS_AT_LEAST_IRODS_5
+			{
 				throw std::invalid_argument{fmt::format("Could not authenticate rodsadmin user: [{}]", ec)};
 			}
 		},
