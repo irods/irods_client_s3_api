@@ -563,6 +563,7 @@ auto set_log_level(const json& _config) -> void
 
 	if (iter == std::end(_config)) {
 		spdlog::set_level(spdlog::level::info);
+		return;
 	}
 
 	const auto& lvl_string = iter->get_ref<const std::string&>();
