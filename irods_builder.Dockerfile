@@ -60,6 +60,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
         irods-externals-clang13.0.0-0 \
         irods-externals-fmt8.1.1-0 \
         irods-externals-json3.10.4-0 \
+        irods-externals-jsoncons0.178.0-0 \
         irods-externals-jwt-cpp0.6.99.0-0 \
         irods-externals-nanodbc2.13.0-1 \
         irods-externals-spdlog1.9.2-1 \
