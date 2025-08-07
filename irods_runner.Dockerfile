@@ -24,12 +24,9 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
         ca-certificates \
         gnupg \
         lsb-release \
-        python3 \
-        python3-pip \
         wget \
     && \
-    rm -rf /tmp/* && \
-    python3 -m pip install jsonschema
+    rm -rf /tmp/*
 
 RUN mkdir -p /etc/apt/keyrings && \
     wget -qO - https://packages.irods.org/irods-signing-key.asc | \
