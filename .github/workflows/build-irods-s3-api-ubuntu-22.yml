@@ -1,0 +1,75 @@
+name: Build Package
+on: [ pull_request ]
+jobs:
+  build:
+    env:
+      DEBIAN_FRONTEND: noninteractive
+    name: "${{ matrix.os }} - ${{ matrix.irods-version }}"
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ 'ubuntu:22.04' ]
+        irods-version: [ 4.3.1, 4.3.2, 4.3.3, 4.3.4, 5.0.0, 5.0.1 ]
+    runs-on: ubuntu-latest
+    container: ${{ matrix.os }}
+    steps:
+      - name: Install Prerequisites
+        run:  |
+              apt-get update -qq
+              apt-get install -qq \
+                ca-certificates \
+                cmake \
+                g++-11 \
+                gcc-11 \
+                git \
+                gnupg \
+                libcurl4-gnutls-dev \
+                libssl-dev \
+                libssl3 \
+                lsb-release \
+                ninja-build \
+                wget
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          submodules: 'true'
+      - name: Install iRODS
+        run:  |
+              mkdir -p /etc/apt/keyrings
+              wget -qO - https://unstable.irods.org/irods-unstable-signing-key.asc | \
+                gpg \
+                  --no-options \
+                  --no-default-keyring \
+                  --no-auto-check-trustdb \
+                  --homedir /dev/null \
+                  --no-keyring \
+                  --import-options import-export \
+                  --output /etc/apt/keyrings/renci-irods-unstable-archive-keyring.pgp \
+                  --import
+              echo "deb [signed-by=/etc/apt/keyrings/renci-irods-unstable-archive-keyring.pgp arch=amd64] https://unstable.irods.org/apt/ $(lsb_release -sc) main" | \
+                tee /etc/apt/sources.list.d/renci-irods-unstable.list
+              apt-get update -qq
+              apt-get install -qq \
+                "irods-dev=${{ matrix.irods-version }}-0~$(lsb_release -sc)" \
+                "irods-runtime=${{ matrix.irods-version }}-0~$(lsb_release -sc)"
+      - name: Install iRODS Externals
+        run:  |
+              wget -qO - https://unstable.irods.org/irods-unstable-signing-key.asc | apt-key add -
+              echo "deb [arch=amd64] https://unstable.irods.org/apt/ $(lsb_release -sc) main" | tee /etc/apt/sources.list.d/renci-irods-unstable.list
+              apt-get update -qq
+              apt-get install -qq \
+                irods-externals-clang13.0.0-0 \
+                irods-externals-clang13.0.1-0 \
+                irods-externals-fmt-libcxx8.1.1-1 \
+                irods-externals-json3.10.4-0 \
+                irods-externals-jsoncons0.178.0-0 \
+                irods-externals-jwt-cpp0.6.99.1-0 \
+                irods-externals-nanodbc-libcxx2.13.0-2 \
+                irods-externals-spdlog-libcxx1.9.2-2
+      - name: Configure CMake
+        run:  |
+              mkdir build
+              cmake -DIRODS_BUILD_WITH_WERROR=NO -GNinja -B build/ -S .
+      - name: Build and Package
+        run:  |
+              cmake --build build/ -t package
