@@ -23,8 +23,6 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     apt-get install -y \
         gnupg \
         lsb-release \
-        python3 \
-        python3-pip \
         wget \
     && \
     rm -rf /tmp/*
