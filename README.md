@@ -197,16 +197,9 @@ If you run into issues, try checking if the git submodules exist on your machine
 
 ## Running without Docker
 
-The server has three requirements that must be satisfied before launch. They are listed as follows:
-- Python 3 must be installed
-- Python 3 jsonschema module must be installed
-- A valid configuration file for the iRODS S3 API server
+In order to run the iRODS S3 API server, you need a valid configuration file. See [Configuration](#configuration) for details on how to create one.
 
-The Python requirements can be satisfied by using your OS's package manager and `python3 -m pip`. We'll leave that as an exercise for the reader.
-
-Now, you need a configuration file for the iRODS S3 API. See [Configuration](#configuration) for details on how to create one.
-
-With the requirements satisfied, run the following to launch the server:
+Once the configuration file is prepared, run the following to launch the server:
 ```bash
 irods_s3_api /path/to/config.json
 ```

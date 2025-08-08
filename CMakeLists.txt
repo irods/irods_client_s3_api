@@ -16,6 +16,10 @@ set(IRODS_S3_API_VERSION "${IRODS_CLIENT_VERSION}")
 set(IRODS_PACKAGE_REVISION "0")
 
 include(IrodsExternals)
+if (IRODS_VERSION VERSION_LESS 5.0.2)
+  # Prior to 5.0.2, the iRODS CMake package configuration did not expose jsoncons
+  IRODS_MACRO_CHECK_DEPENDENCY_SET_FULLPATH(JSONCONS jsoncons0.178.0-0)
+endif()
 
 include(IrodsCXXCompiler)
 set(CMAKE_CXX_STANDARD ${IRODS_CXX_STANDARD})
@@ -57,6 +61,13 @@ if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
 endif()
 
 add_compile_options(-Wall -Wextra -Wpedantic)
+
+if (IRODS_VERSION VERSION_GREATER_EQUAL 4.90.0)
+  # TODO(irods/irods#8580): Remove once library_features.h provides macros to detect the new functions.
+  # iRODS 5 deprecates the clientLogin-family of functions and introduces new support functions for
+  # authentication. This macro signals that the new functions are available.
+  add_compile_definitions(IRODS_DEV_PACKAGE_IS_AT_LEAST_IRODS_5)
+endif()
 
 option(IRODS_ENABLE_ADDRESS_SANITIZER "Enables detection of memory leaks and other features provided by Address Sanitizer." OFF)
 if (IRODS_ENABLE_ADDRESS_SANITIZER)

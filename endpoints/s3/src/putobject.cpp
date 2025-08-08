@@ -14,6 +14,11 @@
 #include <irods/fully_qualified_username.hpp>
 #include <irods/transport/default_transport.hpp>
 
+#ifdef IRODS_DEV_PACKAGE_IS_AT_LEAST_IRODS_5
+#  include <irods/authenticate.h>
+#  include <irods/irods_auth_constants.hpp> // For AUTH_PASSWORD_KEY.
+#endif // IRODS_DEV_PACKAGE_IS_AT_LEAST_IRODS_5
+
 #include <boost/beast/core/error.hpp>
 
 #include <boost/beast/http/empty_body.hpp>
@@ -632,8 +637,14 @@ void irods::s3::actions::handle_putobject(
 
 	auto* conn_ptr = static_cast<RcComm*>(*conn);
 
-	if (const auto ec = clientLoginWithPassword(conn_ptr, rodsadmin_password.data()); ec < 0) {
-		logging::error("{}: clientLoginWithPassword error: {}", __func__, ec);
+#ifdef IRODS_DEV_PACKAGE_IS_AT_LEAST_IRODS_5
+	const auto json_input = nlohmann::json{{"scheme", "native"}, {irods::AUTH_PASSWORD_KEY, rodsadmin_password}};
+	if (const auto ec = rc_authenticate_client(conn_ptr, json_input.dump().c_str()); ec < 0)
+#else
+	if (const auto ec = clientLoginWithPassword(conn_ptr, rodsadmin_password.data()); ec < 0)
+#endif // IRODS_DEV_PACKAGE_IS_AT_LEAST_IRODS_5
+	{
+		logging::error("{}: iRODS authentication error: {}", __func__, ec);
 		response.result(beast::http::status::internal_server_error);
 		session_ptr->send(std::move(response));
 		return;

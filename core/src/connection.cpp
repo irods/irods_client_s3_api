@@ -4,6 +4,12 @@
 #include "irods/private/s3_api/log.hpp"
 
 #include <irods/rcConnect.h>
+
+#ifdef IRODS_DEV_PACKAGE_IS_AT_LEAST_IRODS_5
+#  include <irods/authenticate.h>
+#  include <irods/irods_auth_constants.hpp> // For AUTH_PASSWORD_KEY.
+#endif // IRODS_DEV_PACKAGE_IS_AT_LEAST_IRODS_5
+
 #include <optional>
 
 std::unique_ptr<rcComm_t, irods::s3::__detail::rcComm_Deleter> irods::s3::get_connection(
@@ -41,7 +47,13 @@ std::unique_ptr<rcComm_t, irods::s3::__detail::rcComm_Deleter> irods::s3::get_co
 		logging::error(err.msg);
 	}
 
-	if (const int ec = clientLoginWithPassword(result.get(), const_cast<char*>(password.c_str())); ec < 0) {
+#ifdef IRODS_DEV_PACKAGE_IS_AT_LEAST_IRODS_5
+	const auto json_input = nlohmann::json{{"scheme", "native"}, {irods::AUTH_PASSWORD_KEY, password}};
+	if (const auto ec = rc_authenticate_client(result.get(), json_input.dump().c_str()); ec < 0)
+#else
+	if (const int ec = clientLoginWithPassword(result.get(), const_cast<char*>(password.c_str())); ec < 0)
+#endif // IRODS_DEV_PACKAGE_IS_AT_LEAST_IRODS_5
+	{
 		logging::error("Failed to log in");
 		// TODO The connection should be dropped at this point and an exception or error
 		// should be returned to the user.

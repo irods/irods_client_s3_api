@@ -16,6 +16,11 @@
 #include <irods/rcConnect.h>
 #include <irods/user_administration.hpp>
 
+#ifdef IRODS_DEV_PACKAGE_IS_AT_LEAST_IRODS_5
+#  include <irods/authenticate.h>
+#  include <irods/irods_auth_constants.hpp> // For AUTH_PASSWORD_KEY.
+#endif // IRODS_DEV_PACKAGE_IS_AT_LEAST_IRODS_5
+
 #include <boost/algorithm/string.hpp>
 #include <boost/asio.hpp>
 #include <boost/beast.hpp>
@@ -154,7 +159,19 @@ namespace irods::http::handler
 					irods::experimental::client_connection conn{
 						irods::experimental::defer_authentication, host, port, {username, zone}};
 
+#ifdef IRODS_DEV_PACKAGE_IS_AT_LEAST_IRODS_5
+					// clang-format off
+					login_successful =
+						(rc_authenticate_client(
+							 static_cast<RcComm*>(conn),
+							 nlohmann::json{
+								 {"scheme", "native"},
+								 {irods::AUTH_PASSWORD_KEY, password}
+							 }.dump().c_str()) == 0);
+					// clang-format on
+#else
 					login_successful = (clientLoginWithPassword(static_cast<RcComm*>(conn), password.data()) == 0);
+#endif // IRODS_DEV_PACKAGE_IS_AT_LEAST_IRODS_5
 				}
 				else {
 					// If we're in this branch, assume we're talking to an iRODS 4.3.1+ server. Therefore, we
