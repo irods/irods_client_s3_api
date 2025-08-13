@@ -1,23 +1,17 @@
 FROM ubuntu:22.04
 
-ADD start.client.ubuntu20.sh /
-RUN chmod u+x /start.client.ubuntu20.sh
-
-RUN mkdir /root/.aws
-ADD aws_credentials /root/.aws/credentials
-
 ARG DEBIAN_FRONTEND=noninteractive
 ARG APT_KEY_DONT_WARN_ON_DANGEROUS_USAGE=true
 
-#### Get and install iRODS repo ####
 RUN apt-get update && \
     apt-get install -y \
         ca-certificates \
-        gnupg \
         lsb-release \
+        gnupg \
         wget \
     && \
     rm -rf /tmp/*
+
 RUN mkdir -p /etc/apt/keyrings && \
     wget -qO - https://packages.irods.org/irods-signing-key.asc | \
         gpg \
@@ -33,34 +27,34 @@ RUN mkdir -p /etc/apt/keyrings && \
     echo "deb [signed-by=/etc/apt/keyrings/renci-irods-archive-keyring.pgp arch=amd64] https://packages.irods.org/apt/ $(lsb_release -sc) main" | \
         tee /etc/apt/sources.list.d/renci-irods.list
 
-#### Install icommands - used to set up, validate and tear down tests. ####
 RUN apt-get update && \
-    apt-get install -y irods-icommands && \
+    apt-get install -y \
+        libcurl4-gnutls-dev \
+        python3 \
+        python3-distro \
+        python3-jsonschema \
+        python3-pip \
+        python3-psutil \
+        python3-requests \
+        rsyslog \
+        unixodbc \
+    && \
     rm -rf /tmp/*
 
-#### install basic packages ####
-RUN apt-get install -y curl \
-    unzip \
-    python3 \
-    python3-distro \
-    python3-psutil \
-    python3-jsonschema \
-    python3-requests \
-    python3-pip \
-    python3-pyodbc
+ARG irods_version=4.3.1
+ARG irods_package_version_suffix=-0~jammy
+ARG irods_package_version=${irods_version}${irods_package_version_suffix}
 
-RUN pip3 install botocore boto3 minio
+RUN apt-get update && \
+    apt-get install -y \
+        irods-database-plugin-postgres=${irods_package_version} \
+        irods-runtime=${irods_package_version} \
+        irods-server=${irods_package_version} \
+        irods-icommands=${irods_package_version} \
+    && \
+    rm -rf /tmp/*
 
-# install AWS CLI #
-
-RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-RUN unzip awscliv2.zip
-RUN ./aws/install
-
-# install MinIO client (mc) #
-
-RUN wget https://dl.min.io/client/mc/release/linux-amd64/mc
-RUN chmod +x mc
-RUN mv mc /usr/bin
-
-ENTRYPOINT "/start.client.ubuntu20.sh"
+WORKDIR /
+COPY irods_setup.input .
+COPY --chmod=755 entrypoint.sh .
+ENTRYPOINT "./entrypoint.sh"

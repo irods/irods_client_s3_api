@@ -52,7 +52,7 @@
     },
 
     "irods_client": {
-        "host": "irods",
+        "host": "irods-catalog-provider",
         "port": 1247,
         "zone": "tempZone",
 

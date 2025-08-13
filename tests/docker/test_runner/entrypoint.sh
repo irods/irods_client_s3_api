@@ -2,7 +2,7 @@
 
 #### Give root an environment to connect to iRODS as Alice ####
 #### Needed to set up testing.                             ####
-echo 'irods
+echo 'irods-catalog-provider
 1247
 alice
 tempZone

@@ -1,9 +1,10 @@
 #! /bin/bash
 
-# Start the Postgres database.
-service postgresql start
+# Wait for the Postgres database.
+catalog_db_hostname=irods-catalog
 counter=0
-until pg_isready -q
+echo "Waiting for iRODS catalog database to be ready"
+until pg_isready -h ${catalog_db_hostname} -d ICAT -U irods -q
 do
     sleep 1
     ((counter += 1))
@@ -11,7 +12,8 @@ done
 echo Postgres took approximately $counter seconds to fully start ...
 
 #### Set up iRODS ####
-/var/lib/irods/scripts/setup_irods.py < /var/lib/irods/packaging/localhost_setup_postgres.input
+setup_input_file=/irods_setup.input
+/var/lib/irods/scripts/setup_irods.py < ${setup_input_file}
 
 #### Start iRODS ####
 service irods start
