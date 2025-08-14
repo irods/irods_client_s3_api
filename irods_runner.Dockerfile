@@ -21,6 +21,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     apt-get update && \
     apt-get install -y \
+        ca-certificates \
         gnupg \
         lsb-release \
         python3 \
@@ -30,8 +31,20 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     rm -rf /tmp/* && \
     python3 -m pip install jsonschema
 
-RUN wget -qO - https://packages.irods.org/irods-signing-key.asc | apt-key add - && \
-    echo "deb [arch=amd64] https://packages.irods.org/apt/ $(lsb_release -sc) main" | tee /etc/apt/sources.list.d/renci-irods.list
+RUN mkdir -p /etc/apt/keyrings && \
+    wget -qO - https://packages.irods.org/irods-signing-key.asc | \
+        gpg \
+            --no-options \
+            --no-default-keyring \
+            --no-auto-check-trustdb \
+            --homedir /dev/null \
+            --no-keyring \
+            --import-options import-export \
+            --output /etc/apt/keyrings/renci-irods-archive-keyring.pgp \
+            --import \
+        && \
+    echo "deb [signed-by=/etc/apt/keyrings/renci-irods-archive-keyring.pgp arch=amd64] https://packages.irods.org/apt/ $(lsb_release -sc) main" | \
+        tee /etc/apt/sources.list.d/renci-irods.list
 
 ARG irods_version=4.3.1-0~jammy
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \

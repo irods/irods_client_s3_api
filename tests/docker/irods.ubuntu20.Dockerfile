@@ -13,7 +13,7 @@ RUN apt-get update && \
                        vim sudo rsyslog g++ dpkg-dev cdbs libcurl4-openssl-dev \
                        tig git libpam0g-dev libkrb5-dev libfuse-dev \
                        libbz2-dev libxml2-dev zlib1g-dev \
-                       make gcc help2man telnet ftp
+                       make gcc help2man telnet ftp ca-certificates
 
 RUN apt-get install -y python3 \
     python3-distro \
@@ -25,16 +25,35 @@ RUN apt-get install -y python3 \
     python3-dev 
 
 #### Get and install iRODS repo ####
-RUN wget -qO - https://packages.irods.org/irods-signing-key.asc | sudo apt-key add -
-RUN echo "deb [arch=amd64] https://packages.irods.org/apt/ $(lsb_release -sc) main" | sudo tee /etc/apt/sources.list.d/renci-irods.list
-RUN apt-get update
+RUN mkdir -p /etc/apt/keyrings && \
+    wget -qO - https://packages.irods.org/irods-signing-key.asc | \
+        gpg \
+            --no-options \
+            --no-default-keyring \
+            --no-auto-check-trustdb \
+            --homedir /dev/null \
+            --no-keyring \
+            --import-options import-export \
+            --output /etc/apt/keyrings/renci-irods-archive-keyring.pgp \
+            --import \
+        && \
+    echo "deb [signed-by=/etc/apt/keyrings/renci-irods-archive-keyring.pgp arch=amd64] https://packages.irods.org/apt/ $(lsb_release -sc) main" | \
+        tee /etc/apt/sources.list.d/renci-irods.list
 
 #### Install iRODS ####
 #ARG irods_version
 #ENV IRODS_VERSION ${irods_version}
 ENV irods_version 4.3.1-0~jammy
 
-RUN apt-get install -y irods-server=${irods_version} irods-dev=${irods_version} irods-database-plugin-postgres=${irods_version} irods-runtime=${irods_version} irods-icommands=${irods_version}
+RUN apt-get update && \
+    apt-get install -y \
+        irods-server=${irods_version} \
+        irods-dev=${irods_version} \
+        irods-database-plugin-postgres=${irods_version} \
+        irods-runtime=${irods_version} \
+        irods-icommands=${irods_version} \
+    && \
+    rm -rf /tmp/*
 
 #### Set up ICAT database. ####
 ADD db_commands.txt /
