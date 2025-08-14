@@ -25,12 +25,9 @@ import sys
 import tempfile
 import time
 
-#from . import six
-
 from . import execute
 
 indent = execute.indent
-safe_shlex_split_for_2_6 = execute.safe_shlex_split_for_2_6
 execute_command_nonblocking = execute.execute_command_nonblocking
 execute_command_timeout = execute.execute_command_timeout
 execute_command_permissive = execute.execute_command_permissive
