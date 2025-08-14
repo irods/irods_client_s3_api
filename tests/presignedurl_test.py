@@ -1,12 +1,12 @@
-from host_port import s3_api_host_port
-from libs.command import *
-from libs.execute import *
-from libs.utility import *
 from minio import Minio
 import datetime
 import os
 import requests
+import time
 import unittest
+
+from host_port import s3_api_host_port
+from libs import command, utility
 
 class PresignedURL_Test(unittest.TestCase):
     bucket_irods_path = '/tempZone/home/alice/alice-bucket'
@@ -32,8 +32,8 @@ class PresignedURL_Test(unittest.TestCase):
 
         try:
             # Put some data into iRODS.
-            make_arbitrary_file(put_filename, 100*1024)
-            assert_command(f"iput {put_filename} {self.bucket_irods_path}/{put_filename}")
+            utility.make_arbitrary_file(put_filename, 100*1024)
+            command.assert_command(f"iput {put_filename} {self.bucket_irods_path}/{put_filename}")
 
             # Generate a presigned URL to download the data object.
             url_expiration_seconds = 5
@@ -48,7 +48,7 @@ class PresignedURL_Test(unittest.TestCase):
                 fd.write(response.content)
 
             # Compare the put file and get file.
-            assert_command(f'diff -q {put_filename} {get_filename}')
+            command.assert_command(f'diff -q {put_filename} {get_filename}')
 
             # Sleep long enough to let the URL expire.
             time.sleep(url_expiration_seconds + 1)
@@ -60,7 +60,7 @@ class PresignedURL_Test(unittest.TestCase):
         finally:
             os.remove(put_filename)
             os.remove(get_filename)
-            assert_command(f'irm -f {self.bucket_irods_path}/{put_filename}')
+            command.assert_command(f'irm -f {self.bucket_irods_path}/{put_filename}')
 
     def test_minio_put_presigned_url_in_bucket_root_small_file(self):
         put_filename = "test_minio_put_presigned_url_in_bucket_root_small_file"
@@ -68,7 +68,7 @@ class PresignedURL_Test(unittest.TestCase):
         contents = b"data for overwrite"
 
         try:
-            make_arbitrary_file(put_filename, 100*1024)
+            utility.make_arbitrary_file(put_filename, 100*1024)
 
             # Generate a presigned URL to upload to the data object.
             url_expiration_seconds = 5
@@ -82,17 +82,17 @@ class PresignedURL_Test(unittest.TestCase):
                 self.assertEqual(response.status_code, 200)
 
             # Now, get the file out to a local file.
-            assert_command(f'iget {self.bucket_irods_path}/{put_filename} {get_filename}')
+            command.assert_command(f'iget {self.bucket_irods_path}/{put_filename} {get_filename}')
 
             # Compare the put file and get file.
-            assert_command(f'diff -q {put_filename} {get_filename}')
+            command.assert_command(f'diff -q {put_filename} {get_filename}')
 
             # Now, use the same URL to overwrite the data object with something else.
             response = requests.put(url_string, data=contents)
             self.assertEqual(response.status_code, 200)
 
             # Now, get the file out to a local file, overwriting what is there.
-            assert_command(f'iget -f {self.bucket_irods_path}/{put_filename} {get_filename}')
+            command.assert_command(f'iget -f {self.bucket_irods_path}/{put_filename} {get_filename}')
 
             # Verify the retrieved file contents.
             with open(get_filename, "rb") as fd:
@@ -110,4 +110,4 @@ class PresignedURL_Test(unittest.TestCase):
         finally:
             os.remove(put_filename)
             os.remove(get_filename)
-            assert_command(f'irm -f {self.bucket_irods_path}/{put_filename}')
+            command.assert_command(f'irm -f {self.bucket_irods_path}/{put_filename}')

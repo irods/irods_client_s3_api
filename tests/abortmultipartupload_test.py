@@ -1,11 +1,10 @@
 import inspect
-import os
 import json
+import os
 import unittest
-from libs.execute import *
-from libs.command import *
-from libs.utility import *
+
 from host_port import s3_api_host_port, irods_host
+from libs import command, utility
 
 class AbortMultipartUpload_Test(unittest.TestCase):
     bucket_irods_path = '/tempZone/home/alice/alice-bucket'
@@ -24,35 +23,35 @@ class AbortMultipartUpload_Test(unittest.TestCase):
         put_filename = inspect.currentframe().f_code.co_name
         part_filename = f'{put_filename}.part'
         try:
-            make_arbitrary_file(part_filename, 100*1024)
+            utility.make_arbitrary_file(part_filename, 100*1024)
 
             # create the multipart upload and grab the upload ID from the json response
-            _, out, _ = assert_command(f'aws --profile s3_api_alice --endpoint-url {self.s3_api_url} '
+            _, out, _ = command.assert_command(f'aws --profile s3_api_alice --endpoint-url {self.s3_api_url} '
                     f's3api create-multipart-upload --bucket {self.bucket_name} --key {put_filename}',
                     'STDOUT_MULTILINE',
                     ['UploadId'])
             upload_id = json.loads(out)["UploadId"]
 
             # upload two parts
-            assert_command(f'aws --profile s3_api_alice --endpoint-url {self.s3_api_url} '
+            command.assert_command(f'aws --profile s3_api_alice --endpoint-url {self.s3_api_url} '
                     f's3api upload-part --upload-id {upload_id} --bucket {self.bucket_name} --key {put_filename} --part-number 1 --body ./{part_filename}',
                     'STDOUT_SINGLELINE',
                     'ETag')
-            assert_command(f'aws --profile s3_api_alice --endpoint-url {self.s3_api_url} '
+            command.assert_command(f'aws --profile s3_api_alice --endpoint-url {self.s3_api_url} '
                     f's3api upload-part --upload-id {upload_id} --bucket {self.bucket_name} --key {put_filename} --part-number 2 --body ./{part_filename}',
                     'STDOUT_SINGLELINE',
                     'ETag')
 
             # abort the multipart upload
-            assert_command(f'aws --profile s3_api_alice --endpoint-url {self.s3_api_url} '
+            command.assert_command(f'aws --profile s3_api_alice --endpoint-url {self.s3_api_url} '
                     f's3api abort-multipart-upload --bucket {self.bucket_name} --key {put_filename} --upload-id {upload_id}')
 
             # Put the object. Without the fix for 130 this would fail as the stream remains open
-            assert_command(f'aws --profile s3_api_alice --endpoint-url {self.s3_api_url} '
+            command.assert_command(f'aws --profile s3_api_alice --endpoint-url {self.s3_api_url} '
                     f's3 cp {part_filename} s3://{self.bucket_name}/{put_filename}',
                     'STDOUT_SINGLELINE',
                     f'upload: ./{part_filename} to s3://{self.bucket_name}/{put_filename}')
 
         finally:
             os.remove(part_filename)
-            assert_command(f'irm -f {self.bucket_irods_path}/{put_filename}')
+            command.assert_command(f'irm -f {self.bucket_irods_path}/{put_filename}')

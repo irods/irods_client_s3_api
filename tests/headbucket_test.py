@@ -3,11 +3,9 @@ import botocore
 import inspect
 import os
 import unittest
-from libs.execute import *
-from libs.command import *
-from libs.utility import *
-from datetime import datetime
+
 from host_port import s3_api_host_port
+from libs import command, utility
 
 class HeadBucket_Test(unittest.TestCase):
 

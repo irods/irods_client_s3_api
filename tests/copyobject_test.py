@@ -1,17 +1,12 @@
-import unittest
-import boto3
-from boto3.s3.transfer import TransferConfig
-import botocore
-import botocore.session
-import inspect
-import os
-from libs.execute import *
-from libs.command import *
-from libs.utility import *
-from datetime import datetime
 from minio import Minio
 from minio.commonconfig import CopySource as MinioCopySource
+import boto3
+import inspect
+import os
+import unittest
+
 from host_port import s3_api_host_port, irods_host
+from libs import command, utility
 
 class CopyObject_Test(unittest.TestCase):
 
@@ -50,16 +45,16 @@ class CopyObject_Test(unittest.TestCase):
         get_filename = f'{put_filename}.get'
 
         try:
-            make_arbitrary_file(put_filename, 100*1024)
-            assert_command(f'iput {put_filename} {self.bucket_irods_path}/{put_filename}')
+            utility.make_arbitrary_file(put_filename, 100*1024)
+            command.assert_command(f'iput {put_filename} {self.bucket_irods_path}/{put_filename}')
             self.boto3_client.copy_object(Bucket=self.bucket_name, CopySource=f'{self.bucket_name}/{put_filename}', Key=copy_filename)
-            assert_command(f'iget {self.bucket_irods_path}/{copy_filename} {get_filename}')
-            assert_command(f'diff -q {put_filename} {get_filename}')
+            command.assert_command(f'iget {self.bucket_irods_path}/{copy_filename} {get_filename}')
+            command.assert_command(f'diff -q {put_filename} {get_filename}')
 
         finally:
             os.remove(put_filename)
             os.remove(get_filename)
-            assert_command(f'irm -f {self.bucket_irods_path}/{put_filename} {self.bucket_irods_path}/{copy_filename}')
+            command.assert_command(f'irm -f {self.bucket_irods_path}/{put_filename} {self.bucket_irods_path}/{copy_filename}')
 
     def test_botocore_copy_object_overwrite(self):
 
@@ -69,19 +64,19 @@ class CopyObject_Test(unittest.TestCase):
         get_filename = f'{put_filename}.get'
 
         try:
-            make_arbitrary_file(put_filename, 100*1024)
-            make_arbitrary_file(overwritten_filename, 100)
-            assert_command(f'iput {put_filename} {self.bucket_irods_path}/{put_filename}')
-            assert_command(f'iput {overwritten_filename} {self.bucket_irods_path}/{copy_filename}')  # file to be overwritten
+            utility.make_arbitrary_file(put_filename, 100*1024)
+            utility.make_arbitrary_file(overwritten_filename, 100)
+            command.assert_command(f'iput {put_filename} {self.bucket_irods_path}/{put_filename}')
+            command.assert_command(f'iput {overwritten_filename} {self.bucket_irods_path}/{copy_filename}')  # file to be overwritten
             self.boto3_client.copy_object(Bucket=self.bucket_name, CopySource=f'{self.bucket_name}/{put_filename}', Key=copy_filename)
-            assert_command(f'iget {self.bucket_irods_path}/{copy_filename} {get_filename}')
-            assert_command(f'diff -q {put_filename} {get_filename}')
+            command.assert_command(f'iget {self.bucket_irods_path}/{copy_filename} {get_filename}')
+            command.assert_command(f'diff -q {put_filename} {get_filename}')
 
         finally:
             os.remove(put_filename)
             os.remove(get_filename)
             os.remove(overwritten_filename)
-            assert_command(f'irm -f {self.bucket_irods_path}/{put_filename} {self.bucket_irods_path}/{copy_filename}')
+            command.assert_command(f'irm -f {self.bucket_irods_path}/{put_filename} {self.bucket_irods_path}/{copy_filename}')
 
     def test_botocore_copy_object_root_large_file(self):
 
@@ -90,16 +85,16 @@ class CopyObject_Test(unittest.TestCase):
         get_filename = f'{put_filename}.get'
 
         try:
-            make_arbitrary_file(put_filename, 20*1024*1024)
-            assert_command(f'iput {put_filename} {self.bucket_irods_path}/{put_filename}')
+            utility.make_arbitrary_file(put_filename, 20*1024*1024)
+            command.assert_command(f'iput {put_filename} {self.bucket_irods_path}/{put_filename}')
             self.boto3_client.copy_object(Bucket=self.bucket_name, CopySource=f'{self.bucket_name}/{put_filename}', Key=copy_filename)
-            assert_command(f'iget {self.bucket_irods_path}/{copy_filename} {get_filename}')
-            assert_command(f'diff -q {put_filename} {get_filename}')
+            command.assert_command(f'iget {self.bucket_irods_path}/{copy_filename} {get_filename}')
+            command.assert_command(f'diff -q {put_filename} {get_filename}')
 
         finally:
             os.remove(put_filename)
             os.remove(get_filename)
-            assert_command(f'irm -f {self.bucket_irods_path}/{put_filename} {self.bucket_irods_path}/{copy_filename}')
+            command.assert_command(f'irm -f {self.bucket_irods_path}/{put_filename} {self.bucket_irods_path}/{copy_filename}')
 
     def test_botocore_copy_object_in_different_subdirectories(self):
 
@@ -110,17 +105,17 @@ class CopyObject_Test(unittest.TestCase):
         get_filename = f'{put_filename}.get'
 
         try:
-            make_arbitrary_file(put_filename, 20*1024*1024)
-            assert_command(f'imkdir {self.bucket_irods_path}/{put_directory}')
-            assert_command(f'iput {put_filename} {self.bucket_irods_path}/{put_directory}/{put_filename}')
+            utility.make_arbitrary_file(put_filename, 20*1024*1024)
+            command.assert_command(f'imkdir {self.bucket_irods_path}/{put_directory}')
+            command.assert_command(f'iput {put_filename} {self.bucket_irods_path}/{put_directory}/{put_filename}')
             self.boto3_client.copy_object(Bucket=self.bucket_name, CopySource=f'{self.bucket_name}/{put_directory}/{put_filename}', Key=f'{copy_directory}/{copy_filename}')
-            assert_command(f'iget {self.bucket_irods_path}/{copy_directory}/{copy_filename} {get_filename}')
-            assert_command(f'diff -q {put_filename} {get_filename}')
+            command.assert_command(f'iget {self.bucket_irods_path}/{copy_directory}/{copy_filename} {get_filename}')
+            command.assert_command(f'diff -q {put_filename} {get_filename}')
 
         finally:
             os.remove(put_filename)
             os.remove(get_filename)
-            assert_command(f'irm -rf {self.bucket_irods_path}/{put_directory} {self.bucket_irods_path}/{copy_directory}')
+            command.assert_command(f'irm -rf {self.bucket_irods_path}/{put_directory} {self.bucket_irods_path}/{copy_directory}')
 
     def test_botocore_copy_object_in_different_buckets(self):
 
@@ -134,17 +129,17 @@ class CopyObject_Test(unittest.TestCase):
         get_filename = f'{put_filename}.get'
 
         try:
-            make_arbitrary_file(put_filename, 20*1024*1024)
-            assert_command(f'imkdir {self.bucket_irods_path}/{put_directory}')
-            assert_command(f'iput {put_filename} {self.bucket_irods_path}/{put_directory}/{put_filename}')
+            utility.make_arbitrary_file(put_filename, 20*1024*1024)
+            command.assert_command(f'imkdir {self.bucket_irods_path}/{put_directory}')
+            command.assert_command(f'iput {put_filename} {self.bucket_irods_path}/{put_directory}/{put_filename}')
             self.boto3_client.copy_object(Bucket=self.bucket_name2, CopySource=f'{self.bucket_name}/{put_directory}/{put_filename}', Key=f'{copy_directory}/{copy_filename}')
-            assert_command(f'iget {self.bucket_irods_path2}/{copy_directory}/{copy_filename} {get_filename}')
-            assert_command(f'diff -q {put_filename} {get_filename}')
+            command.assert_command(f'iget {self.bucket_irods_path2}/{copy_directory}/{copy_filename} {get_filename}')
+            command.assert_command(f'diff -q {put_filename} {get_filename}')
 
         finally:
             os.remove(put_filename)
             os.remove(get_filename)
-            assert_command(f'irm -rf {self.bucket_irods_path}/{put_directory} {self.bucket_irods_path2}/{copy_directory}')
+            command.assert_command(f'irm -rf {self.bucket_irods_path}/{put_directory} {self.bucket_irods_path2}/{copy_directory}')
 
     def test_aws_copy_object_root_small_file(self):
 
@@ -153,19 +148,19 @@ class CopyObject_Test(unittest.TestCase):
         get_filename = f'{put_filename}.get'
 
         try:
-            make_arbitrary_file(put_filename, 100*1024)
-            assert_command(f'iput {put_filename} {self.bucket_irods_path}/{put_filename}')
-            assert_command(f'aws --profile s3_api_alice_nomultipart --endpoint-url {self.s3_api_url} '
+            utility.make_arbitrary_file(put_filename, 100*1024)
+            command.assert_command(f'iput {put_filename} {self.bucket_irods_path}/{put_filename}')
+            command.assert_command(f'aws --profile s3_api_alice_nomultipart --endpoint-url {self.s3_api_url} '
                     f's3 cp s3://{self.bucket_name}/{put_filename} s3://{self.bucket_name}/{copy_filename}',
                     'STDOUT_SINGLELINE',
                     f'copy: s3://{self.bucket_name}/{put_filename} to s3://{self.bucket_name}/{copy_filename}')
-            assert_command(f'iget {self.bucket_irods_path}/{copy_filename} {get_filename}')
-            assert_command(f'diff -q {put_filename} {get_filename}')
+            command.assert_command(f'iget {self.bucket_irods_path}/{copy_filename} {get_filename}')
+            command.assert_command(f'diff -q {put_filename} {get_filename}')
 
         finally:
             os.remove(put_filename)
             os.remove(get_filename)
-            assert_command(f'irm -f {self.bucket_irods_path}/{put_filename} {self.bucket_irods_path}/{copy_filename}')
+            command.assert_command(f'irm -f {self.bucket_irods_path}/{put_filename} {self.bucket_irods_path}/{copy_filename}')
 
     def test_aws_copy_object_overwrite(self):
 
@@ -175,22 +170,22 @@ class CopyObject_Test(unittest.TestCase):
         get_filename = f'{put_filename}.get'
 
         try:
-            make_arbitrary_file(put_filename, 100*1024)
-            make_arbitrary_file(overwritten_filename, 100)
-            assert_command(f'iput {put_filename} {self.bucket_irods_path}/{put_filename}')
-            assert_command(f'iput {overwritten_filename} {self.bucket_irods_path}/{copy_filename}')  # file to be overwritten
-            assert_command(f'aws --profile s3_api_alice_nomultipart --endpoint-url {self.s3_api_url} '
+            utility.make_arbitrary_file(put_filename, 100*1024)
+            utility.make_arbitrary_file(overwritten_filename, 100)
+            command.assert_command(f'iput {put_filename} {self.bucket_irods_path}/{put_filename}')
+            command.assert_command(f'iput {overwritten_filename} {self.bucket_irods_path}/{copy_filename}')  # file to be overwritten
+            command.assert_command(f'aws --profile s3_api_alice_nomultipart --endpoint-url {self.s3_api_url} '
                     f's3 cp s3://{self.bucket_name}/{put_filename} s3://{self.bucket_name}/{copy_filename}',
                     'STDOUT_SINGLELINE',
                     f'copy: s3://{self.bucket_name}/{put_filename} to s3://{self.bucket_name}/{copy_filename}')
-            assert_command(f'iget {self.bucket_irods_path}/{copy_filename} {get_filename}')
-            assert_command(f'diff -q {put_filename} {get_filename}')
+            command.assert_command(f'iget {self.bucket_irods_path}/{copy_filename} {get_filename}')
+            command.assert_command(f'diff -q {put_filename} {get_filename}')
 
         finally:
             os.remove(put_filename)
             os.remove(get_filename)
             os.remove(overwritten_filename)
-            assert_command(f'irm -f {self.bucket_irods_path}/{put_filename} {self.bucket_irods_path}/{copy_filename}')
+            command.assert_command(f'irm -f {self.bucket_irods_path}/{put_filename} {self.bucket_irods_path}/{copy_filename}')
 
     def test_aws_copy_object_root_large_file(self):
 
@@ -199,19 +194,19 @@ class CopyObject_Test(unittest.TestCase):
         get_filename = f'{put_filename}.get'
 
         try:
-            make_arbitrary_file(put_filename, 20*1024*1024)
-            assert_command(f'iput {put_filename} {self.bucket_irods_path}/{put_filename}')
-            assert_command(f'aws --profile s3_api_alice_nomultipart --endpoint-url {self.s3_api_url} '
+            utility.make_arbitrary_file(put_filename, 20*1024*1024)
+            command.assert_command(f'iput {put_filename} {self.bucket_irods_path}/{put_filename}')
+            command.assert_command(f'aws --profile s3_api_alice_nomultipart --endpoint-url {self.s3_api_url} '
                     f's3 cp s3://{self.bucket_name}/{put_filename} s3://{self.bucket_name}/{copy_filename}',
                     'STDOUT_SINGLELINE',
                     f'copy: s3://{self.bucket_name}/{put_filename} to s3://{self.bucket_name}/{copy_filename}')
-            assert_command(f'iget {self.bucket_irods_path}/{copy_filename} {get_filename}')
-            assert_command(f'diff -q {put_filename} {get_filename}')
+            command.assert_command(f'iget {self.bucket_irods_path}/{copy_filename} {get_filename}')
+            command.assert_command(f'diff -q {put_filename} {get_filename}')
 
         finally:
             os.remove(put_filename)
             os.remove(get_filename)
-            assert_command(f'irm -f {self.bucket_irods_path}/{put_filename} {self.bucket_irods_path}/{copy_filename}')
+            command.assert_command(f'irm -f {self.bucket_irods_path}/{put_filename} {self.bucket_irods_path}/{copy_filename}')
 
     def test_aws_copy_object_in_different_subdirectories(self):
 
@@ -222,20 +217,20 @@ class CopyObject_Test(unittest.TestCase):
         get_filename = f'{put_filename}.get'
 
         try:
-            make_arbitrary_file(put_filename, 20*1024*1024)
-            assert_command(f'imkdir {self.bucket_irods_path}/{put_directory}')
-            assert_command(f'iput {put_filename} {self.bucket_irods_path}/{put_directory}/{put_filename}')
-            assert_command(f'aws --profile s3_api_alice_nomultipart --endpoint-url {self.s3_api_url} '
+            utility.make_arbitrary_file(put_filename, 20*1024*1024)
+            command.assert_command(f'imkdir {self.bucket_irods_path}/{put_directory}')
+            command.assert_command(f'iput {put_filename} {self.bucket_irods_path}/{put_directory}/{put_filename}')
+            command.assert_command(f'aws --profile s3_api_alice_nomultipart --endpoint-url {self.s3_api_url} '
                     f's3 cp s3://{self.bucket_name}/{put_directory}/{put_filename} s3://{self.bucket_name}/{copy_directory}/{copy_filename}',
                     'STDOUT_SINGLELINE',
                     f'copy: s3://{self.bucket_name}/{put_directory}/{put_filename} to s3://{self.bucket_name}/{copy_directory}/{copy_filename}')
-            assert_command(f'iget {self.bucket_irods_path}/{copy_directory}/{copy_filename} {get_filename}')
-            assert_command(f'diff -q {put_filename} {get_filename}')
+            command.assert_command(f'iget {self.bucket_irods_path}/{copy_directory}/{copy_filename} {get_filename}')
+            command.assert_command(f'diff -q {put_filename} {get_filename}')
 
         finally:
             os.remove(put_filename)
             os.remove(get_filename)
-            assert_command(f'irm -rf {self.bucket_irods_path}/{put_directory} {self.bucket_irods_path}/{copy_directory}')
+            command.assert_command(f'irm -rf {self.bucket_irods_path}/{put_directory} {self.bucket_irods_path}/{copy_directory}')
 
     def test_aws_copy_object_in_different_buckets(self):
 
@@ -246,20 +241,20 @@ class CopyObject_Test(unittest.TestCase):
         get_filename = f'{put_filename}.get'
 
         try:
-            make_arbitrary_file(put_filename, 20*1024*1024)
-            assert_command(f'imkdir {self.bucket_irods_path}/{put_directory}')
-            assert_command(f'iput {put_filename} {self.bucket_irods_path}/{put_directory}/{put_filename}')
-            assert_command(f'aws --profile s3_api_alice_nomultipart --endpoint-url {self.s3_api_url} '
+            utility.make_arbitrary_file(put_filename, 20*1024*1024)
+            command.assert_command(f'imkdir {self.bucket_irods_path}/{put_directory}')
+            command.assert_command(f'iput {put_filename} {self.bucket_irods_path}/{put_directory}/{put_filename}')
+            command.assert_command(f'aws --profile s3_api_alice_nomultipart --endpoint-url {self.s3_api_url} '
                     f's3 cp s3://{self.bucket_name}/{put_directory}/{put_filename} s3://{self.bucket_name2}/{copy_directory}/{copy_filename}',
                     'STDOUT_SINGLELINE',
                     f'copy: s3://{self.bucket_name}/{put_directory}/{put_filename} to s3://{self.bucket_name2}/{copy_directory}/{copy_filename}')
-            assert_command(f'iget {self.bucket_irods_path2}/{copy_directory}/{copy_filename} {get_filename}')
-            assert_command(f'diff -q {put_filename} {get_filename}')
+            command.assert_command(f'iget {self.bucket_irods_path2}/{copy_directory}/{copy_filename} {get_filename}')
+            command.assert_command(f'diff -q {put_filename} {get_filename}')
 
         finally:
             os.remove(put_filename)
             os.remove(get_filename)
-            assert_command(f'irm -rf {self.bucket_irods_path}/{put_directory} {self.bucket_irods_path2}/{copy_directory}')
+            command.assert_command(f'irm -rf {self.bucket_irods_path}/{put_directory} {self.bucket_irods_path2}/{copy_directory}')
 
     def test_minio_copy_object_root_small_file(self):
 
@@ -268,17 +263,17 @@ class CopyObject_Test(unittest.TestCase):
         get_filename = f'{put_filename}.get'
 
         try:
-            make_arbitrary_file(put_filename, 100*1024)
-            assert_command(f'iput {put_filename} {self.bucket_irods_path}/{put_filename}')
+            utility.make_arbitrary_file(put_filename, 100*1024)
+            command.assert_command(f'iput {put_filename} {self.bucket_irods_path}/{put_filename}')
             self.minio_client.copy_object(self.bucket_name, copy_filename, MinioCopySource(self.bucket_name, put_filename))
 
-            assert_command(f'iget {self.bucket_irods_path}/{copy_filename} {get_filename}')
-            assert_command(f'diff -q {put_filename} {get_filename}')
+            command.assert_command(f'iget {self.bucket_irods_path}/{copy_filename} {get_filename}')
+            command.assert_command(f'diff -q {put_filename} {get_filename}')
 
         finally:
             os.remove(put_filename)
             os.remove(get_filename)
-            assert_command(f'irm -f {self.bucket_irods_path}/{put_filename} {self.bucket_irods_path}/{copy_filename}')
+            command.assert_command(f'irm -f {self.bucket_irods_path}/{put_filename} {self.bucket_irods_path}/{copy_filename}')
 
     def test_minio_copy_object_overwrite(self):
 
@@ -288,19 +283,19 @@ class CopyObject_Test(unittest.TestCase):
         get_filename = f'{put_filename}.get'
 
         try:
-            make_arbitrary_file(put_filename, 100*1024)
-            make_arbitrary_file(overwritten_filename, 100)
-            assert_command(f'iput {put_filename} {self.bucket_irods_path}/{put_filename}')
-            assert_command(f'iput {overwritten_filename} {self.bucket_irods_path}/{copy_filename}')  # file to be overwritten
+            utility.make_arbitrary_file(put_filename, 100*1024)
+            utility.make_arbitrary_file(overwritten_filename, 100)
+            command.assert_command(f'iput {put_filename} {self.bucket_irods_path}/{put_filename}')
+            command.assert_command(f'iput {overwritten_filename} {self.bucket_irods_path}/{copy_filename}')  # file to be overwritten
             self.minio_client.copy_object(self.bucket_name, copy_filename, MinioCopySource(self.bucket_name, put_filename))
-            assert_command(f'iget {self.bucket_irods_path}/{copy_filename} {get_filename}')
-            assert_command(f'diff -q {put_filename} {get_filename}')
+            command.assert_command(f'iget {self.bucket_irods_path}/{copy_filename} {get_filename}')
+            command.assert_command(f'diff -q {put_filename} {get_filename}')
 
         finally:
             os.remove(put_filename)
             os.remove(get_filename)
             os.remove(overwritten_filename)
-            assert_command(f'irm -f {self.bucket_irods_path}/{put_filename} {self.bucket_irods_path}/{copy_filename}')
+            command.assert_command(f'irm -f {self.bucket_irods_path}/{put_filename} {self.bucket_irods_path}/{copy_filename}')
 
     def test_minio_copy_object_root_large_file(self):
 
@@ -309,16 +304,16 @@ class CopyObject_Test(unittest.TestCase):
         get_filename = f'{put_filename}.get'
 
         try:
-            make_arbitrary_file(put_filename, 20*1024*1024)
-            assert_command(f'iput {put_filename} {self.bucket_irods_path}/{put_filename}')
+            utility.make_arbitrary_file(put_filename, 20*1024*1024)
+            command.assert_command(f'iput {put_filename} {self.bucket_irods_path}/{put_filename}')
             self.minio_client.copy_object(self.bucket_name, copy_filename, MinioCopySource(self.bucket_name, put_filename))
-            assert_command(f'iget {self.bucket_irods_path}/{copy_filename} {get_filename}')
-            assert_command(f'diff -q {put_filename} {get_filename}')
+            command.assert_command(f'iget {self.bucket_irods_path}/{copy_filename} {get_filename}')
+            command.assert_command(f'diff -q {put_filename} {get_filename}')
 
         finally:
             os.remove(put_filename)
             os.remove(get_filename)
-            assert_command(f'irm -f {self.bucket_irods_path}/{put_filename} {self.bucket_irods_path}/{copy_filename}')
+            command.assert_command(f'irm -f {self.bucket_irods_path}/{put_filename} {self.bucket_irods_path}/{copy_filename}')
 
     def test_minio_copy_object_in_different_subdirectories(self):
 
@@ -329,17 +324,17 @@ class CopyObject_Test(unittest.TestCase):
         get_filename = f'{put_filename}.get'
 
         try:
-            make_arbitrary_file(put_filename, 20*1024*1024)
-            assert_command(f'imkdir {self.bucket_irods_path}/{put_directory}')
-            assert_command(f'iput {put_filename} {self.bucket_irods_path}/{put_directory}/{put_filename}')
+            utility.make_arbitrary_file(put_filename, 20*1024*1024)
+            command.assert_command(f'imkdir {self.bucket_irods_path}/{put_directory}')
+            command.assert_command(f'iput {put_filename} {self.bucket_irods_path}/{put_directory}/{put_filename}')
             self.minio_client.copy_object(self.bucket_name, f'{copy_directory}/{copy_filename}', MinioCopySource(self.bucket_name, f'{put_directory}/{put_filename}'))
-            assert_command(f'iget {self.bucket_irods_path}/{copy_directory}/{copy_filename} {get_filename}')
-            assert_command(f'diff -q {put_filename} {get_filename}')
+            command.assert_command(f'iget {self.bucket_irods_path}/{copy_directory}/{copy_filename} {get_filename}')
+            command.assert_command(f'diff -q {put_filename} {get_filename}')
 
         finally:
             os.remove(put_filename)
             os.remove(get_filename)
-            assert_command(f'irm -rf {self.bucket_irods_path}/{put_directory} {self.bucket_irods_path}/{copy_directory}')
+            command.assert_command(f'irm -rf {self.bucket_irods_path}/{put_directory} {self.bucket_irods_path}/{copy_directory}')
 
     def test_minio_copy_object_in_different_buckets(self):
 
@@ -350,17 +345,17 @@ class CopyObject_Test(unittest.TestCase):
         get_filename = f'{put_filename}.get'
 
         try:
-            make_arbitrary_file(put_filename, 20*1024*1024)
-            assert_command(f'imkdir {self.bucket_irods_path}/{put_directory}')
-            assert_command(f'iput {put_filename} {self.bucket_irods_path}/{put_directory}/{put_filename}')
+            utility.make_arbitrary_file(put_filename, 20*1024*1024)
+            command.assert_command(f'imkdir {self.bucket_irods_path}/{put_directory}')
+            command.assert_command(f'iput {put_filename} {self.bucket_irods_path}/{put_directory}/{put_filename}')
             self.minio_client.copy_object(self.bucket_name2, f'{copy_directory}/{copy_filename}', MinioCopySource(self.bucket_name, f'{put_directory}/{put_filename}'))
-            assert_command(f'iget {self.bucket_irods_path2}/{copy_directory}/{copy_filename} {get_filename}')
-            assert_command(f'diff -q {put_filename} {get_filename}')
+            command.assert_command(f'iget {self.bucket_irods_path2}/{copy_directory}/{copy_filename} {get_filename}')
+            command.assert_command(f'diff -q {put_filename} {get_filename}')
 
         finally:
             os.remove(put_filename)
             os.remove(get_filename)
-            assert_command(f'irm -rf {self.bucket_irods_path}/{put_directory} {self.bucket_irods_path2}/{copy_directory}')
+            command.assert_command(f'irm -rf {self.bucket_irods_path}/{put_directory} {self.bucket_irods_path2}/{copy_directory}')
 
     def test_permissions(self):
         put_filename = inspect.currentframe().f_code.co_name 
@@ -368,17 +363,17 @@ class CopyObject_Test(unittest.TestCase):
         get_filename = f'{put_filename}.get'
 
         try:
-            make_arbitrary_file(put_filename, 100*1024)
-            assert_command(f'iput {put_filename} {self.bucket_irods_path}/{put_filename}')
-            execute_irods_command_as_user(f'ichmod -M null alice {self.bucket_irods_path}/{put_filename}', irods_host, 1247, 'rods', 'tempZone', 'rods', 'apass')
+            utility.make_arbitrary_file(put_filename, 100*1024)
+            command.assert_command(f'iput {put_filename} {self.bucket_irods_path}/{put_filename}')
+            utility.execute_irods_command_as_user(f'ichmod -M null alice {self.bucket_irods_path}/{put_filename}', irods_host, 1247, 'rods', 'tempZone', 'rods', 'apass')
             self.assertRaises(Exception,
                           lambda: self.boto3_client.copy_object(Bucket=self.bucket_name, 
                               CopySource=f'{self.bucket_name}/{put_directory}/{put_filename}', Key=f'{copy_directory}/{copy_filename}'))
-            execute_irods_command_as_user(f'ichmod -M own alice {self.bucket_irods_path}/{put_filename}', irods_host, 1247, 'rods', 'tempZone', 'rods', 'apass')
+            utility.execute_irods_command_as_user(f'ichmod -M own alice {self.bucket_irods_path}/{put_filename}', irods_host, 1247, 'rods', 'tempZone', 'rods', 'apass')
 
         finally:
             os.remove(put_filename)
-            assert_command(f'irm -f {self.bucket_irods_path}/{put_filename}')
+            command.assert_command(f'irm -f {self.bucket_irods_path}/{put_filename}')
 
 #if __name__ == '__main__':
 #    unittest.main()

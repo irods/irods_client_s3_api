@@ -1,13 +1,11 @@
-import subprocess as sp
-import botocore
-import random
-import json
 import datetime
+import json
 import os
+import random
+import subprocess as sp
+from typing import Optional
 
-from .execute import *
-
-from typing import *
+from . import execute
 
 def touch_file(filename, access_level=None, user='rods', contents: Optional[bytes] = None):
     if contents is None:
@@ -24,7 +22,7 @@ def make_local_file(f_name, f_size, contents='zero', block_size_in_bytes=1000):
     if contents not in ['arbitrary', 'random', 'zero']:
         raise AssertionError
     if contents == 'arbitrary' or f_size == 0:
-        execute_command(['truncate', '-s', str(f_size), f_name])
+        execute.execute_command(['truncate', '-s', str(f_size), f_name])
         return
 
     source = {'zero': '/dev/zero',
@@ -33,12 +31,12 @@ def make_local_file(f_name, f_size, contents='zero', block_size_in_bytes=1000):
     # Use integer division as dd's count argument must be an integer
     count = f_size // block_size_in_bytes
     if count > 0:
-        execute_command(['dd', 'if='+source, 'of='+f_name, 'count='+str(count), 'bs='+str(block_size_in_bytes)])
+        execute.execute_command(['dd', 'if='+source, 'of='+f_name, 'count='+str(count), 'bs='+str(block_size_in_bytes)])
         leftover_size = f_size % block_size_in_bytes
         if leftover_size > 0:
-            execute_command(['dd', 'if='+source, 'of='+f_name, 'count=1', 'bs='+str(leftover_size), 'oflag=append', 'conv=notrunc'])
+            execute.execute_command(['dd', 'if='+source, 'of='+f_name, 'count=1', 'bs='+str(leftover_size), 'oflag=append', 'conv=notrunc'])
     else:
-        execute_command(['dd', 'if='+source, 'of='+f_name, 'count=1', 'bs='+str(f_size)])
+        execute.execute_command(['dd', 'if='+source, 'of='+f_name, 'count=1', 'bs='+str(f_size)])
 
 def make_arbitrary_file(f_name, f_size, buffer_size=32*1024*1024):
     # do not care about true randomness
@@ -109,14 +107,14 @@ def execute_irods_command_as_user(cmd, host, port, username, zonename, password,
     with open(irods_environment_file, 'w') as outfile:
             outfile.write(json_object)
     print('before iinit')
-    execute_command('iinit', input=password)
+    execute.execute_command('iinit', input=password)
     print('after iinit')
 
-    execute_command(cmd)
+    execute.execute_command(cmd)
 
     print(os.environ.get('IRODS_ENVIRONMENT_FILE'))
     os.environ.pop('IRODS_ENVIRONMENT_FILE')
-    execute_command(f'rm {irods_environment_file}')
+    execute.execute_command(f'rm {irods_environment_file}')
     print('before iinit')
-    execute_command('iinit', input=original_password)
+    execute.execute_command('iinit', input=original_password)
     print('after iinit')

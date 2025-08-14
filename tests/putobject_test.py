@@ -1,15 +1,10 @@
 import boto3
-from boto3.s3.transfer import TransferConfig
-import botocore
-import botocore.session
 import inspect
 import os
 import unittest
-from libs.execute import *
-from libs.command import *
-from libs.utility import *
-from datetime import datetime
+
 from host_port import s3_api_host_port, irods_host
+from libs import command, utility
 
 class PutObject_Test(unittest.TestCase):
 
@@ -41,15 +36,15 @@ class PutObject_Test(unittest.TestCase):
 
         try:
 
-            make_arbitrary_file(put_filename, 100*1024)
+            utility.make_arbitrary_file(put_filename, 100*1024)
             self.boto3_client.upload_file(put_filename, self.bucket_name, put_filename)
-            assert_command(f'iget {self.bucket_irods_path}/{put_filename} {get_filename}')
-            assert_command(f'diff -q {put_filename} {get_filename}')
+            command.assert_command(f'iget {self.bucket_irods_path}/{put_filename} {get_filename}')
+            command.assert_command(f'diff -q {put_filename} {get_filename}')
 
         finally:
             os.remove(put_filename)
             os.remove(get_filename)
-            assert_command(f'irm -f {self.bucket_irods_path}/{put_filename}')
+            command.assert_command(f'irm -f {self.bucket_irods_path}/{put_filename}')
 
     def test_botocore_put_in_bucket_root_large_file(self):
 
@@ -58,21 +53,21 @@ class PutObject_Test(unittest.TestCase):
 
         try:
 
-            make_arbitrary_file(put_filename, 20*1024*1024)
+            utility.make_arbitrary_file(put_filename, 20*1024*1024)
 
             self.boto3_client.upload_file(put_filename, self.bucket_name, put_filename)
-            assert_command(f'iget {self.bucket_irods_path}/{put_filename} {get_filename}')
-            assert_command(f'diff -q {put_filename} {get_filename}')
+            command.assert_command(f'iget {self.bucket_irods_path}/{put_filename} {get_filename}')
+            command.assert_command(f'diff -q {put_filename} {get_filename}')
 
             # perform upload a second time to make sure original file was closed properly
             self.boto3_client.upload_file(put_filename, self.bucket_name, put_filename)
-            assert_command(f'iget -f {self.bucket_irods_path}/{put_filename} {get_filename}')
-            assert_command(f'diff -q {put_filename} {get_filename}')
+            command.assert_command(f'iget -f {self.bucket_irods_path}/{put_filename} {get_filename}')
+            command.assert_command(f'diff -q {put_filename} {get_filename}')
 
         finally:
             os.remove(put_filename)
             os.remove(get_filename)
-            assert_command(f'irm -f {self.bucket_irods_path}/{put_filename}')
+            command.assert_command(f'irm -f {self.bucket_irods_path}/{put_filename}')
 
     def test_botocore_put_in_subdirectory(self):
 
@@ -82,15 +77,15 @@ class PutObject_Test(unittest.TestCase):
 
         try:
 
-            make_arbitrary_file(put_filename, 100*1024)
+            utility.make_arbitrary_file(put_filename, 100*1024)
             self.boto3_client.upload_file(put_filename, self.bucket_name, f'{put_directory}/{put_filename}')
-            assert_command(f'iget {self.bucket_irods_path}/{put_directory}/{put_filename} {get_filename}')
-            assert_command(f'diff -q {put_filename} {get_filename}')
+            command.assert_command(f'iget {self.bucket_irods_path}/{put_directory}/{put_filename} {get_filename}')
+            command.assert_command(f'diff -q {put_filename} {get_filename}')
 
         finally:
             os.remove(put_filename)
             os.remove(get_filename)
-            assert_command(f'irm -rf {self.bucket_irods_path}/{put_directory}')
+            command.assert_command(f'irm -rf {self.bucket_irods_path}/{put_directory}')
 
     def test_aws_put_in_bucket_root_small_file(self):
 
@@ -99,18 +94,18 @@ class PutObject_Test(unittest.TestCase):
 
         try:
 
-            make_arbitrary_file(put_filename, 100*1024)
-            assert_command(f'aws --profile s3_api_alice --endpoint-url {self.s3_api_url} '
+            utility.make_arbitrary_file(put_filename, 100*1024)
+            command.assert_command(f'aws --profile s3_api_alice --endpoint-url {self.s3_api_url} '
                     f's3 cp {put_filename} s3://{self.bucket_name}/{put_filename}',
                     'STDOUT_SINGLELINE',
                     f'upload: ./{put_filename} to s3://{self.bucket_name}/{put_filename}')
-            assert_command(f'iget {self.bucket_irods_path}/{put_filename} {get_filename}')
-            assert_command(f'diff -q {put_filename} {get_filename}')
+            command.assert_command(f'iget {self.bucket_irods_path}/{put_filename} {get_filename}')
+            command.assert_command(f'diff -q {put_filename} {get_filename}')
 
         finally:
             os.remove(put_filename)
             os.remove(get_filename)
-            assert_command(f'irm -f {self.bucket_irods_path}/{put_filename}')
+            command.assert_command(f'irm -f {self.bucket_irods_path}/{put_filename}')
 
     def test_aws_put_in_bucket_root_large_file(self):
 
@@ -119,26 +114,26 @@ class PutObject_Test(unittest.TestCase):
 
         try:
 
-            make_arbitrary_file(put_filename, 20*1024*1024)
-            assert_command(f'aws --profile s3_api_alice --endpoint-url {self.s3_api_url} '
+            utility.make_arbitrary_file(put_filename, 20*1024*1024)
+            command.assert_command(f'aws --profile s3_api_alice --endpoint-url {self.s3_api_url} '
                     f's3 cp {put_filename} s3://{self.bucket_name}/{put_filename}',
                     'STDOUT_SINGLELINE',
                     f'upload: ./{put_filename} to s3://{self.bucket_name}/{put_filename}')
-            assert_command(f'iget {self.bucket_irods_path}/{put_filename} {get_filename}')
-            assert_command(f'diff -q {put_filename} {get_filename}')
+            command.assert_command(f'iget {self.bucket_irods_path}/{put_filename} {get_filename}')
+            command.assert_command(f'diff -q {put_filename} {get_filename}')
 
             # perform upload a second time to make sure original file was closed properly
-            assert_command(f'aws --profile s3_api_alice --endpoint-url {self.s3_api_url} '
+            command.assert_command(f'aws --profile s3_api_alice --endpoint-url {self.s3_api_url} '
                     f's3 cp {put_filename} s3://{self.bucket_name}/{put_filename}',
                     'STDOUT_SINGLELINE',
                     f'upload: ./{put_filename} to s3://{self.bucket_name}/{put_filename}')
-            assert_command(f'iget -f {self.bucket_irods_path}/{put_filename} {get_filename}')
-            assert_command(f'diff -q {put_filename} {get_filename}')
+            command.assert_command(f'iget -f {self.bucket_irods_path}/{put_filename} {get_filename}')
+            command.assert_command(f'diff -q {put_filename} {get_filename}')
 
         finally:
             os.remove(put_filename)
             os.remove(get_filename)
-            assert_command(f'irm -f {self.bucket_irods_path}/{put_filename}')
+            command.assert_command(f'irm -f {self.bucket_irods_path}/{put_filename}')
 
     def test_aws_put_in_subdirectory(self):
 
@@ -148,19 +143,19 @@ class PutObject_Test(unittest.TestCase):
 
         try:
 
-            make_arbitrary_file(put_filename, 100*1024)
+            utility.make_arbitrary_file(put_filename, 100*1024)
             self.boto3_client.upload_file(put_filename, self.bucket_name, f'{put_directory}/{put_filename}')
-            assert_command(f'aws --profile s3_api_alice --endpoint-url {self.s3_api_url} '
+            command.assert_command(f'aws --profile s3_api_alice --endpoint-url {self.s3_api_url} '
                     f's3 cp {put_filename} s3://{self.bucket_name}/{put_directory}/{put_filename}',
                     'STDOUT_SINGLELINE',
                     f'upload: ./{put_filename} to s3://{self.bucket_name}/{put_directory}/{put_filename}')
-            assert_command(f'iget {self.bucket_irods_path}/{put_directory}/{put_filename} {get_filename}')
-            assert_command(f'diff -q {put_filename} {get_filename}')
+            command.assert_command(f'iget {self.bucket_irods_path}/{put_directory}/{put_filename} {get_filename}')
+            command.assert_command(f'diff -q {put_filename} {get_filename}')
 
         finally:
             os.remove(put_filename)
             os.remove(get_filename)
-            assert_command(f'irm -rf {self.bucket_irods_path}/{put_directory}')
+            command.assert_command(f'irm -rf {self.bucket_irods_path}/{put_directory}')
 
     def test_mc_put_small_file_in_bucket_root(self):
 
@@ -168,17 +163,17 @@ class PutObject_Test(unittest.TestCase):
         get_filename = f'{put_filename}.get'
 
         try:
-            make_arbitrary_file(put_filename, 100*1024)
-            assert_command(f'mc cp {put_filename} s3-api-alice/{self.bucket_name}/{put_filename}',
+            utility.make_arbitrary_file(put_filename, 100*1024)
+            command.assert_command(f'mc cp {put_filename} s3-api-alice/{self.bucket_name}/{put_filename}',
                     'STDOUT_SINGLELINE',
                     'small_file')
-            assert_command(f'iget {self.bucket_irods_path}/{put_filename} {get_filename}')
-            assert_command(f'diff -q {put_filename} {get_filename}')
+            command.assert_command(f'iget {self.bucket_irods_path}/{put_filename} {get_filename}')
+            command.assert_command(f'diff -q {put_filename} {get_filename}')
 
         finally:
             os.remove(put_filename)
             os.remove(get_filename)
-            assert_command(f'irm -f {self.bucket_irods_path}/{put_filename}')
+            command.assert_command(f'irm -f {self.bucket_irods_path}/{put_filename}')
 
     def test_mc_put_large_file_in_bucket_root(self):
 
@@ -187,24 +182,24 @@ class PutObject_Test(unittest.TestCase):
 
         try:
 
-            make_arbitrary_file(put_filename, 20*1024*1024)
-            assert_command(f'mc cp {put_filename} s3-api-alice/{self.bucket_name}/{put_filename}',
+            utility.make_arbitrary_file(put_filename, 20*1024*1024)
+            command.assert_command(f'mc cp {put_filename} s3-api-alice/{self.bucket_name}/{put_filename}',
                     'STDOUT_SINGLELINE',
                     'large_file')
-            assert_command(f'iget {self.bucket_irods_path}/{put_filename} {get_filename}')
-            assert_command(f'diff -q {put_filename} {get_filename}')
+            command.assert_command(f'iget {self.bucket_irods_path}/{put_filename} {get_filename}')
+            command.assert_command(f'diff -q {put_filename} {get_filename}')
 
             # perform upload a second time to make sure original file was closed properly
-            assert_command(f'mc cp {put_filename} s3-api-alice/{self.bucket_name}/{put_filename}',
+            command.assert_command(f'mc cp {put_filename} s3-api-alice/{self.bucket_name}/{put_filename}',
                     'STDOUT_SINGLELINE',
                     'large_file')
-            assert_command(f'iget -f {self.bucket_irods_path}/{put_filename} {get_filename}')
-            assert_command(f'diff -q {put_filename} {get_filename}')
+            command.assert_command(f'iget -f {self.bucket_irods_path}/{put_filename} {get_filename}')
+            command.assert_command(f'diff -q {put_filename} {get_filename}')
 
         finally:
             os.remove(put_filename)
             os.remove(get_filename)
-            assert_command(f'irm -f {self.bucket_irods_path}/{put_filename}')
+            command.assert_command(f'irm -f {self.bucket_irods_path}/{put_filename}')
 
     def test_mc_put_in_subdirectory(self):
 
@@ -214,18 +209,18 @@ class PutObject_Test(unittest.TestCase):
 
         try:
 
-            make_arbitrary_file(put_filename, 100*1024)
+            utility.make_arbitrary_file(put_filename, 100*1024)
             self.boto3_client.upload_file(put_filename, self.bucket_name, f'{put_directory}/{put_filename}')
-            assert_command(f'mc cp {put_filename} s3-api-alice/{self.bucket_name}/{put_directory}/{put_filename}',
+            command.assert_command(f'mc cp {put_filename} s3-api-alice/{self.bucket_name}/{put_directory}/{put_filename}',
                     'STDOUT_SINGLELINE',
                     'in_subdirectory')
-            assert_command(f'iget {self.bucket_irods_path}/{put_directory}/{put_filename} {get_filename}')
-            assert_command(f'diff -q {put_filename} {get_filename}')
+            command.assert_command(f'iget {self.bucket_irods_path}/{put_directory}/{put_filename} {get_filename}')
+            command.assert_command(f'diff -q {put_filename} {get_filename}')
 
         finally:
             os.remove(put_filename)
             os.remove(get_filename)
-            assert_command(f'irm -rf {self.bucket_irods_path}/{put_directory}')
+            command.assert_command(f'irm -rf {self.bucket_irods_path}/{put_directory}')
 
     def test_put_fails(self):
         """
@@ -238,18 +233,18 @@ class PutObject_Test(unittest.TestCase):
 
             # Check if the permissions of the directory are properly honored. Namely,
             # it should return a 403 status code if it cannot write.
-            assert_command(f'ichmod -r read_metadata alice {self.bucket_irods_path}') 
+            command.assert_command(f'ichmod -r read_metadata alice {self.bucket_irods_path}') 
             self.assertRaises(Exception,
                               lambda: self.boto3_client.upload_file(put_filename, self.bucket_name, put_filename))
 
-            execute_irods_command_as_user(f'ichmod -Mr own alice {self.bucket_irods_path}', irods_host, 1247, 'rods', 'tempZone', 'rods', 'apass')
+            utility.execute_irods_command_as_user(f'ichmod -Mr own alice {self.bucket_irods_path}', irods_host, 1247, 'rods', 'tempZone', 'rods', 'apass')
 
             # This is overwriting a file directly that the user cannot overwrite. 
             # It should provide a 403 status code
-            touch_file(f'{self.bucket_irods_path}/{put_filename}', access_level='read_metadata', user=self.bucket_owner_irods)
+            utility.touch_file(f'{self.bucket_irods_path}/{put_filename}', access_level='read_metadata', user=self.bucket_owner_irods)
             self.assertRaises(Exception,
                               lambda: self.boto3_client.upload_file(put_filename, self.bucket_name, put_filename))
-            execute_irods_command_as_user(f'ichmod -M own alice {self.bucket_irods_path}/{put_filename}', irods_host, 1247, 'rods', 'tempZone', 'rods', 'apass')
+            utility.execute_irods_command_as_user(f'ichmod -M own alice {self.bucket_irods_path}/{put_filename}', irods_host, 1247, 'rods', 'tempZone', 'rods', 'apass')
 
         finally:
-            assert_command(f'irm -f {self.bucket_irods_path}/{put_filename}')
+            command.assert_command(f'irm -f {self.bucket_irods_path}/{put_filename}')

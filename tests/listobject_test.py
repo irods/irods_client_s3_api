@@ -1,12 +1,11 @@
-import unittest
+from datetime import datetime
 import botocore
 import botocore.session
 import os
-from libs.execute import *
-from libs.command import *
-from libs.utility import *
-from datetime import datetime
+import unittest
+
 from host_port import s3_api_host_port
+from libs import command, utility
 
 class ListObject_Test(unittest.TestCase):
 
@@ -24,24 +23,24 @@ class ListObject_Test(unittest.TestCase):
     def setUpClass(cls):
 
         # create collections/data objects
-        make_local_file('f1', 100)
-        make_local_file('f2', 200)
+        utility.make_local_file('f1', 100)
+        utility.make_local_file('f2', 200)
 
-        assert_command(f'imkdir {cls.bucket_irods_path}/dir1')
-        assert_command(f'iput f1 {cls.bucket_irods_path}/f1')
-        assert_command(f'iput f1 {cls.bucket_irods_path}/dir1/d1f1')
-        assert_command(f'iput f2 {cls.bucket_irods_path}/dir1/d1f2')
-        assert_command(f'imkdir {cls.bucket_irods_path}/dir1/dir1a')
-        assert_command(f'iput f1 {cls.bucket_irods_path}/dir1/dir1a/d1af1')
-        assert_command(f'iput f2 {cls.bucket_irods_path}/dir1/dir1a/d1af2')
-        assert_command(f'imkdir {cls.bucket_irods_path}/dir1/dir1b')
-        assert_command(f'iput f1 {cls.bucket_irods_path}/dir1/dir1b/d1bf1')
-        assert_command(f'iput f2 {cls.bucket_irods_path}/dir1/dir1b/d1bf2')
-        assert_command(f'imkdir {cls.bucket_irods_path}/dir2')
+        command.assert_command(f'imkdir {cls.bucket_irods_path}/dir1')
+        command.assert_command(f'iput f1 {cls.bucket_irods_path}/f1')
+        command.assert_command(f'iput f1 {cls.bucket_irods_path}/dir1/d1f1')
+        command.assert_command(f'iput f2 {cls.bucket_irods_path}/dir1/d1f2')
+        command.assert_command(f'imkdir {cls.bucket_irods_path}/dir1/dir1a')
+        command.assert_command(f'iput f1 {cls.bucket_irods_path}/dir1/dir1a/d1af1')
+        command.assert_command(f'iput f2 {cls.bucket_irods_path}/dir1/dir1a/d1af2')
+        command.assert_command(f'imkdir {cls.bucket_irods_path}/dir1/dir1b')
+        command.assert_command(f'iput f1 {cls.bucket_irods_path}/dir1/dir1b/d1bf1')
+        command.assert_command(f'iput f2 {cls.bucket_irods_path}/dir1/dir1b/d1bf2')
+        command.assert_command(f'imkdir {cls.bucket_irods_path}/dir2')
 
     @classmethod 
     def tearDownClass(cls):
-        assert_command(f'irm -rf {cls.bucket_irods_path}/f1 {cls.bucket_irods_path}/f2 {cls.bucket_irods_path}/dir1 {cls.bucket_irods_path}/dir2')
+        command.assert_command(f'irm -rf {cls.bucket_irods_path}/f1 {cls.bucket_irods_path}/f2 {cls.bucket_irods_path}/dir1 {cls.bucket_irods_path}/dir2')
         os.remove('f1')
         os.remove('f2')
 
@@ -99,7 +98,7 @@ class ListObject_Test(unittest.TestCase):
         listobjects_result = self.client.list_objects_v2(Bucket=self.bucket_name, Delimiter='/')
         print(listobjects_result)
 
-        assert_command('ils -l %s' % self.bucket_irods_path, 'STDOUT') #debug
+        command.assert_command('ils -l %s' % self.bucket_irods_path, 'STDOUT') #debug
         current_time = datetime.now()
         self.assertEqual(len(listobjects_result['Contents']), 1, 'Wrong number of results')
         self.assert_key_in_contents_list(listobjects_result, 'f1', size=100, lastmodified=current_time)
@@ -131,9 +130,9 @@ class ListObject_Test(unittest.TestCase):
         try:
             # With a delimiter and not ending in a slash, this will return all keys beginning with the common
             # prefix but will not descend into collections
-            assert_command(f'imkdir {self.bucket_irods_path}/commonkeyprefix_dir')
-            assert_command(f'iput f1 {self.bucket_irods_path}/commonkeyprefix_f1')
-            assert_command(f'iput f1 {self.bucket_irods_path}/commonkeyprefix_dir/f1')  # this one will not show up in this query
+            command.assert_command(f'imkdir {self.bucket_irods_path}/commonkeyprefix_dir')
+            command.assert_command(f'iput f1 {self.bucket_irods_path}/commonkeyprefix_f1')
+            command.assert_command(f'iput f1 {self.bucket_irods_path}/commonkeyprefix_dir/f1')  # this one will not show up in this query
 
             listobjects_result = self.client.list_objects_v2(Bucket=self.bucket_name, Delimiter='/', Prefix='commonkeyprefix')
             print(listobjects_result)
@@ -144,7 +143,7 @@ class ListObject_Test(unittest.TestCase):
 
         finally:
             # local cleanup
-            assert_command(f'irm -rf {self.bucket_irods_path}/commonkeyprefix_dir {self.bucket_irods_path}/commonkeyprefix_f1')
+            command.assert_command(f'irm -rf {self.bucket_irods_path}/commonkeyprefix_dir {self.bucket_irods_path}/commonkeyprefix_f1')
 
     def test_botocore_list_no_delimiter(self):
 
@@ -169,7 +168,7 @@ class ListObject_Test(unittest.TestCase):
        self.assertRaises(KeyError, lambda: listobjects_result['Contents'])
 
     def test_aws_list_with_delimiter_no_prefix(self):
-        assert_command(f'aws --profile s3_api_alice --endpoint-url {self.s3_api_url} s3 ls s3://{self.bucket_name}/',
+        command.assert_command(f'aws --profile s3_api_alice --endpoint-url {self.s3_api_url} s3 ls s3://{self.bucket_name}/',
                 'STDOUT_MULTILINE', ['f1', 'dir1/', 'dir2/'])
 
     def test_aws_list_with_delimiter_prefix_ending_with_slash(self):
@@ -177,10 +176,10 @@ class ListObject_Test(unittest.TestCase):
         # With a delimiter and ending in a slash, this works just like a directory listing
         # Example:   A search for prefix "dir1/" will only show collections and files directly
         # under dir1.
-        assert_command(f'aws --profile s3_api_alice --endpoint-url {self.s3_api_url} s3 ls s3://{self.bucket_name}/dir1/',
+        command.assert_command(f'aws --profile s3_api_alice --endpoint-url {self.s3_api_url} s3 ls s3://{self.bucket_name}/dir1/',
                 'STDOUT_MULTILINE', ['d1f1', 'd1f2', 'dir1a/', 'dir1b/'])
 
-        assert_command(f'aws --profile s3_api_alice --endpoint-url {self.s3_api_url} s3 ls s3://{self.bucket_name}/dir1/dir1a/',
+        command.assert_command(f'aws --profile s3_api_alice --endpoint-url {self.s3_api_url} s3 ls s3://{self.bucket_name}/dir1/dir1a/',
                 'STDOUT_MULTILINE', ['d1af1', 'd1af2'])
 
     def test_aws_list_with_delimiter_prefix_no_slash(self):
@@ -188,30 +187,30 @@ class ListObject_Test(unittest.TestCase):
         try:
             # With a delimiter and not ending in a slash, this will return all keys beginning with the common
             # prefix but will not descend into collections
-            assert_command(f'imkdir {self.bucket_irods_path}/commonkeyprefix_dir')
-            assert_command(f'iput f1 {self.bucket_irods_path}/commonkeyprefix_f1')
-            assert_command(f'iput f1 {self.bucket_irods_path}/commonkeyprefix_dir/f1')  # this one will not show up in this query
+            command.assert_command(f'imkdir {self.bucket_irods_path}/commonkeyprefix_dir')
+            command.assert_command(f'iput f1 {self.bucket_irods_path}/commonkeyprefix_f1')
+            command.assert_command(f'iput f1 {self.bucket_irods_path}/commonkeyprefix_dir/f1')  # this one will not show up in this query
 
-            assert_command(f'aws --profile s3_api_alice --endpoint-url {self.s3_api_url} s3 ls s3://{self.bucket_name}/commonkeyprefix',
+            command.assert_command(f'aws --profile s3_api_alice --endpoint-url {self.s3_api_url} s3 ls s3://{self.bucket_name}/commonkeyprefix',
                     'STDOUT_MULTILINE', ['commonkeyprefix_f1', 'commonkeyprefix_dir'])
 
         finally:
             # local cleanup
-            assert_command(f'irm -rf {self.bucket_irods_path}/commonkeyprefix_dir {self.bucket_irods_path}/commonkeyprefix_f1')
+            command.assert_command(f'irm -rf {self.bucket_irods_path}/commonkeyprefix_dir {self.bucket_irods_path}/commonkeyprefix_f1')
 
     def test_aws_list_no_delimiter(self):
 
         # With no delimiter, it is simply a key prefix search.  Since the delimiter does not exist, the search will 
         # descend into all objects.
-        assert_command(f'aws --profile s3_api_alice --endpoint-url {self.s3_api_url} s3 ls --recursive s3://{self.bucket_name}/di',
+        command.assert_command(f'aws --profile s3_api_alice --endpoint-url {self.s3_api_url} s3 ls --recursive s3://{self.bucket_name}/di',
                 'STDOUT_MULTILINE', ['dir1/d1f1', 'dir1/d1f2', 'dir1/dir1a/d1af1', 'dir1/dir1a/d1af2', 'dir1/dir1b/d1bf1', 'dir1/dir1b/d1bf2'])
 
     def test_aws_list_nothing_found(self):
-        _, out, _ = assert_command(f'aws --profile s3_api_alice --endpoint-url {self.s3_api_url} s3 ls --recursive s3://{self.bucket_name}/doesnotexist')
+        _, out, _ = command.assert_command(f'aws --profile s3_api_alice --endpoint-url {self.s3_api_url} s3 ls --recursive s3://{self.bucket_name}/doesnotexist')
         self.assertEqual(len(out), 0)
 
     def test_mc_list_with_delimiter_no_prefix(self):
-        assert_command(f'mc ls s3-api-alice/{self.bucket_name}/',
+        command.assert_command(f'mc ls s3-api-alice/{self.bucket_name}/',
                 'STDOUT_MULTILINE', ['f1', 'dir1/', 'dir2/'])
 
     def test_mc_list_with_delimiter_prefix_ending_with_slash(self):
@@ -219,10 +218,10 @@ class ListObject_Test(unittest.TestCase):
         # With a delimiter and ending in a slash, this works just like a directory listing
         # Example:   A search for prefix "dir1/" will only show collections and files directly
         # under dir1.
-        assert_command(f'mc ls s3-api-alice/{self.bucket_name}/dir1/',
+        command.assert_command(f'mc ls s3-api-alice/{self.bucket_name}/dir1/',
                 'STDOUT_MULTILINE', ['d1f1', 'd1f2', 'dir1a/', 'dir1b/'])
 
-        assert_command(f'mc ls s3-api-alice/{self.bucket_name}/dir1/dir1a/',
+        command.assert_command(f'mc ls s3-api-alice/{self.bucket_name}/dir1/dir1a/',
                 'STDOUT_MULTILINE', ['d1af1', 'd1af2'])
 
     def test_mc_list_with_delimiter_prefix_no_slash(self):
@@ -230,21 +229,21 @@ class ListObject_Test(unittest.TestCase):
         try:
             # With a delimiter and not ending in a slash, this will return all keys beginning with the common
             # prefix but will not descend into collections
-            assert_command(f'imkdir {self.bucket_irods_path}/commonkeyprefix_dir')
-            assert_command(f'iput f1 {self.bucket_irods_path}/commonkeyprefix_f1')
-            assert_command(f'iput f1 {self.bucket_irods_path}/commonkeyprefix_dir/f1')  # this one will not show up in this query
+            command.assert_command(f'imkdir {self.bucket_irods_path}/commonkeyprefix_dir')
+            command.assert_command(f'iput f1 {self.bucket_irods_path}/commonkeyprefix_f1')
+            command.assert_command(f'iput f1 {self.bucket_irods_path}/commonkeyprefix_dir/f1')  # this one will not show up in this query
 
-            assert_command(f'mc ls s3-api-alice/{self.bucket_name}/commonkeyprefix',
+            command.assert_command(f'mc ls s3-api-alice/{self.bucket_name}/commonkeyprefix',
                     'STDOUT_MULTILINE', ['commonkeyprefix_f1', 'commonkeyprefix_dir'])
 
         finally:
             # local cleanup
-            assert_command(f'irm -rf {self.bucket_irods_path}/commonkeyprefix_dir {self.bucket_irods_path}/commonkeyprefix_f1')
+            command.assert_command(f'irm -rf {self.bucket_irods_path}/commonkeyprefix_dir {self.bucket_irods_path}/commonkeyprefix_f1')
 
     @unittest.skip('mc client is setting a delimiter even with the --recursive flag set')
     def test_mc_list_no_delimiter(self):
         pass
 
     def test_mc_list_nothing_found(self):
-        _, out, _ = assert_command(f'mc ls s3-api-alice/{self.bucket_name}/doesnotexist')
+        _, out, _ = command.assert_command(f'mc ls s3-api-alice/{self.bucket_name}/doesnotexist')
         self.assertEqual(len(out), 0)

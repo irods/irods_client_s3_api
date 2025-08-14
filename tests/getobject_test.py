@@ -1,14 +1,11 @@
-import unittest
+from minio import Minio
 import boto3
-from boto3.s3.transfer import TransferConfig
 import inspect
 import os
-from libs.execute import *
-from libs.command import *
-from libs.utility import *
-from datetime import datetime
-from minio import Minio
+import unittest
+
 from host_port import s3_api_host_port
+from libs import command, utility
 
 class GetObject_Test(unittest.TestCase):
 
@@ -44,16 +41,16 @@ class GetObject_Test(unittest.TestCase):
 
         try:
 
-            make_arbitrary_file(put_filename, 100*1024)
-            assert_command(f'iput {put_filename} {self.bucket_irods_path}/{put_filename}')
+            utility.make_arbitrary_file(put_filename, 100*1024)
+            command.assert_command(f'iput {put_filename} {self.bucket_irods_path}/{put_filename}')
             with open(get_filename, 'wb') as f:
                     self.boto3_client.download_fileobj(self.bucket_name, put_filename, f)
-            assert_command(f'diff -q {put_filename} {get_filename}')
+            command.assert_command(f'diff -q {put_filename} {get_filename}')
 
         finally:
             os.remove(put_filename)
             os.remove(get_filename)
-            assert_command(f'irm -f {self.bucket_irods_path}/{put_filename}')
+            command.assert_command(f'irm -f {self.bucket_irods_path}/{put_filename}')
 
     def test_botocore_get_in_bucket_root_large_file(self):
 
@@ -62,16 +59,16 @@ class GetObject_Test(unittest.TestCase):
 
         try:
 
-            make_arbitrary_file(put_filename, 20*1024*1024)
-            assert_command(f'iput {put_filename} {self.bucket_irods_path}/{put_filename}')
+            utility.make_arbitrary_file(put_filename, 20*1024*1024)
+            command.assert_command(f'iput {put_filename} {self.bucket_irods_path}/{put_filename}')
             with open(get_filename, 'wb') as f:
                 self.boto3_client.download_fileobj(self.bucket_name, put_filename, f)
-            assert_command(f'diff -q {put_filename} {get_filename}')
+            command.assert_command(f'diff -q {put_filename} {get_filename}')
 
         finally:
             os.remove(put_filename)
             os.remove(get_filename)
-            assert_command(f'irm -f {self.bucket_irods_path}/{put_filename}')
+            command.assert_command(f'irm -f {self.bucket_irods_path}/{put_filename}')
 
     def test_botocore_put_in_subdirectory(self):
 
@@ -81,17 +78,17 @@ class GetObject_Test(unittest.TestCase):
 
         try:
 
-            make_arbitrary_file(put_filename, 100*1024)
-            assert_command(f'imkdir {self.bucket_irods_path}/{put_directory}')
-            assert_command(f'iput {put_filename} {self.bucket_irods_path}/{put_directory}/{put_filename}')
+            utility.make_arbitrary_file(put_filename, 100*1024)
+            command.assert_command(f'imkdir {self.bucket_irods_path}/{put_directory}')
+            command.assert_command(f'iput {put_filename} {self.bucket_irods_path}/{put_directory}/{put_filename}')
             with open(get_filename, 'wb') as f:
                 self.boto3_client.download_fileobj(self.bucket_name, f'{put_directory}/{put_filename}', f)
-            assert_command(f'diff -q {put_filename} {get_filename}')
+            command.assert_command(f'diff -q {put_filename} {get_filename}')
 
         finally:
             os.remove(put_filename)
             os.remove(get_filename)
-            assert_command(f'irm -rf {self.bucket_irods_path}/{put_directory}')
+            command.assert_command(f'irm -rf {self.bucket_irods_path}/{put_directory}')
 
     def test_aws_get_in_bucket_root_small_file(self):
 
@@ -100,20 +97,20 @@ class GetObject_Test(unittest.TestCase):
 
         try:
 
-            make_arbitrary_file(put_filename, 100*1024)
-            assert_command(f'iput {put_filename} {self.bucket_irods_path}/{put_filename}')
+            utility.make_arbitrary_file(put_filename, 100*1024)
+            command.assert_command(f'iput {put_filename} {self.bucket_irods_path}/{put_filename}')
             with open(get_filename, 'wb') as f:
                     self.boto3_client.download_fileobj(self.bucket_name, put_filename, f)
-            assert_command(f'aws --profile s3_api_alice --endpoint-url {self.s3_api_url} '
+            command.assert_command(f'aws --profile s3_api_alice --endpoint-url {self.s3_api_url} '
                     f's3 cp s3://{self.bucket_name}/{put_filename} {get_filename}',
                     'STDOUT_SINGLELINE',
                     f'download: s3://{self.bucket_name}/{put_filename} to ./{get_filename}')
-            assert_command(f'diff -q {put_filename} {get_filename}')
+            command.assert_command(f'diff -q {put_filename} {get_filename}')
 
         finally:
             os.remove(put_filename)
             os.remove(get_filename)
-            assert_command(f'irm -f {self.bucket_irods_path}/{put_filename}')
+            command.assert_command(f'irm -f {self.bucket_irods_path}/{put_filename}')
 
     def test_aws_get_in_bucket_root_large_file(self):
 
@@ -122,20 +119,20 @@ class GetObject_Test(unittest.TestCase):
 
         try:
 
-            make_arbitrary_file(put_filename, 20*1024*1024)
-            assert_command(f'iput {put_filename} {self.bucket_irods_path}/{put_filename}')
+            utility.make_arbitrary_file(put_filename, 20*1024*1024)
+            command.assert_command(f'iput {put_filename} {self.bucket_irods_path}/{put_filename}')
             with open(get_filename, 'wb') as f:
                     self.boto3_client.download_fileobj(self.bucket_name, put_filename, f)
-            assert_command(f'aws --profile s3_api_alice --endpoint-url {self.s3_api_url} '
+            command.assert_command(f'aws --profile s3_api_alice --endpoint-url {self.s3_api_url} '
                     f's3 cp s3://{self.bucket_name}/{put_filename} {get_filename}',
                     'STDOUT_SINGLELINE',
                     f'download: s3://{self.bucket_name}/{put_filename} to ./{get_filename}')
-            assert_command(f'diff -q {put_filename} {get_filename}')
+            command.assert_command(f'diff -q {put_filename} {get_filename}')
 
         finally:
             os.remove(put_filename)
             os.remove(get_filename)
-            assert_command(f'irm -f {self.bucket_irods_path}/{put_filename}')
+            command.assert_command(f'irm -f {self.bucket_irods_path}/{put_filename}')
 
     def test_aws_get_in_subdirectory(self):
 
@@ -145,19 +142,19 @@ class GetObject_Test(unittest.TestCase):
 
         try:
 
-            make_arbitrary_file(put_filename, 100*1024)
-            assert_command(f'imkdir {self.bucket_irods_path}/{put_directory}')
-            assert_command(f'iput {put_filename} {self.bucket_irods_path}/{put_directory}/{put_filename}')
-            assert_command(f'aws --profile s3_api_alice --endpoint-url {self.s3_api_url} '
+            utility.make_arbitrary_file(put_filename, 100*1024)
+            command.assert_command(f'imkdir {self.bucket_irods_path}/{put_directory}')
+            command.assert_command(f'iput {put_filename} {self.bucket_irods_path}/{put_directory}/{put_filename}')
+            command.assert_command(f'aws --profile s3_api_alice --endpoint-url {self.s3_api_url} '
                     f's3 cp s3://{self.bucket_name}/{put_directory}/{put_filename} {get_filename}',
                     'STDOUT_SINGLELINE',
                     f'download: s3://{self.bucket_name}/{put_directory}/{put_filename} to ./{get_filename}')
-            assert_command(f'diff -q {put_filename} {get_filename}')
+            command.assert_command(f'diff -q {put_filename} {get_filename}')
 
         finally:
             os.remove(put_filename)
             os.remove(get_filename)
-            assert_command(f'irm -rf {self.bucket_irods_path}/{put_directory}')
+            command.assert_command(f'irm -rf {self.bucket_irods_path}/{put_directory}')
 
     def test_minio_get_in_bucket_root_small_file(self):
 
@@ -166,8 +163,8 @@ class GetObject_Test(unittest.TestCase):
 
         try:
 
-            make_arbitrary_file(put_filename, 100*1024)
-            assert_command(f'iput {put_filename} {self.bucket_irods_path}/{put_filename}')
+            utility.make_arbitrary_file(put_filename, 100*1024)
+            command.assert_command(f'iput {put_filename} {self.bucket_irods_path}/{put_filename}')
 
             # read the data into get_filename
             data = self.minio_client.get_object(self.bucket_name, put_filename)
@@ -176,12 +173,12 @@ class GetObject_Test(unittest.TestCase):
                     file_data.write(d)
  
             # compare the put file and get file 
-            assert_command(f'diff -q {put_filename} {get_filename}')
+            command.assert_command(f'diff -q {put_filename} {get_filename}')
 
         finally:
             os.remove(put_filename)
             os.remove(get_filename)
-            assert_command(f'irm -f {self.bucket_irods_path}/{put_filename}')
+            command.assert_command(f'irm -f {self.bucket_irods_path}/{put_filename}')
             data.close()
             data.release_conn()
 
@@ -192,8 +189,8 @@ class GetObject_Test(unittest.TestCase):
 
         try:
 
-            make_arbitrary_file(put_filename, 20*1024*1024)
-            assert_command(f'iput {put_filename} {self.bucket_irods_path}/{put_filename}')
+            utility.make_arbitrary_file(put_filename, 20*1024*1024)
+            command.assert_command(f'iput {put_filename} {self.bucket_irods_path}/{put_filename}')
 
             # read the data into get_filename
             data = self.minio_client.get_object(self.bucket_name, put_filename)
@@ -202,13 +199,13 @@ class GetObject_Test(unittest.TestCase):
                     file_data.write(d)
  
             # compare the put file and get file 
-            assert_command(f'diff -q {put_filename} {get_filename}')
+            command.assert_command(f'diff -q {put_filename} {get_filename}')
 
 
         finally:
             os.remove(put_filename)
             os.remove(get_filename)
-            assert_command(f'irm -f {self.bucket_irods_path}/{put_filename}')
+            command.assert_command(f'irm -f {self.bucket_irods_path}/{put_filename}')
 
     def test_minio_get_in_subdirectory(self):
 
@@ -217,9 +214,9 @@ class GetObject_Test(unittest.TestCase):
         get_filename = f'{put_filename}.get'
 
         try:
-            make_arbitrary_file(put_filename, 100*1024)
-            assert_command(f'imkdir {self.bucket_irods_path}/{put_directory}')
-            assert_command(f'iput {put_filename} {self.bucket_irods_path}/{put_directory}/{put_filename}')
+            utility.make_arbitrary_file(put_filename, 100*1024)
+            command.assert_command(f'imkdir {self.bucket_irods_path}/{put_directory}')
+            command.assert_command(f'iput {put_filename} {self.bucket_irods_path}/{put_directory}/{put_filename}')
 
             # read the data into get_filename
             data = self.minio_client.get_object(self.bucket_name, f'{put_directory}/{put_filename}')
@@ -228,9 +225,9 @@ class GetObject_Test(unittest.TestCase):
                     file_data.write(d)
  
             # compare the put file and get file 
-            assert_command(f'diff -q {put_filename} {get_filename}')
+            command.assert_command(f'diff -q {put_filename} {get_filename}')
 
         finally:
             os.remove(put_filename)
             os.remove(get_filename)
-            assert_command(f'irm -rf {self.bucket_irods_path}/{put_directory}')
+            command.assert_command(f'irm -rf {self.bucket_irods_path}/{put_directory}')
