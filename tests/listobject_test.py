@@ -8,7 +8,7 @@ from libs.utility import *
 from datetime import datetime
 from host_port import s3_api_host_port
 
-class ListObject_Test(TestCase):
+class ListObject_Test(unittest.TestCase):
 
     # ======== Construction, setUp, tearDown =========
     bucket_irods_path = '/tempZone/home/alice/alice-bucket'

@@ -73,4 +73,4 @@ RUN mkdir /root/.aws
 COPY aws_credentials /root/.aws/credentials
 
 COPY --chmod=755 entrypoint.sh /
-ENTRYPOINT "/entrypoint.sh"
+ENTRYPOINT ["/entrypoint.sh"]

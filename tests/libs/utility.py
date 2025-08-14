@@ -1,4 +1,3 @@
-from unittest import *
 import subprocess as sp
 import botocore
 import random

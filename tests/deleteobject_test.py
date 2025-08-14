@@ -1,17 +1,17 @@
-from unittest import *
 import boto3
 from boto3.s3.transfer import TransferConfig
 import botocore
 import botocore.session
 import inspect
 import os
+import unittest
 from libs.execute import *
 from libs.command import *
 from libs.utility import *
 from datetime import datetime
 from host_port import s3_api_host_port, irods_host
 
-class DeleteObject_Test(TestCase):
+class DeleteObject_Test(unittest.TestCase):
 
     # ======== Construction, setUp, tearDown =========
 

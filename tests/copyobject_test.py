@@ -13,7 +13,7 @@ from minio import Minio
 from minio.commonconfig import CopySource as MinioCopySource
 from host_port import s3_api_host_port, irods_host
 
-class CopyObject_Test(TestCase):
+class CopyObject_Test(unittest.TestCase):
 
     bucket_irods_path = '/tempZone/home/alice/alice-bucket'
     bucket_name = 'alice-bucket'

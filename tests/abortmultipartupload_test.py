@@ -1,13 +1,13 @@
-from unittest import *
 import inspect
 import os
 import json
+import unittest
 from libs.execute import *
 from libs.command import *
 from libs.utility import *
 from host_port import s3_api_host_port, irods_host
 
-class AbortMultipartUpload_Test(TestCase):
+class AbortMultipartUpload_Test(unittest.TestCase):
     bucket_irods_path = '/tempZone/home/alice/alice-bucket'
     bucket_name = 'alice-bucket'
     s3_api_url = f'http://{s3_api_host_port}'

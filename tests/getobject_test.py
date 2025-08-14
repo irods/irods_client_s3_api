@@ -10,7 +10,7 @@ from datetime import datetime
 from minio import Minio
 from host_port import s3_api_host_port
 
-class GetObject_Test(TestCase):
+class GetObject_Test(unittest.TestCase):
 
     bucket_irods_path = '/tempZone/home/alice/alice-bucket'
     bucket_name = 'alice-bucket'

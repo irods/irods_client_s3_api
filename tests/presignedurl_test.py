@@ -3,12 +3,12 @@ from libs.command import *
 from libs.execute import *
 from libs.utility import *
 from minio import Minio
-from unittest import *
 import datetime
 import os
 import requests
+import unittest
 
-class PresignedURL_Test(TestCase):
+class PresignedURL_Test(unittest.TestCase):
     bucket_irods_path = '/tempZone/home/alice/alice-bucket'
     bucket_name = 'alice-bucket'
     key = 's3_key2'

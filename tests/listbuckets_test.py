@@ -1,14 +1,14 @@
-from unittest import *
 import botocore
 import botocore.session
 import os
+import unittest
 from libs.execute import *
 from libs.command import *
 from libs.utility import *
 from datetime import datetime
 from host_port import s3_api_host_port
 
-class ListBuckets_Test(TestCase):
+class ListBuckets_Test(unittest.TestCase):
 
     # ======== Construction, setUp, tearDown =========
     key_alice = 's3_key2'

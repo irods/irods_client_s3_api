@@ -492,19 +492,78 @@ mc cp --disable-multipart put_file myminio/bucket_name/put_filename
 
 # Running Tests
 
-Run the following commands to run the test suite.
+It is recommended to `cd` to the `tests/docker` directory in this repository when running the `docker compose` commands below. Otherwise, you must specify the Compose project directory with the `--project-directory` option.
 
+Run the following to run the full test suite (assumes your current working directory is the root directory of this repository):
 ```bash
 cd tests/docker
-./build_s3_api.sh
 docker compose build
-docker compose run client
+docker compose run --rm test-runner
+```
+
+The test output will appear in the terminal. Once the tests complete run the following to cleanup:
+
+```bash
+docker compose down
+docker volume prune # Use -f to skip the confirmation prompt
 ```
 
 *Note: If you get an error like `'name' does not match any of the regexes: '^x-'` then you will need to upgrade your version of docker compose.*
 
-The test output will appear in the terminal.  Once the tests complete run the following to cleanup:
+### Running specific tests
 
+To run one or more specific tests by name, override the command for the `test-runner` service container. The `unittest` command line interface (CLI) is run in the entrypoint script for the service image and the command is passed as arguments to the script.
+
+The most straightforward way to override the command is to specify it as an argument after the service name with `docker compose run`. Here is an example for how to run a specific test:
 ```bash
-docker compose down
+docker compose run --rm test-runner listbuckets_test.ListBuckets_Test.test_aws_list_bucket
 ```
+You can also specify a list of tests and test modules:
+```bash
+docker compose run --rm test-runner listbuckets_test.ListBuckets_Test.test_aws_list_bucket abortmultipartupload_test
+```
+And use any of the supported options for the `unittest` CLI:
+```bash
+docker compose run --rm test-runner -k aws -b listbuckets_test
+```
+For more information about `docker compose run`, see the [Docker Compose documentation](https://docs.docker.com/reference/cli/docker/compose/run).
+For more information about the `unittest` CLI, see the [Python documentation](https://docs.python.org/3/library/unittest.html#command-line-interface).
+
+The command can also be overridden by modifying the `command` attribute of the `test-runner` service definition stanza in the Docker Compose file. Add the following line to the stanza:
+```yaml
+# compose.yml
+
+# ...
+
+    test-runner:
+        # ...
+
+        # List whatever tests and options are needed just like the docker compose run invocations above.
+        command: listbuckets_test.ListBuckets_Test.test_aws_list_bucket abortmultipartupload_test
+
+        # ...
+```
+With this method, the command will be overridden by default and does not need to be specified when running `docker compose run`. So, with the configuration for the `test-runner` service shown above, the following commands are equivalent:
+```bash
+docker compose run --rm test-runner listbuckets_test.ListBuckets_Test.test_aws_list_bucket abortmultipartupload_test
+```
+```bash
+docker compose run --rm test-runner
+```
+For more information about the Docker Compose `command` attribute, see the [Docker Compose documentation](https://docs.docker.com/reference/compose-file/services/#command).
+
+### `irods-s3-api` service build oddities
+
+The topics discussed in this section will be addressed in [https://github.com/irods/irods_client_s3_api/issues/159](https://github.com/irods/irods_client_s3_api/issues/159) and at that point we can remove this.
+
+The `irods-s3-api` service is built from the `irods_runner.Dockerfile` found in the root directory of this repository. The Dockerfile requires that a DEB package file for the S3 API exist in the build context. This means that the DEB package file must exist in the root directory of this repository.
+
+This can also be accomplished when building S3 API packages using [The Builder Image](#the-builder-image) by setting the `packages_output` mountpoint to the root directory of this repository thereby outputting the built packages in the expected location. Here is an example of how to do that (this assumes that the Builder image has already been built):
+```bash
+docker run -it --rm \
+    -v .:/s3_api_source:ro \
+    -v .:/packages_output \
+    irods-s3-api-builder
+```
+
+See [The Runner Image](#the-runner-image) for more details about building the S3 API Docker image.
