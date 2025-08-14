@@ -33,7 +33,7 @@ class DeleteObject_Test(unittest.TestCase):
                                         aws_secret_access_key=self.secret_key)
 
     def tearDown(self):
-        pass
+        self.boto3_client.close()
 
     # ======== Tests =========
 

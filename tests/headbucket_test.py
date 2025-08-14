@@ -36,7 +36,8 @@ class HeadBucket_Test(unittest.TestCase):
                                         aws_secret_access_key=self.alice_secret_key)
 
     def tearDown(self):
-        pass
+        self.boto3_client_alice.close()
+        self.boto3_client_rods.close()
 
     # ======== Tests =========
 
