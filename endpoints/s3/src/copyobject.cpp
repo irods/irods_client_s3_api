@@ -9,6 +9,14 @@
 
 #include <irods/irods_exception.hpp>
 
+#if IRODS_VERSION_INTEGER < 4003002
+#  include <irods/dataObjCopy.h>
+#  include <irods/filesystem/path_utilities.hpp>
+#  include <irods/irods_at_scope_exit.hpp>
+#  include <irods/rcMisc.h>
+#  include <irods/system_error.hpp>
+#endif
+
 namespace asio = boost::asio;
 namespace beast = boost::beast;
 namespace fs = irods::experimental::filesystem;
@@ -60,7 +68,29 @@ void irods::s3::actions::handle_copyobject(
 		return;
 	}
 	try {
+#if IRODS_VERSION_INTEGER < 4003002
+		fs::throw_if_path_length_exceeds_limit(source_path);
+		fs::throw_if_path_length_exceeds_limit(destination_path);
+
+		dataObjCopyInp_t input{};
+
+		const auto clear_cond_inputs = irods::at_scope_exit{[&input] {
+			clearKeyVal(&input.srcDataObjInp.condInput);
+			clearKeyVal(&input.destDataObjInp.condInput);
+		}};
+
+		addKeyVal(&input.destDataObjInp.condInput, FORCE_FLAG_KW, "");
+
+		std::strncpy(input.srcDataObjInp.objPath, source_path.c_str(), std::strlen(source_path.c_str()));
+		std::strncpy(input.destDataObjInp.objPath, destination_path.c_str(), std::strlen(destination_path.c_str()));
+
+		if (const auto ec = rcDataObjCopy(static_cast<RcComm*>(conn), &input); ec < 0) {
+			throw fs::filesystem_error{
+				"cannot copy data object", source_path, destination_path, irods::experimental::make_error_code(ec)};
+		}
+#else
 		fs::client::copy(conn, source_path, destination_path, fs::copy_options::overwrite_existing);
+#endif
 	}
 	catch (irods::experimental::filesystem::filesystem_error& ex) {
 		switch (ex.code().value()) {
