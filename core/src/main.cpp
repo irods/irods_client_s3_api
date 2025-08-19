@@ -158,22 +158,22 @@ auto print_version_info() -> void
 constexpr auto default_jsonschema() -> std::string_view
 {
 	// clang-format on
-	return R"({{
+	return R"({
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "$id": "https://schemas.irods.org/irods-s3-api/schema.json",
     "type": "object",
-    "properties": {{
-        "s3_server": {{
+    "properties": {
+        "s3_server": {
             "type": "object",
-            "properties": {{
-                "host": {{
+            "properties": {
+                "host": {
                     "type": "string",
-                    "pattern": "^[0-9]{{1,3}}\\.[0-9]{{1,3}}\\.[0-9]{{1,3}}\\.[0-9]{{1,3}}$"
-                }},
-                "port": {{
+                    "pattern": "^[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}$"
+                },
+                "port": {
                     "type": "integer"
-                }},
-                "log_level": {{
+                },
+                "log_level": {
                     "enum": [
                         "trace",
                         "debug",
@@ -182,76 +182,76 @@ constexpr auto default_jsonschema() -> std::string_view
                         "error",
                         "critical"
                     ]
-                }},
-                "plugins": {{
+                },
+                "plugins": {
                     "type": "object"
-                }},
-                "region": {{
+                },
+                "region": {
                     "type": "string"
-                }},
-                "multipart_upload_part_files_directory": {{
+                },
+                "multipart_upload_part_files_directory": {
                     "type": "string"
-                }},
-                "authentication": {{
+                },
+                "authentication": {
                     "type": "object",
-                    "properties": {{
-                        "eviction_check_interval_in_seconds": {{
+                    "properties": {
+                        "eviction_check_interval_in_seconds": {
                             "type": "integer",
                             "minimum": 1
-                        }},
-                        "basic": {{
+                        },
+                        "basic": {
                             "type": "object",
-                            "properties": {{
-                                "timeout_in_seconds": {{
+                            "properties": {
+                                "timeout_in_seconds": {
                                     "type": "integer",
                                     "minimum": 1
-                                }}
-                            }},
+                                }
+                            },
                             "required": [
                                 "timeout_in_seconds"
                             ]
-                        }}
-                    }},
+                        }
+                    },
                     "required": [
                         "eviction_check_interval_in_seconds",
                         "basic"
                     ]
-                }},
-                "requests": {{
+                },
+                "requests": {
                     "type": "object",
-                    "properties": {{
-                        "threads": {{
+                    "properties": {
+                        "threads": {
                             "type": "integer",
                             "minimum": 1
-                        }},
-                        "max_size_of_request_body_in_bytes": {{
+                        },
+                        "max_size_of_request_body_in_bytes": {
                             "type": "integer",
                             "minimum": 0
-                        }},
-                        "timeout_in_seconds": {{
+                        },
+                        "timeout_in_seconds": {
                             "type": "integer",
                             "minimum": 1
-                        }}
-                    }},
+                        }
+                    },
                     "required": [
                         "threads",
                         "max_size_of_request_body_in_bytes",
                         "timeout_in_seconds"
                     ]
-                }},
-                "background_io": {{
+                },
+                "background_io": {
                     "type": "object",
-                    "properties": {{
-                        "threads": {{
+                    "properties": {
+                        "threads": {
                             "type": "integer",
                             "minimum": 1
-                        }}
-                    }},
+                        }
+                    },
                     "required": [
                         "threads"
                     ]
-                }}
-            }},
+                }
+            },
             "required": [
                 "host",
                 "port",
@@ -259,106 +259,106 @@ constexpr auto default_jsonschema() -> std::string_view
                 "requests",
                 "background_io"
             ]
-        }},
-        "irods_client": {{
+        },
+        "irods_client": {
             "type": "object",
-            "properties": {{
-                "host": {{
+            "properties": {
+                "host": {
                     "type": "string"
-                }},
-                "port": {{
+                },
+                "port": {
                     "type": "integer"
-                }},
-                "zone": {{
+                },
+                "zone": {
                     "type": "string"
-                }},
-                "tls": {{
+                },
+                "tls": {
                     "type": "object",
-                    "properties": {{
-                        "client_server_policy": {{
+                    "properties": {
+                        "client_server_policy": {
                             "enum": [
                                 "CS_NEG_REFUSE",
                                 "CS_NEG_DONT_CARE",
                                 "CS_NEG_REQUIRE"
                             ]
-                        }},
-                        "ca_certificate_file": {{
+                        },
+                        "ca_certificate_file": {
                             "type": "string"
-                        }},
-                        "certificate_chain_file": {{
+                        },
+                        "certificate_chain_file": {
                             "type": "string"
-                        }},
-                        "dh_params_file": {{
+                        },
+                        "dh_params_file": {
                             "type": "string"
-                        }},
-                        "verify_server": {{
+                        },
+                        "verify_server": {
                             "enum": [
                                 "none",
                                 "cert",
                                 "hostname"
                             ]
-                        }}
-                    }},
+                        }
+                    },
                     "required": [
                         "client_server_policy",
                         "ca_certificate_file",
                         "dh_params_file",
                         "verify_server"
                     ]
-                }},
-                "enable_4_2_compatibility": {{
+                },
+                "enable_4_2_compatibility": {
                     "type": "boolean"
-                }},
-                "proxy_admin_account": {{
+                },
+                "proxy_admin_account": {
                     "type": "object",
-                    "properties": {{
-                        "username": {{
+                    "properties": {
+                        "username": {
                             "type": "string"
-                        }},
-                        "password": {{
+                        },
+                        "password": {
                             "type": "string"
-                        }}
-                    }},
+                        }
+                    },
                     "required": [
                         "username",
                         "password"
                     ]
-                }},
-                "connection_pool": {{
+                },
+                "connection_pool": {
                     "type": "object",
-                    "properties": {{
-                        "size": {{
+                    "properties": {
+                        "size": {
                             "type": "integer",
                             "minimum": 1
-                        }},
-                        "refresh_timeout_in_seconds": {{
+                        },
+                        "refresh_timeout_in_seconds": {
                             "type": "integer",
                             "minimum": 1
-                        }},
-                        "max_retrievals_before_refresh": {{
+                        },
+                        "max_retrievals_before_refresh": {
                             "type": "integer",
                             "minimum": 1
-                        }},
-                        "refresh_when_resource_changes_detected": {{
+                        },
+                        "refresh_when_resource_changes_detected": {
                             "type": "boolean"
-                        }}
-                    }},
+                        }
+                    },
                     "required": [
                         "size"
                     ]
-                }},
-                "resource": {{
+                },
+                "resource": {
                     "type": "string"
-                }},
-                "put_object_buffer_size_in_bytes": {{
+                },
+                "put_object_buffer_size_in_bytes": {
                     "type": "integer",
                     "minimum": 1
-                }},
-                "get_object_buffer_size_in_bytes": {{
+                },
+                "get_object_buffer_size_in_bytes": {
                     "type": "integer",
                     "minimum": 1
-                }}
-            }},
+                }
+            },
             "required": [
                 "host",
                 "port",
@@ -370,13 +370,13 @@ constexpr auto default_jsonschema() -> std::string_view
                 "put_object_buffer_size_in_bytes",
                 "get_object_buffer_size_in_bytes"
             ]
-        }}
-    }},
+        }
+    },
     "required": [
         "s3_server",
         "irods_client"
     ]
-}}
+}
 )";
 	// clang-format on
 } // default_jsonschema
@@ -388,7 +388,6 @@ auto print_configuration_template() -> void
     "s3_server": {{
         "host": "0.0.0.0",
         "port": 9000,
-
         "log_level": "info",
 
         "plugins": {{
@@ -411,6 +410,8 @@ auto print_configuration_template() -> void
         }},
 
         "region": "us-east-1",
+
+        "multipart_upload_part_files_directory": "/tmp",
 
         "authentication": {{
             "eviction_check_interval_in_seconds": 60,

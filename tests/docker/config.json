@@ -56,14 +56,6 @@
         "port": 1247,
         "zone": "tempZone",
 
-        "tls": {
-            "client_server_policy": "<string>",
-            "ca_certificate_file": "<string>",
-            "certificate_chain_file": "<string>",
-            "dh_params_file": "<string>",
-            "verify_server": "<string>"
-        },
-
         "enable_4_2_compatibility": false,
 
         "proxy_admin_account": {
