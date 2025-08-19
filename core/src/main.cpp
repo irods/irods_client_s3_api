@@ -82,6 +82,7 @@ extern "C" const char* __asan_default_options()
 namespace beast   = boost::beast; // from <boost/beast.hpp>
 namespace net     = boost::asio;  // from <boost/asio.hpp>
 namespace po      = boost::program_options;
+namespace fs      = std::filesystem;
 namespace logging = irods::http::logging;
 
 using json = nlohmann::json;
@@ -736,17 +737,29 @@ auto main(int _argc, char* _argv[]) -> int
 			return 1;
 		}
 
-		const auto config = json::parse(std::ifstream{vm["config-file"].as<std::string>()});
+		const auto& config_file_path = vm["config-file"].as<std::string>();
+		if (!fs::exists(config_file_path)) {
+			fmt::print(stderr, "Error: Configuration file [{}] does not exist.\n", config_file_path);
+			return 1;
+		}
+
+		const auto config = [&config_file_path] {
+			std::ifstream file{config_file_path};
+			if (!file.is_open()) {
+				throw std::runtime_error{fmt::format("Cannot open configuration file [{}].", config_file_path)};
+			}
+
+			return json::parse(file);
+		}();
+
 		irods::http::globals::set_configuration(config);
 
-#if 0
 		{
 			const auto schema_file = (vm.count("jsonschema-file") > 0) ? vm["jsonschema-file"].as<std::string>() : "";
 			if (!is_valid_configuration(schema_file, vm["config-file"].as<std::string>())) {
 				return 1;
 			}
 		}
-#endif
 
 		const auto& s3_server_config = config.at("s3_server");
 		set_log_level(s3_server_config);
