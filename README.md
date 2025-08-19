@@ -237,6 +237,7 @@ Notice how some of the configuration values are wrapped in angle brackets (e.g. 
         // The port used to accept incoming client requests.
         "port": 9000,
 
+        // (Optional)
         // The minimum log level needed before logging activity.
         //
         // The following values are supported:
@@ -409,14 +410,17 @@ Notice how some of the configuration values are wrapped in angle brackets (e.g. 
             // The number of connections in the pool.
             "size": 6,
 
+            // (Optional)
             // The amount of time that must pass before a connection is
             // renewed (i.e. replaced).
             "refresh_timeout_in_seconds": 600,
 
+            // (Optional)
             // The number of times a connection can be fetched from the pool
             // before it is refreshed.
             "max_retrievals_before_refresh": 16,
 
+            // (Optional)
             // Instructs the connection pool to track changes in resources.
             // If a change is detected, all connections will be refreshed.
             "refresh_when_resource_changes_detected": true

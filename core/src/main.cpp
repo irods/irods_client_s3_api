@@ -185,7 +185,43 @@ constexpr auto default_jsonschema() -> std::string_view
                     ]
                 },
                 "plugins": {
-                    "type": "object"
+                    "type": "object",
+                    "properties": {
+                        "static_bucket_resolver": {
+                            "type": "object",
+                            "properties": {
+                                "name": {
+                                    "type": "string"
+                                },
+                                "mappings": {
+                                    "type": "object"
+                                }
+                            },
+                            "required": [
+                                "name",
+                                "mappings"
+                            ]
+                        },
+                        "static_authentication_resolver": {
+                            "type": "object",
+                            "properties": {
+                                "name": {
+                                    "type": "string"
+                                },
+                                "users": {
+                                    "type": "object"
+                                }
+                            },
+                            "required": [
+                                "name",
+                                "users"
+                            ]
+                        }
+                    },
+                    "required": [
+                        "static_bucket_resolver",
+                        "static_authentication_resolver"
+                    ]
                 },
                 "region": {
                     "type": "string"
@@ -256,6 +292,9 @@ constexpr auto default_jsonschema() -> std::string_view
             "required": [
                 "host",
                 "port",
+                "plugins",
+                "region",
+                "multipart_upload_part_files_directory",
                 "authentication",
                 "requests",
                 "background_io"
