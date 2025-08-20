@@ -11,6 +11,8 @@ services:
     irods-catalog-provider:
         build:
             context: irods_catalog_provider
+            dockerfile: irods5.Dockerfile
+        shm_size: 500mb
         healthcheck:
             test: ils || exit 1
             start_period: 20s
