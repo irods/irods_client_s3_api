@@ -1,7 +1,6 @@
-FROM ubuntu:22.04
+FROM ubuntu:24.04
 
 ARG DEBIAN_FRONTEND=noninteractive
-ARG APT_KEY_DONT_WARN_ON_DANGEROUS_USAGE=true
 
 RUN apt-get update && \
     apt-get install -y \
@@ -41,8 +40,8 @@ RUN apt-get update && \
     && \
     rm -rf /tmp/*
 
-ARG irods_version=4.3.1
-ARG irods_package_version_suffix=-0~jammy
+ARG irods_version=5.0.1
+ARG irods_package_version_suffix=-0~noble
 ARG irods_package_version=${irods_version}${irods_package_version_suffix}
 
 RUN apt-get update && \
@@ -55,6 +54,6 @@ RUN apt-get update && \
     rm -rf /tmp/*
 
 WORKDIR /
-COPY irods_setup.input .
-COPY --chmod=755 entrypoint.sh .
-ENTRYPOINT "./entrypoint.sh"
+COPY unattended_install.json .
+COPY --chmod=755 entrypoint_irods5.sh ./entrypoint.sh
+ENTRYPOINT ["./entrypoint.sh"]
