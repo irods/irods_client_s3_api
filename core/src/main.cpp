@@ -337,13 +337,33 @@ constexpr auto default_jsonschema() -> std::string_view
                                 "cert",
                                 "hostname"
                             ]
+                        },
+                        "client_server_negotiation": {
+                            "type": "string"
+                        },
+                        "encryption_algorithm": {
+                            "type": "string"
+                        },
+                        "encryption_key_size": {
+                            "type": "integer"
+                        },
+                        "encryption_hash_rounds": {
+                            "type": "integer"
+                        },
+                        "encryption_salt_size": {
+                            "type": "integer"
                         }
                     },
                     "required": [
                         "client_server_policy",
                         "ca_certificate_file",
                         "dh_params_file",
-                        "verify_server"
+                        "verify_server",
+                        "client_server_negotiation",
+                        "encryption_algorithm",
+                        "encryption_key_size",
+                        "encryption_hash_rounds",
+                        "encryption_salt_size"
                     ]
                 },
                 "enable_4_2_compatibility": {
@@ -482,7 +502,12 @@ auto print_configuration_template() -> void
             "ca_certificate_file": "<string>",
             "certificate_chain_file": "<string>",
             "dh_params_file": "<string>",
-            "verify_server": "<string>"
+            "verify_server": "<string>",
+            "client_server_negotiation": "request_server_negotiation",
+            "encryption_algorithm": "AES-256-CBC",
+            "encryption_key_size": 32,
+            "encryption_hash_rounds": 16,
+            "encryption_salt_size": 8
         }},
 
         "enable_4_2_compatibility": false,
@@ -629,21 +654,51 @@ auto set_log_level(const json& _config) -> void
 
 auto init_tls(const json& _config) -> void
 {
-	const auto set_env_var = [&](const auto& _json_ptr_path, const char* _env_var, const char* _default_value = "") {
-		using json_ptr = json::json_pointer;
+	// The iRODS connection libraries do not provide a clean way for developers to easily
+	// configure TLS without relying on an irods_environment.json file. All is not lost
+	// though. Turns out the iRODS libraries do inspect environment variables. This gives
+	// the S3 API a way to hook into the connection logic and support TLS through its
+	// own configuration file. Hence, the following environment-based lambda functions.
 
-		if (const auto v = _config.value(json_ptr{_json_ptr_path}, _default_value); !v.empty()) {
+	const auto set_env_string = [&](const auto& _tls_prop, const char* _env_var, const char* _default_value = "") {
+		const auto element_path = fmt::format("/irods_client/tls/{}", _tls_prop);
+		const auto v = _config.value(json::json_pointer{element_path}, _default_value);
+
+		if (!v.empty()) {
 			const auto env_var_upper = boost::to_upper_copy<std::string>(_env_var);
 			logging::trace("Setting environment variable [{}] to [{}].", env_var_upper, v);
 			setenv(env_var_upper.c_str(), v.c_str(), 1); // NOLINT(concurrency-mt-unsafe)
 		}
 	};
 
-	set_env_var("/irods_client/tls/client_server_policy", irods::KW_CFG_IRODS_CLIENT_SERVER_POLICY, "CS_NEG_REFUSE");
-	set_env_var("/irods_client/tls/ca_certificate_file", irods::KW_CFG_IRODS_SSL_CA_CERTIFICATE_FILE);
-	set_env_var("/irods_client/tls/certificate_chain_file", irods::KW_CFG_IRODS_SSL_CERTIFICATE_CHAIN_FILE);
-	set_env_var("/irods_client/tls/dh_params_file", irods::KW_CFG_IRODS_SSL_DH_PARAMS_FILE);
-	set_env_var("/irods_client/tls/verify_server", irods::KW_CFG_IRODS_SSL_VERIFY_SERVER, "cert");
+	const auto set_env_int = [&_config](const char* _tls_prop, const char* _env_var, int _default_value) {
+		const auto element_path = fmt::format("/irods_client/tls/{}", _tls_prop);
+		const auto v = _config.value(json::json_pointer{element_path}, _default_value);
+
+		const auto env_var_upper = boost::to_upper_copy<std::string>(_env_var);
+		logging::trace("Setting environment variable [{}] to [{}].", env_var_upper, v);
+		const auto v_str = std::to_string(v);
+		setenv(env_var_upper.c_str(), v_str.c_str(), 1); // NOLINT(concurrency-mt-unsafe)
+	};
+
+	// clang-format off
+	set_env_string("client_server_policy", irods::KW_CFG_IRODS_CLIENT_SERVER_POLICY, "CS_NEG_REFUSE");
+	set_env_string("ca_certificate_file", irods::KW_CFG_IRODS_SSL_CA_CERTIFICATE_FILE);
+	set_env_string("verify_server", irods::KW_CFG_IRODS_SSL_VERIFY_SERVER, "cert");
+#ifndef IRODS_DEV_PACKAGE_IS_AT_LEAST_IRODS_5
+	set_env_string("client_server_negotiation", irods::KW_CFG_IRODS_CLIENT_SERVER_NEGOTIATION, "request_server_negotiation");
+#endif
+	set_env_string("encryption_algorithm", irods::KW_CFG_IRODS_ENCRYPTION_ALGORITHM, "AES-256-CBC");
+
+	// NOLINTNEXTLINE(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
+	set_env_int("encryption_key_size", irods::KW_CFG_IRODS_ENCRYPTION_KEY_SIZE, 32);
+
+	// NOLINTNEXTLINE(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
+	set_env_int("encryption_hash_rounds", irods::KW_CFG_IRODS_ENCRYPTION_NUM_HASH_ROUNDS, 16);
+
+	// NOLINTNEXTLINE(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
+	set_env_int("encryption_salt_size", irods::KW_CFG_IRODS_ENCRYPTION_SALT_SIZE, 8);
+	// clang-format on
 } // init_tls
 
 auto init_irods_connection_pool(const json& _config) -> std::unique_ptr<irods::connection_pool>
