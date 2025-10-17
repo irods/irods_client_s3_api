@@ -381,7 +381,27 @@ Notice how some of the configuration values are wrapped in angle brackets (e.g. 
             // - hostname: Equivalent to "cert", but also verifies the FQDN
             //             of the iRODS server matches either the common
             //             name or one of the subjectAltNames.
-            "verify_server": "cert"
+            "verify_server": "cert",
+
+            // Controls whether advanced negotiation is used.
+            //
+            // This option must be set to "request_server_negotiation" for
+            // establishing secure communication.
+            //
+            // This option is ignored when connected to an iRODS 5 server.
+            "client_server_negotiation": "request_server_negotiation",
+
+            // Defines the encryption algorithm used for secure communication.
+            "encryption_algorithm": "AES-256-CBC",
+
+            // Defines the key size used for encryption.
+            "encryption_key_size": 32,
+
+            // Defines the number of hash rounds used for encryption.
+            "encryption_hash_rounds": 16,
+
+            // Defines the salt size used for encryption.
+            "encryption_salt_size": 8
         },
 
         // Controls how the S3 API communicates with the iRODS server.
