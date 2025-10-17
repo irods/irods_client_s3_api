@@ -37,9 +37,9 @@ The goal is to support the equivalent of:
  - irm - `aws s3 rm s3://bucketname/a/b/c/filename`
  - imv - `aws s3 mv s3://bucketname/a/b/c/filename1 s3://bucketname/a/b/c/filename2`
 
-# Limitations / What's Missing
+## Limitations / What's Missing
 
-## Multipart
+### Multipart
 
 Multipart has not been implemented for copy operations where `x-amz-copy-source` and `x-amz-copy-source-range` are used.
 When performing a copy from one iRODS file to another, multipart should be disabled.
@@ -48,36 +48,37 @@ See [Disabling Multipart](#disabling-multipart) for details.
 
 Multipart uploads of a local file is supported.
 
-## Tagging
+### Tagging
 
 iRODS has its own metadata system, however it is not especially clear how it should map to S3 metadata, so it is not
 included at the moment.
 
-## Paging
+### Paging
 
 Paging requires engineering work to provide paging through lists of objects efficiently, so right now this API does not
 attempt to paginate its output for things such as listobjects.
 
-## Checksum handling
+### Checksum handling
 
 Amazon S3 provides many ways to communicate checksums for the data as received by the server. iRODS provides MD5 checksums, 
 however this API does not use that to verify data objects created through PutObject.
 
-## ETags
+### ETags
 
 ETags are not provided for or used consistently.
 
-## Versioning
+### Versioning
 
 Versioning is not supported at this time.
 
-# Docker
+## Docker
 
 This project provides two Dockerfiles, one for building and one for running the application.
 
-**IMPORTANT: All commands in the sections that follow assume you are located in the root of the repository.**
+> [!IMPORTANT]
+> All commands in the sections that follow assume you are located in the root of the repository.
 
-## The Builder Image
+### The Builder Image
 
 The builder image is responsible for building the iRODS S3 API package. Before you can use it, you must build the image. To do that, run the following:
 ```bash
@@ -96,7 +97,7 @@ docker run -it --rm \
 
 If everything succeeds, you will have a DEB package in the local directory you mapped to **/packages_output**.
 
-### Using a build cache
+#### Using a build cache
 
 In order to keep build artifacts around for faster iteration on build times, include another volume mount for `/_build_s3_api` into which build artifacts can be stored in the host filesystem:
 ```bash
@@ -107,7 +108,7 @@ docker run -it --rm \
     irods-s3-api-builder
 ```
 
-## The Runner Image
+### The Runner Image
 
 The runner image is responsible for running the iRODS S3 API. Building the runner image requires the DEB package for the iRODS S3 API to exist on the local machine. See the previous section for details on generating the package.
 
@@ -122,7 +123,7 @@ $ docker run -it --rm irods-s3-api-runner -v
 irods_s3_api <version>-<build_sha>
 ```
 
-## Launching the Container
+### Launching the Container
 
 To run the containerized server, you need to provide a configuration file at the correct location. If you do not have a configuration file already, see [Configuration](#configuration) for details.
 
@@ -155,24 +156,27 @@ docker run -d --rm --name irods_s3_api \
     --jsonschema-file /jsonschema.json
 ```
 
-## Stopping the Container
+### Stopping the Container
 
 If the container was launched with `-it`, use **CTRL-C** or `docker container stop <container_name>` to shut it down.
 
 If the container was launched with `-d`, use `docker container stop <container_name>`.
 
-# Building and running without Docker
+## Building and running without Docker
 
-## Build Dependencies
+### Build Dependencies
 
-- iRODS development package
+- iRODS development package _(4.3.1 or later)_
 - iRODS externals package for boost
+- iRODS externals package for catch2
+- iRODS externals package for fmt
+- iRODS externals package for jsoncons
 - iRODS externals package for nlohmann-json
 - iRODS externals package for spdlog
 - Curl development package
 - OpenSSL development package
 
-## Building from source
+### Building from source
 
 This project relies on git submodules and Docker for building the server.
 
@@ -195,7 +199,7 @@ Upon success, you should have an installable package.
 
 If you run into issues, try checking if the git submodules exist on your machine.
 
-## Running without Docker
+### Running without Docker
 
 In order to run the iRODS S3 API server, you need a valid configuration file. See [Configuration](#configuration) for details on how to create one.
 
@@ -206,7 +210,7 @@ irods_s3_api /path/to/config.json
 
 To stop the server, you can use **CTRL-C** or send **SIGINT** or **SIGTERM** to the process.
 
-# Configuration
+## Configuration
 
 Before you can run the server, you'll need to create a configuration file.
 
@@ -215,15 +219,17 @@ You can generate a configuration file by running the following:
 irods_s3_api --dump-config-template > config.json
 ```
 
-**IMPORTANT: `--dump-config-template` does not produce a fully working configuration. It must be updated before it can be used.**
+> [!IMPORTANT]
+> `--dump-config-template` does not produce a fully working configuration. It must be updated before it can be used.
 
-## Configuration File Structure
+### Configuration File Structure
 
 The JSON structure below represents the default configuration.
 
 Notice how some of the configuration values are wrapped in angle brackets (e.g. `"<string>"`). These are placeholder values that must be updated before launch.
 
-**IMPORTANT: The comments in the JSON structure are there for explanatory purposes and must not be included in your configuration. Failing to follow this requirement will result in the server failing to start up.**
+> [!IMPORTANT]
+> The comments in the JSON structure are there for explanatory purposes and must not be included in your configuration. Failing to follow this requirement will result in the server failing to start up.
 
 ```js
 {
@@ -249,44 +255,24 @@ Notice how some of the configuration values are wrapped in angle brackets (e.g. 
         // - critical
         "log_level": "info",
 
-        // Defines the set of plugins to load.
-        "plugins": {
-            //
-            // Each key corresponds to a plugin's .so file name, minus the
-            // "lib" prefix.
-            //
+        // Defines options for the Bucket Mapping plugin system.
+        // See the section titled "Bucket Mapping" to learn more.
+        "bucket_mapping": {
+            // The path to the plugin to load.
+            "plugin_path": "/path/to/plugin.so",
 
-            "static_bucket_resolver": {
-                // The internal name assigned to the plugin.
-                "name": "static_bucket_resolver",
+            // Defines configuration required by the selected plugin. 
+            "configuration": {}
+        },
 
-                // Defines the mapping between bucket names and iRODS
-                // collections.
-                "mappings": {
-                    "<bucket_name>": "/path/to/collection"
-                }
-            },
+        // Defines options for the User Mapping plugin system.
+        // See the section titled "User Mapping" to learn more.
+        "user_mapping": {
+            // The path to the plugin to load.
+            "plugin_path": "/path/to/plugin.so",
 
-            "static_authentication_resolver": {
-                // The internal name assigned to the plugin.
-                "name": "static_authentication_resolver",
-
-                // Defines information for resolving an S3 username to an
-                // iRODS username.
-                "users": {
-                    // Maps <s3_username> to a specific iRODS user.
-                    // Each iRODS user that intends to access the S3 API must
-                    // have at least one entry.
-                    "<s3_username>": {
-                        // The iRODS username to resolve to.
-                        "username": "<string>",
-
-                        // The secret key used to authenticate with the S3
-                        // API for this user.
-                        "secret_key": "<string>"
-                    }
-                }
-            }
+            // Defines configuration required by the selected plugin. 
+            "configuration": {}
         },
 
         // Defines the region the server will report as being a member of.
@@ -295,20 +281,6 @@ Notice how some of the configuration values are wrapped in angle brackets (e.g. 
         // Defines the location where part files are temporarily stored
         // on the irods_s3_api server before being streamed to iRODS. 
         "multipart_upload_part_files_directory": "/tmp",
-
-        // Defines options that affect various authentication schemes.
-        "authentication": {
-            // The amount of time that must pass before checking for expired
-            // bearer tokens.
-            "eviction_check_interval_in_seconds": 60,
-
-            // Defines options for the "Basic" authentication scheme.
-            "basic": {
-                // The amount of time before a user's authentication
-                // token expires.
-                "timeout_in_seconds": 3600
-            }
-        },
 
         // Defines options that affect how client requests are handled.
         "requests": {
@@ -460,7 +432,124 @@ Notice how some of the configuration values are wrapped in angle brackets (e.g. 
 }
 ```
 
-# Connecting with Botocore
+## Bucket Mapping
+
+In order to use the iRODS S3 API, a mapping between bucket names and iRODS collections must be established. This is accomplished through the use of a bucket mapping plugin.
+
+The iRODS S3 API offers one plugin named **bucket_mapping-local_file**. It is installed at the following location.
+
+> [!NOTE]
+> `<libdir_prefix>` represents the directory where shared libraries are commonly installed. It will vary depending on your platform.
+
+```
+<libdir_prefix>/irods_s3_api/plugins/bucket_mapping/libirods_s3_api_plugin-bucket_mapping-local_file.so
+```
+
+This plugin takes a local JSON file which defines mappings between bucket names and iRODS collections within the connected zone.
+
+### Plugin Configuration
+
+Plugin configuration is defined within the `configuration` stanza and may vary across plugins.
+
+Here's an example showing how to enable the **bucket_mapping-local_file** plugin. It requires one configuration property called `file_path`.
+
+```js
+"bucket_mapping": {
+    "plugin_path": "<libdir_prefix>/irods_s3_api/plugins/bucket_mapping/libirods_s3_api_plugin-bucket_mapping-local_file.so",
+    "configuration": {
+        "file_path": "/path/to/your/mapping/file.json"
+    }
+}
+```
+
+`file_path` must point to a file containing JSON. The structure of the JSON is described in the next section.
+
+### Mapping File
+
+This section describes the JSON structure which the **bucket_mapping-local_file** plugin requires.
+
+```js
+{
+    "<bucket_name_1>": "/path/to/collection_1",
+    "<bucket_name_2>": "/path/to/collection_2",
+
+    // ... more mappings ...
+
+    "<bucket_name_N>": "/path/to/collection_N"
+}
+```
+
+Modifications to this file will result in the plugin reloading the mappings if validation succeeds. Validation is a feature of the **bucket_mapping-local_file** plugin.
+
+## User Mapping
+
+The iRODS S3 API also requires a mapping for resolving S3 credentials to an iRODS username. This is accomplished through the use of a user mapping plugin.
+
+The iRODS S3 API offers one plugin named **user_mapping-local_file**. It is installed at the following location.
+
+> [!NOTE]
+> `<libdir_prefix>` represents the directory where shared libraries are commonly installed. It will vary depending on your platform.
+
+```
+<libdir_prefix>/irods_s3_api/plugins/user_mapping/libirods_s3_api_plugin-user_mapping-local_file.so
+```
+
+This plugin takes a local JSON file which defines mappings between S3 credentials and iRODS usernames within the connected zone.
+
+### Plugin Configuration
+
+Plugin configuration is defined within the `configuration` stanza and may vary across plugins.
+
+Here's an example showing how to enable the **user_mapping-local_file** plugin. It requires one configuration property called `file_path`.
+
+```js
+"user_mapping": {
+    "plugin_path": "<libdir_prefix>/irods_s3_api/plugins/user_mapping/libirods_s3_api_plugin-user_mapping-local_file.so",
+    "configuration": {
+        "file_path": "/path/to/your/mapping/file.json"
+    }
+}
+```
+
+`file_path` must point to a file containing JSON. The structure of the JSON is described in the next section.
+
+### Mapping File
+
+This section describes the JSON structure which the **user_mapping-local_file** plugin requires.
+
+```js
+{
+    "<s3_access_key_id_1>": {
+        "secret_key": "<s3_secret_key_1>",
+        "username": "<irods_username_1>"
+    },
+    "<s3_access_key_id_2>": {
+        "secret_key": "<s3_secret_key_2>",
+        "username": "<irods_username_2>"
+    },
+
+    // ... more mappings ...
+
+    "<s3_access_key_id_N>": {
+        "secret_key": "<s3_secret_key_N>",
+        "username": "<irods_username_N>"
+    }
+}
+```
+
+Modifications to this file will result in the plugin reloading the mappings if validation succeeds. Validation is a feature of the **user_mapping-local_file** plugin.
+
+## Custom Plugins
+
+The iRODS S3 API exposes plugin interfaces which allow organizations, needing capabilities beyond the base plugins, to implement their own plugins.
+
+Two plugin interfaces are provided:
+- [bucket_mapping.h](plugins/bucket_mapping/include/irods/s3_api/plugins/bucket_mapping/bucket_mapping.h)
+- [user_mapping.h](plugins/user_mapping/include/irods/s3_api/plugins/user_mapping/user_mapping.h)
+
+They expose a C interface for ABI stability and simplicity. Documentation is included in each header file.
+
+## Connecting with Botocore
 
 As a simple example, this is how you pass that in through botocore, a library from Amazon that provides S3 connectivity.
 
@@ -475,11 +564,11 @@ client = session.create_client("s3",
                                aws_secret_access_key="<secret key>")
 ```
 
-# Disabling Multipart
+## Disabling Multipart
 
 Multipart copies are not supported at this time.  Therefore, multipart must be disabled in the client.
 
-## Disabling Multipart for AWS CLI
+### Disabling Multipart for AWS CLI
 
 For AWS CLI, multipart can be disabled by setting an arbitrarily large multipart threshold.  Since 5 GB is the largest single part allowed by AWS, this is a good choice.
 
@@ -495,7 +584,7 @@ s3 =
 
 To use this with the AWS CLI commands, use the `--profile` flag.  Example: `aws --profile irods_s3_no_multipart`.
 
-## Example for Boto3
+### Example for Boto3
 
 To set the multipart threshold with a boto3 client, do the following: 
 
@@ -504,7 +593,7 @@ config = TransferConfig(multipart_threshold=5*1024*1024*1024)
 self.boto3_client.upload_file(put_filename, bucket_name, key, Config=config)
 ```
 
-## Example of MinIO mc client
+### Example of MinIO mc client
 
 The `mc cp` command has a `--disable-multipart` option.  Here is an example of a copy with a `myminio` alias:
 
@@ -512,9 +601,10 @@ The `mc cp` command has a `--disable-multipart` option.  Here is an example of a
 mc cp --disable-multipart put_file myminio/bucket_name/put_filename
 ```
 
-*Note: MinIO client uses aliases to group URL and keys. Refer to the `mc alias` command for information on setting, listing, and removing aliases.*
+> [!NOTE]
+> MinIO client uses aliases to group URL and keys. Refer to the `mc alias` command for information on setting, listing, and removing aliases.
 
-# Running Tests
+## Running Tests
 
 It is recommended to `cd` to the `tests/docker` directory in this repository when running the `docker compose` commands below. Otherwise, you must specify the Compose project directory with the `--project-directory` option.
 
@@ -532,7 +622,8 @@ docker compose down
 docker volume prune # Use -f to skip the confirmation prompt
 ```
 
-*Note: If you get an error like `'name' does not match any of the regexes: '^x-'` then you will need to upgrade your version of docker compose.*
+> [!NOTE]
+> If you get an error like `'name' does not match any of the regexes: '^x-'` then you will need to upgrade your version of docker compose.
 
 ### Running specific tests
 
