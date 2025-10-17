@@ -2,6 +2,8 @@
 
 #include <boost/asio.hpp>
 
+#include <utility>
+
 namespace
 {
 	// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
@@ -15,6 +17,12 @@ namespace
 
 	// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 	irods::connection_pool* g_conn_pool{};
+
+	// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+	boost::dll::shared_library g_bucket_mapping_lib{};
+
+	// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+	boost::dll::shared_library g_user_mapping_lib{};
 } // anonymous namespace
 
 namespace irods::http::globals
@@ -69,4 +77,24 @@ namespace irods::http::globals
 	{
 		return *g_conn_pool;
 	} // connection_pool
+
+	auto set_bucket_mapping_library(boost::dll::shared_library _lib) -> void
+	{
+		g_bucket_mapping_lib = std::move(_lib);
+	} // set_bucket_mapping_library
+
+	auto bucket_mapping_library() -> boost::dll::shared_library&
+	{
+		return g_bucket_mapping_lib;
+	} // bucket_mapping_library
+
+	auto set_user_mapping_library(boost::dll::shared_library _lib) -> void
+	{
+		g_user_mapping_lib = std::move(_lib);
+	} // set_user_mapping_library
+
+	auto user_mapping_library() -> boost::dll::shared_library&
+	{
+		return g_user_mapping_lib;
+	} // user_mapping_library
 } // namespace irods::http::globals

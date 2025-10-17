@@ -54,6 +54,7 @@ void irods::s3::actions::handle_listobjects_v2(
 
 	irods::experimental::filesystem::path bucket_base;
 	if (auto bucket = irods::s3::resolve_bucket(url.segments()); bucket.has_value()) {
+		logging::debug("{}: bucket = [{}]", __func__, bucket.value().c_str());
 		bucket_base = bucket.value();
 	}
 	else {

@@ -115,7 +115,9 @@ include(ObjectTargetHelpers)
 
 add_subdirectory(core)
 add_subdirectory(endpoints)
+add_subdirectory(plugins)
 add_subdirectory(third-party/hmac_sha256)
+add_subdirectory(unit_tests)
 
 add_executable(${IRODS_S3_API_BINARY_NAME})
 target_link_objects(

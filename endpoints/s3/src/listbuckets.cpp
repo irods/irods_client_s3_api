@@ -1,16 +1,18 @@
-#include "irods/private/s3_api/s3_api.hpp"
 #include "irods/private/s3_api/authentication.hpp"
 #include "irods/private/s3_api/bucket.hpp"
+#include "irods/private/s3_api/common.hpp"
 #include "irods/private/s3_api/common_routines.hpp"
 #include "irods/private/s3_api/connection.hpp"
-#include "irods/private/s3_api/log.hpp"
-#include "irods/private/s3_api/common.hpp"
-#include "irods/private/s3_api/session.hpp"
 #include "irods/private/s3_api/globals.hpp"
+#include "irods/private/s3_api/log.hpp"
+#include "irods/private/s3_api/s3_api.hpp"
+#include "irods/private/s3_api/session.hpp"
+#include "irods/s3_api/plugins/bucket_mapping/bucket_mapping.h"
 
 #include <boost/asio/awaitable.hpp>
 #include <boost/asio/this_coro.hpp>
 #include <boost/beast.hpp>
+#include <boost/dll.hpp>
 
 #include <boost/asio.hpp>
 #include <boost/property_tree/ptree.hpp>
@@ -19,6 +21,7 @@
 #include <boost/lexical_cast.hpp>
 
 #include <irods/filesystem.hpp>
+#include <irods/irods_at_scope_exit.hpp>
 #include <irods/query_builder.hpp>
 
 #include <iostream>
@@ -46,7 +49,7 @@ void irods::s3::actions::handle_listbuckets(
 
 	if (!irods_username) {
 		response.result(beast::http::status::forbidden);
-		logging::debug("{}: returned [{}]", __FUNCTION__, response.reason());
+		logging::debug("{}: returned [{}]", __func__, response.reason());
 		session_ptr->send(std::move(response));
 		return;
 	}
@@ -59,18 +62,48 @@ void irods::s3::actions::handle_listbuckets(
 	document.add("ListAllMyBucketsResult.Buckets", "");
 
 	// get the buckets from the configuration
-	const nlohmann::json& config = irods::http::globals::configuration();
-	const auto bucket_list =
-		config.at(nlohmann::json::json_pointer{"/s3_server/plugins/static_bucket_resolver/mappings"});
-	for (const auto& [bucket, collection] : bucket_list.items()) {
+	auto& bucket_mapping = irods::http::globals::bucket_mapping_library();
+
+	using T = decltype(bucket_mapping_list);
+	auto bm_list = bucket_mapping.get<T>("bucket_mapping_list");
+	bucket_mapping_entry* buckets{};
+	std::size_t bucket_size{};
+	if (bm_list(&buckets, &bucket_size) != 0) {
+		response.result(beast::http::status::internal_server_error);
+		logging::debug("{}: returned [{}]", __func__, response.reason());
+		session_ptr->send(std::move(response));
+		return;
+	}
+
+	irods::at_scope_exit free_buckets{[&bucket_mapping, &buckets, bucket_size] {
+		using T = decltype(bucket_mapping_free);
+		auto bm_free = bucket_mapping.get<T>("bucket_mapping_free");
+		for (std::size_t i = 0; i < bucket_size; ++i) {
+			bm_free(buckets[i].bucket);
+			bm_free(buckets[i].collection);
+		}
+		bm_free(buckets);
+		buckets = nullptr;
+	}};
+
+	logging::debug("{}: number of mapped buckets = [{}]", __func__, bucket_size);
+
+	// TODO(#177): This loop can be expensive since it incurs a round trip to iRODS for each bucket.
+	// We need to reduce the roundtrips as much as possible. Here are a few ideas:
+	// - Use the IN keyword with GenQuery2 to gather the list of collections in one go.
+	// - Consider caching.
+	for (std::size_t i = 0; i < bucket_size; ++i) {
+		const std::string_view bucket = buckets[i].bucket;
+		const std::string_view collection = buckets[i].collection;
+
 		// Get the creation time for the collection
 		bool found = false;
 		std::string query;
 		std::time_t create_collection_epoch_time = 0;
 
-		query = fmt::format("select COLL_CREATE_TIME where COLL_NAME = '{}'", collection.get_ref<const std::string&>());
+		query = fmt::format("select COLL_CREATE_TIME where COLL_NAME = '{}'", collection);
 
-		logging::debug("{}: query = {}", __FUNCTION__, query);
+		logging::debug("{}: query = [{}]", __func__, query);
 
 		for (auto&& row : irods::query<RcComm>(rcComm_t_ptr, query)) {
 			found = true;

@@ -20,7 +20,6 @@ add_library(
   "${CMAKE_CURRENT_SOURCE_DIR}/src/connection.cpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/src/configuration.cpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/src/authentication.cpp"
-  "${CMAKE_CURRENT_SOURCE_DIR}/src/auth_plugin.cpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/src/bucket_plugin.cpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/src/hmac.cpp"
 )
@@ -56,6 +55,8 @@ target_include_directories(
   "${CMAKE_CURRENT_BINARY_DIR}/include"
   "${IRODS_S3_API_PROJECT_SOURCE_DIR}/third-party/date/include"
   "${IRODS_S3_API_PROJECT_SOURCE_DIR}/endpoints/shared/include"
+  "${IRODS_S3_API_PROJECT_SOURCE_DIR}/plugins/bucket_mapping/include"
+  "${IRODS_S3_API_PROJECT_SOURCE_DIR}/plugins/user_mapping/include"
   "${IRODS_EXTERNALS_FULLPATH_BOOST}/include"
   "${IRODS_EXTERNALS_FULLPATH_JSONCONS}/include"
 )

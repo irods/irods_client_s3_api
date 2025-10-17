@@ -36,6 +36,7 @@ void irods::s3::actions::handle_headbucket(
 
 		fs::path path;
 		if (auto bucket = irods::s3::resolve_bucket(url.segments()); bucket.has_value()) {
+			logging::debug("{}: bucket = [{}]", __func__, bucket.value().c_str());
 			path = irods::s3::finish_path(bucket.value(), url.segments());
 		}
 		else {

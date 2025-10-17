@@ -1,12 +1,12 @@
 #ifndef IRODS_S3_API_AUTHENTICATION_HPP
 #define IRODS_S3_API_AUTHENTICATION_HPP
 
-#include <irods/rcConnect.h>
-#include <string>
-#include <string_view>
 #include <boost/beast.hpp>
 #include <boost/url.hpp>
+
 #include <optional>
+#include <string>
+#include <string_view>
 
 namespace irods::s3::authentication
 {
@@ -23,6 +23,6 @@ namespace irods::s3::authentication
 
 	std::optional<std::string> get_iRODS_user(const std::string_view access_key);
 	std::optional<std::string> get_user_secret_key(const std::string_view access_key);
+} // namespace irods::s3::authentication
 
-} //namespace irods::s3::authentication
 #endif // IRODS_S3_API_AUTHENTICATION_HPP
