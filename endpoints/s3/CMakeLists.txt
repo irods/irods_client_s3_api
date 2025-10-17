@@ -35,6 +35,7 @@ target_include_directories(
   "${IRODS_S3_API_PROJECT_SOURCE_DIR}/core/include"
   "${IRODS_S3_API_PROJECT_BINARY_DIR}/core/include"
   "${IRODS_S3_API_PROJECT_SOURCE_DIR}/endpoints/shared/include"
+  "${IRODS_S3_API_PROJECT_SOURCE_DIR}/plugins/bucket_mapping/include"
   "${IRODS_EXTERNALS_FULLPATH_BOOST}/include"
 )
 

@@ -1,7 +1,16 @@
 #include "irods/private/s3_api/authentication.hpp"
+
+#include "irods/private/s3_api/globals.hpp"
 #include "irods/private/s3_api/hmac.hpp"
 #include "irods/private/s3_api/log.hpp"
-#include "irods/private/s3_api/log.hpp"
+#include "irods/s3_api/plugins/user_mapping/user_mapping.h"
+
+#include <irods/rcMisc.h>
+#include <irods/rodsKeyWdDef.h>
+
+#include <boost/algorithm/string.hpp>
+#include <date/date.h>
+#include <nlohmann/json.hpp>
 
 #include <algorithm>
 #include <chrono>
@@ -10,16 +19,8 @@
 #include <iostream>
 #include <sstream>
 
-#include <boost/algorithm/string.hpp>
-
-#include <irods/rcMisc.h>
-#include <irods/rodsKeyWdDef.h>
-
-#include <date/date.h>
-
 namespace
 {
-
 	std::string uri_encode(const std::string_view sv)
 	{
 		std::stringstream s;
@@ -245,7 +246,47 @@ namespace
 		// TODO(#151): Should we actually return an error in this case?
 		return true;
 	} // request_is_expired
-} //namespace
+} // namespace
+
+std::optional<std::string> irods::s3::authentication::get_iRODS_user(const std::string_view access_key)
+{
+	auto& user_mapping = irods::http::globals::user_mapping_library();
+
+	using T = decltype(user_mapping_irods_username);
+	static auto um_irods_username = user_mapping.get<T>("user_mapping_irods_username");
+	const std::string access_key_id{access_key};
+	char* username{};
+	if (um_irods_username(access_key_id.c_str(), &username) != 0 || !username) {
+		return std::nullopt;
+	}
+
+	std::optional<std::string> opt{std::in_place, username};
+	using U = decltype(user_mapping_free);
+	static auto um_free = user_mapping.get<U>("user_mapping_free");
+	um_free(username);
+
+	return opt;
+} // get_iRODS_user
+
+std::optional<std::string> irods::s3::authentication::get_user_secret_key(const std::string_view access_key)
+{
+	auto& user_mapping = irods::http::globals::user_mapping_library();
+
+	using T = decltype(user_mapping_s3_secret_key);
+	static auto um_secret_key = user_mapping.get<T>("user_mapping_s3_secret_key");
+	const std::string access_key_id{access_key};
+	char* secret_key{};
+	if (um_secret_key(access_key_id.c_str(), &secret_key) != 0 || !secret_key) {
+		return std::nullopt;
+	}
+
+	std::optional<std::string> opt{std::in_place, secret_key};
+	using U = decltype(user_mapping_free);
+	static auto um_free = user_mapping.get<U>("user_mapping_free");
+	um_free(secret_key);
+
+	return opt;
+} // get_user_secret_key
 
 std::optional<std::string> irods::s3::authentication::authenticates(
 	const boost::beast::http::request_parser<boost::beast::http::empty_body>& parser,

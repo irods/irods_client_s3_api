@@ -20,15 +20,16 @@
 #  include <irods/irods_auth_constants.hpp> // For AUTH_PASSWORD_KEY.
 #endif // IRODS_DEV_PACKAGE_IS_AT_LEAST_IRODS_5
 
+#include <boost/algorithm/string.hpp>
+#include <boost/asio/signal_set.hpp>
+#include <boost/asio/strand.hpp>
+#include <boost/asio/thread_pool.hpp>
 #include <boost/beast/core.hpp>
 #include <boost/beast/core/flat_buffer.hpp>
 #include <boost/beast/http.hpp>
 #include <boost/beast/version.hpp>
-#include <boost/asio/strand.hpp>
-#include <boost/asio/signal_set.hpp>
-#include <boost/asio/thread_pool.hpp>
 #include <boost/config.hpp>
-#include <boost/algorithm/string.hpp>
+#include <boost/dll.hpp>
 #include <boost/program_options.hpp>
 #include <boost/url/parse.hpp>
 
@@ -184,43 +185,34 @@ constexpr auto default_jsonschema() -> std::string_view
                         "critical"
                     ]
                 },
-                "plugins": {
+                "bucket_mapping": {
                     "type": "object",
                     "properties": {
-                        "static_bucket_resolver": {
-                            "type": "object",
-                            "properties": {
-                                "name": {
-                                    "type": "string"
-                                },
-                                "mappings": {
-                                    "type": "object"
-                                }
-                            },
-                            "required": [
-                                "name",
-                                "mappings"
-                            ]
+                        "plugin_path": {
+                            "type": "string"
                         },
-                        "static_authentication_resolver": {
-                            "type": "object",
-                            "properties": {
-                                "name": {
-                                    "type": "string"
-                                },
-                                "users": {
-                                    "type": "object"
-                                }
-                            },
-                            "required": [
-                                "name",
-                                "users"
-                            ]
+                        "configuration": {
+                            "type": "object"
                         }
                     },
                     "required": [
-                        "static_bucket_resolver",
-                        "static_authentication_resolver"
+                        "plugin_path",
+                        "configuration"
+                    ]
+                },
+                "user_mapping": {
+                    "type": "object",
+                    "properties": {
+                        "plugin_path": {
+                            "type": "string"
+                        },
+                        "configuration": {
+                            "type": "object"
+                        }
+                    },
+                    "required": [
+                        "plugin_path",
+                        "configuration"
                     ]
                 },
                 "region": {
@@ -292,7 +284,8 @@ constexpr auto default_jsonschema() -> std::string_view
             "required": [
                 "host",
                 "port",
-                "plugins",
+                "bucket_mapping",
+                "user_mapping",
                 "region",
                 "multipart_upload_part_files_directory",
                 "authentication",
@@ -450,22 +443,17 @@ auto print_configuration_template() -> void
         "port": 9000,
         "log_level": "info",
 
-        "plugins": {{
-            "static_bucket_resolver": {{
-                "name": "static_bucket_resolver",
-                "mappings": {{
-                    "<bucket_name>": "/path/to/collection"
-                }}
-            }},
+        "bucket_mapping": {{
+            "plugin_path": "/path/to/plugin.so",
+            "configuration": {{
+                "file_path": "/path/to/mapping_file.json"
+            }}
+        }},
 
-            "static_authentication_resolver": {{
-                "name": "static_authentication_resolver",
-                "users": {{
-                    "<s3_username>": {{
-                        "username": "<string>",
-                        "secret_key": "<string>"
-                    }}
-                }}
+        "user_mapping": {{
+            "plugin_path": "/path/to/plugin.so",
+            "configuration": {{
+                "file_path": "/path/to/mapping_file.json"
             }}
         }},
 
@@ -782,6 +770,68 @@ class process_stash_eviction_manager
 	} // evict
 }; // class process_stash_eviction_manager
 
+auto init_bucket_mapping(const json& _mapping_config) -> void
+{
+	const auto& lib_path = _mapping_config.at("plugin_path").get_ref<const std::string&>();
+	const auto config_string = _mapping_config.at("configuration").dump();
+
+	logging::trace("{}: Loading shared library at [{}].", __func__, lib_path);
+	boost::dll::shared_library lib{lib_path};
+	irods::http::globals::set_bucket_mapping_library(lib);
+
+	// clang-format off
+	// Make sure the library supports the expected symbols.
+	const auto symbols = {
+		"bucket_mapping_init",
+		"bucket_mapping_list",
+		"bucket_mapping_collection",
+		"bucket_mapping_close",
+		"bucket_mapping_free"
+	};
+	// clang-format on
+	const auto has_symbol = [&lib](const auto& symbol) { return lib.has(symbol); };
+	if (!std::all_of(std::begin(symbols), std::end(symbols), has_symbol)) {
+		throw std::runtime_error{
+			fmt::format("{}: Could not find all required symbols for library [{}].", __func__, lib_path)};
+	}
+
+	const auto init_func = lib.get<int(const char*)>("bucket_mapping_init");
+	if (const auto ec = init_func(config_string.c_str()); ec != 0) {
+		throw std::runtime_error{fmt::format("{}: Plugin initialization failed with code [{}].", __func__, ec)};
+	}
+} // init_bucket_mapping
+
+auto init_user_mapping(const json& _mapping_config) -> void
+{
+	const auto& lib_path = _mapping_config.at("plugin_path").get_ref<const std::string&>();
+	const auto config_string = _mapping_config.at("configuration").dump();
+
+	logging::trace("{}: Loading shared library at [{}].", __func__, lib_path);
+	boost::dll::shared_library lib{lib_path};
+	irods::http::globals::set_user_mapping_library(lib);
+
+	// clang-format off
+	// Make sure the library supports the expected symbols.
+	const auto symbols = {
+		"user_mapping_init",
+		"user_mapping_irods_username",
+		"user_mapping_s3_secret_key",
+		"user_mapping_close",
+		"user_mapping_free"
+	};
+	// clang-format on
+	const auto has_symbol = [&lib](const auto& symbol) { return lib.has(symbol); };
+	if (!std::all_of(std::begin(symbols), std::end(symbols), has_symbol)) {
+		throw std::runtime_error{
+			fmt::format("{}: Could not find all required symbols for library [{}].", __func__, lib_path)};
+	}
+
+	const auto init_func = lib.get<int(const char*)>("user_mapping_init");
+	if (const auto ec = init_func(config_string.c_str()); ec != 0) {
+		throw std::runtime_error{fmt::format("{}: Plugin initialization failed with code [{}].", __func__, ec)};
+	}
+} // init_user_mapping
+
 auto main(int _argc, char* _argv[]) -> int
 {
 	po::options_description opts_desc{""};
@@ -871,6 +921,9 @@ auto main(int _argc, char* _argv[]) -> int
 		logging::trace("Loading API plugins.");
 		load_client_api_plugins();
 
+		init_bucket_mapping(s3_server_config.at(json::json_pointer{"/bucket_mapping"}));
+		init_user_mapping(s3_server_config.at(json::json_pointer{"/user_mapping"}));
+
 		const auto address = net::ip::make_address(s3_server_config.at("host").get_ref<const std::string&>());
 		const auto port = s3_server_config.at("port").get<std::uint16_t>();
 		const auto request_thread_count =
@@ -951,9 +1004,24 @@ auto main(int _argc, char* _argv[]) -> int
 		logging::trace("Waiting for I/O thread pool to shut down.");
 		io_threads.join();
 
+		logging::trace("Releasing resources for user mapping plugin.");
+		bool plugin_close_error = false;
+		auto um_close = irods::http::globals::user_mapping_library().get<int()>("user_mapping_close");
+		if (const auto ec = um_close(); ec != 0) {
+			logging::error("User mapping plugin experienced an error during shut down. [error_code={}].", ec);
+			plugin_close_error = true;
+		}
+
+		logging::trace("Releasing resources for bucket mapping plugin.");
+		auto bm_close = irods::http::globals::bucket_mapping_library().get<int()>("bucket_mapping_close");
+		if (const auto ec = bm_close(); ec != 0) {
+			logging::error("Bucket mapping plugin experienced an error during shut down. [error_code={}].", ec);
+			plugin_close_error = true;
+		}
+
 		logging::info("Shutdown complete.");
 
-		return 0;
+		return plugin_close_error ? 1 : 0;
 	}
 	catch (const irods::exception& e) {
 		fmt::print(stderr, "Error: {}\n", e.client_display_what());
