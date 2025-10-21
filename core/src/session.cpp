@@ -41,13 +41,8 @@ namespace irods::http
 		}
 	}
 
-	session::session(
-		boost::asio::ip::tcp::socket&& socket,
-		const request_handler_map_type& _request_handler_map,
-		int _max_body_size,
-		int _timeout_in_seconds)
+	session::session(boost::asio::ip::tcp::socket&& socket, int _max_body_size, int _timeout_in_seconds)
 		: stream_(std::move(socket))
-		, req_handlers_{&_request_handler_map}
 		, max_body_size_{_max_body_size}
 		, timeout_in_secs_{_timeout_in_seconds}
 	{
@@ -128,8 +123,6 @@ namespace irods::http
 		logging::debug("{}: Candidate url string: {}", __func__, url_string);
 
 		namespace http = boost::beast::http;
-
-		(void) req_handlers_;
 
 		// build the url_view - must be done within background task as url_view is not copyable
 		boost::urls::url url2;

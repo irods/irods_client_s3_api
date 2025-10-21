@@ -1,14 +1,13 @@
 #ifndef IRODS_S3_API_S3_API_HPP
 #define IRODS_S3_API_S3_API_HPP
-#include <boost/asio/awaitable.hpp>
-#include <boost/asio/this_coro.hpp>
-#include <boost/beast.hpp>
-#include <irods/filesystem.hpp>
-#include <boost/asio.hpp>
-#include <boost/property_tree/ptree.hpp>
-#include <boost/url.hpp>
 
 #include "irods/private/s3_api/common.hpp"
+
+#include <irods/filesystem.hpp>
+
+#include <boost/asio.hpp>
+#include <boost/beast.hpp>
+#include <boost/url.hpp>
 
 namespace irods::s3::actions
 {
@@ -72,5 +71,6 @@ namespace irods::s3::actions
 		boost::beast::http::request_parser<boost::beast::http::empty_body>& parser,
 		const boost::urls::url_view&);
 
-} //namespace irods::s3::actions
-#endif
+} // namespace irods::s3::actions
+
+#endif // IRODS_S3_API_S3_API_HPP

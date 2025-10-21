@@ -1,9 +1,7 @@
 #include "irods/private/s3_api/common.hpp"
 
-#include "irods/private/s3_api/crlf_parser.hpp"
 #include "irods/private/s3_api/globals.hpp"
 #include "irods/private/s3_api/log.hpp"
-#include "irods/private/s3_api/process_stash.hpp"
 #include "irods/private/s3_api/session.hpp"
 #include "irods/private/s3_api/version.hpp"
 
@@ -220,126 +218,6 @@ namespace irods::http
 	{
 		return parse_url(fmt::format("http://ignored{}", _req.target()));
 	} // parse_url
-
-	auto resolve_client_identity(const request_type& _req) -> client_identity_resolution_result
-	{
-		//
-		// Extract the Bearer token from the Authorization header.
-		//
-
-		const auto& hdrs = _req.base();
-		const auto iter = hdrs.find("Authorization");
-		if (iter == std::end(hdrs)) {
-			logging::error("{}: Missing [Authorization] header.", __func__);
-			return {.response = fail(status_type::bad_request)};
-		}
-
-		logging::debug("{}: Authorization value: [{}]", __func__, iter->value());
-
-		auto pos = iter->value().find("Bearer ");
-		if (std::string_view::npos == pos) {
-			logging::debug("{}: Malformed authorization header.", __func__);
-			return {.response = fail(status_type::bad_request)};
-		}
-
-		std::string bearer_token{iter->value().substr(pos + 7)};
-		boost::trim(bearer_token);
-		logging::debug("{}: Bearer token: [{}]", __func__, bearer_token);
-
-		// Verify the bearer token is known to the server. If not, return an error.
-		auto mapped_value{irods::http::process_stash::find(bearer_token)};
-		if (!mapped_value.has_value()) {
-			logging::error("{}: Could not find bearer token matching [{}].", __func__, bearer_token);
-			return {.response = fail(status_type::unauthorized)};
-		}
-
-		auto* client_info{boost::any_cast<authenticated_client_info>(&*mapped_value)};
-		if (client_info == nullptr) {
-			logging::error("{}: Could not find bearer token matching [{}].", __func__, bearer_token);
-			return {.response = fail(status_type::unauthorized)};
-		}
-
-		if (std::chrono::steady_clock::now() >= client_info->expires_at) {
-			logging::error("{}: Session for bearer token [{}] has expired.", __func__, bearer_token);
-			return {.response = fail(status_type::unauthorized)};
-		}
-
-		logging::trace("{}: Client is authenticated.", __func__);
-		return {.client_info = std::move(*client_info)};
-	} // resolve_client_identity
-
-	auto execute_operation(
-		session_pointer_type _sess_ptr,
-		request_type& _req,
-		const std::unordered_map<std::string, handler_type>& _op_table_get,
-		const std::unordered_map<std::string, handler_type>& _op_table_post) -> void
-	{
-		if (_req.method() == verb_type::get) {
-			if (_op_table_get.empty()) {
-				logging::error("{}: HTTP method not supported.", __func__);
-				return _sess_ptr->send(irods::http::fail(status_type::method_not_allowed));
-			}
-
-			auto url = irods::http::parse_url(_req);
-
-			const auto op_iter = url.query.find("op");
-			if (op_iter == std::end(url.query)) {
-				logging::error("{}: Missing [op] parameter.", __func__);
-				return _sess_ptr->send(irods::http::fail(status_type::bad_request));
-			}
-
-			if (const auto iter = _op_table_get.find(op_iter->second); iter != std::end(_op_table_get)) {
-				return (iter->second)(_sess_ptr, _req, url.query);
-			}
-
-			logging::error("{}: Operation [{}] not supported.", __func__, op_iter->second);
-			return _sess_ptr->send(fail(status_type::bad_request));
-		}
-
-		if (_req.method() == verb_type::post) {
-			if (_op_table_post.empty()) {
-				logging::error("{}: HTTP method not supported.", __func__);
-				return _sess_ptr->send(irods::http::fail(status_type::method_not_allowed));
-			}
-
-			query_arguments_type args;
-
-			if (auto content_type = _req.base()["content-type"];
-			    boost::istarts_with(content_type, "multipart/form-data")) {
-				const auto boundary = irods::http::get_multipart_form_data_boundary(content_type);
-
-				if (!boundary) {
-					logging::error("{}: Could not extract [boundary] from [Content-Type] header. ", __func__);
-					return _sess_ptr->send(irods::http::fail(status_type::bad_request));
-				}
-
-				args = irods::http::parse_multipart_form_data(*boundary, _req.body());
-			}
-			else if (boost::istarts_with(content_type, "application/x-www-form-urlencoded")) {
-				args = irods::http::to_argument_list(_req.body());
-			}
-			else {
-				logging::error("{}: Content type [{}] not supported.", __func__, content_type);
-				return _sess_ptr->send(irods::http::fail(status_type::bad_request));
-			}
-
-			const auto op_iter = args.find("op");
-			if (op_iter == std::end(args)) {
-				logging::error("{}: Missing [op] parameter.", __func__);
-				return _sess_ptr->send(irods::http::fail(status_type::bad_request));
-			}
-
-			if (const auto iter = _op_table_post.find(op_iter->second); iter != std::end(_op_table_post)) {
-				return (iter->second)(_sess_ptr, _req, args);
-			}
-
-			logging::error("{}: Operation [{}] not supported.", __func__, op_iter->second);
-			return _sess_ptr->send(fail(status_type::bad_request));
-		}
-
-		logging::error("{}: HTTP method not supported.", __func__);
-		return _sess_ptr->send(irods::http::fail(status_type::method_not_allowed));
-	} // operation_dispatch
 
 	auto get_port_from_url(boost::urls::url_view _url) -> std::optional<std::string>
 	{

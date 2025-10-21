@@ -1,10 +1,8 @@
 #include "irods/private/s3_api/common.hpp"
 #include "irods/private/s3_api/globals.hpp"
-#include "irods/private/s3_api/handlers.hpp"
 #include "irods/private/s3_api/log.hpp"
 #include "irods/private/s3_api/session.hpp"
 #include "irods/private/s3_api/transport.hpp"
-#include "irods/private/s3_api/process_stash.hpp"
 #include "irods/private/s3_api/version.hpp"
 #include "irods/private/s3_api/configuration.hpp"
 
@@ -89,13 +87,6 @@ namespace logging = irods::http::logging;
 using json = nlohmann::json;
 using tcp  = boost::asio::ip::tcp; // from <boost/asio/ip/tcp.hpp>
 
-// IRODS_S3_API_BASE_URL is a macro defined by the CMakeLists.txt.
-const irods::http::request_handler_map_type req_handlers{
-	{IRODS_S3_API_BASE_URL "/authenticate", irods::http::handler::authentication},
-	{IRODS_S3_API_BASE_URL "/PutObject",  irods::http::handler::put_object}
-};
-// clang-format on
-
 // Accepts incoming connections and launches the sessions.
 class listener : public std::enable_shared_from_this<listener>
 {
@@ -135,7 +126,7 @@ class listener : public std::enable_shared_from_this<listener>
 		}
 		else {
 			// Create the session and run it
-			std::make_shared<irods::http::session>(std::move(socket), req_handlers, max_body_size_, timeout_in_secs_)
+			std::make_shared<irods::http::session>(std::move(socket), max_body_size_, timeout_in_secs_)
 				->run();
 		}
 
@@ -221,31 +212,6 @@ constexpr auto default_jsonschema() -> std::string_view
                 "multipart_upload_part_files_directory": {
                     "type": "string"
                 },
-                "authentication": {
-                    "type": "object",
-                    "properties": {
-                        "eviction_check_interval_in_seconds": {
-                            "type": "integer",
-                            "minimum": 1
-                        },
-                        "basic": {
-                            "type": "object",
-                            "properties": {
-                                "timeout_in_seconds": {
-                                    "type": "integer",
-                                    "minimum": 1
-                                }
-                            },
-                            "required": [
-                                "timeout_in_seconds"
-                            ]
-                        }
-                    },
-                    "required": [
-                        "eviction_check_interval_in_seconds",
-                        "basic"
-                    ]
-                },
                 "requests": {
                     "type": "object",
                     "properties": {
@@ -288,7 +254,6 @@ constexpr auto default_jsonschema() -> std::string_view
                 "user_mapping",
                 "region",
                 "multipart_upload_part_files_directory",
-                "authentication",
                 "requests",
                 "background_io"
             ]
@@ -460,14 +425,6 @@ auto print_configuration_template() -> void
         "region": "us-east-1",
 
         "multipart_upload_part_files_directory": "/tmp",
-
-        "authentication": {{
-            "eviction_check_interval_in_seconds": 60,
-
-            "basic": {{
-                "timeout_in_seconds": 3600
-            }}
-        }},
 
         "requests": {{
             "threads": 3,
@@ -731,45 +688,6 @@ auto init_irods_connection_pool(const json& _config) -> std::unique_ptr<irods::c
 		opts);
 } // init_irods_connection_pool
 
-class process_stash_eviction_manager
-{
-	net::steady_timer timer_;
-	std::chrono::seconds interval_;
-
-  public:
-	process_stash_eviction_manager(net::io_context& _io, std::chrono::seconds _eviction_check_interval)
-		: timer_{_io}
-		, interval_{_eviction_check_interval}
-	{
-		evict();
-	} // constructor
-
-  private:
-	auto evict() -> void
-	{
-		timer_.expires_after(interval_);
-		timer_.async_wait([this](const auto& _ec) {
-			if (_ec) {
-				return;
-			}
-
-			logging::trace("Evicting expired items ...");
-			irods::http::process_stash::erase_if([](const auto& _k, const auto& _v) {
-				const auto* client_info = boost::any_cast<const irods::http::authenticated_client_info>(&_v);
-				const auto erase_value = client_info && std::chrono::steady_clock::now() >= client_info->expires_at;
-
-				if (erase_value) {
-					logging::debug("Evicted bearer token [{}].", _k);
-				}
-
-				return erase_value;
-			});
-
-			evict();
-		});
-	} // evict
-}; // class process_stash_eviction_manager
-
 auto init_bucket_mapping(const json& _mapping_config) -> void
 {
 	const auto& lib_path = _mapping_config.at("plugin_path").get_ref<const std::string&>();
@@ -986,11 +904,6 @@ auto main(int _argc, char* _argv[]) -> int
 				}
 			});
 		}
-
-		// Launch eviction check for expired bearer tokens.
-		const auto eviction_check_interval =
-			s3_server_config.at(json::json_pointer{"/authentication/eviction_check_interval_in_seconds"}).get<int>();
-		process_stash_eviction_manager eviction_mgr{ioc, std::chrono::seconds{eviction_check_interval}};
 
 		logging::info("Server is ready.");
 		ioc.run();
