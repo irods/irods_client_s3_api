@@ -1,7 +1,8 @@
 #ifndef IRODS_S3_API_BUCKET_HPP
 #define IRODS_S3_API_BUCKET_HPP
 
-#include "boost/url.hpp"
+#include <boost/url.hpp>
+
 #include <irods/filesystem.hpp>
 
 namespace irods::s3
@@ -18,7 +19,7 @@ namespace irods::s3
 	/// \param view The view of the url's segments.
 	irods::experimental::filesystem::path finish_path(
 		const irods::experimental::filesystem::path& base,
-		const boost::urls::segments_view&);
-	std::string strip_bucket(const std::string&);
-} //namespace irods::s3
+		const boost::urls::segments_view& view);
+} // namespace irods::s3
+
 #endif // IRODS_S3_API_BUCKET_HPP

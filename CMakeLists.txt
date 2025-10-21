@@ -124,8 +124,6 @@ target_link_objects(
   ${IRODS_S3_API_BINARY_NAME}
   PRIVATE
   irods_s3_api_core
-  irods_s3_api_endpoint_authentication
-  irods_s3_api_endpoint_put_object
   irods_s3_endpoints
 )
 

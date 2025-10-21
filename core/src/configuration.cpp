@@ -1,8 +1,10 @@
-#include <optional>
+#include "irods/private/s3_api/configuration.hpp"
+
+#include "irods/private/s3_api/globals.hpp"
+
 #include <nlohmann/json.hpp>
 
-#include "irods/private/s3_api/configuration.hpp"
-#include "irods/private/s3_api/globals.hpp"
+#include <optional>
 
 namespace
 {

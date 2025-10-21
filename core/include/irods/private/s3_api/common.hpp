@@ -157,14 +157,6 @@ namespace irods::http
 
 	auto parse_url(const request_type& _req) -> url;
 
-	auto resolve_client_identity(const request_type& _req) -> client_identity_resolution_result;
-
-	auto execute_operation(
-		session_pointer_type _sess_ptr,
-		request_type& _req,
-		const std::unordered_map<std::string, handler_type>& _op_table_get,
-		const std::unordered_map<std::string, handler_type>& _op_table_post) -> void;
-
 	auto get_port_from_url(boost::urls::url_view _url) -> std::optional<std::string>;
 } // namespace irods::http
 
