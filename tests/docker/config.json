@@ -2,42 +2,25 @@
     "s3_server": {
         "host": "0.0.0.0",
         "port": 8080,
-        "log_level": "debug",
+        "log_level": "trace",
 
-        "plugins": {
-            "static_bucket_resolver": {
-                "name": "static_bucket_resolver",
-                "mappings": {
-                    "test-bucket": "/tempZone/home/rods",
-                    "alice-bucket": "/tempZone/home/alice/alice-bucket",
-                    "alice-bucket2": "/tempZone/home/alice/alice-bucket2"
-                }
-            },
+        "bucket_mapping": {
+            "plugin_path": "/usr/lib/irods_s3_api/plugins/bucket_mapping/libirods_s3_api_plugin-bucket_mapping-local_file.so",
+            "configuration": {
+                "file_path": "/bucket_mappings.json"
+            }
+        },
 
-            "static_authentication_resolver": {
-                "name": "static_authentication_resolver",
-                "users": {
-                    "s3_key1": {
-                        "username": "rods",
-                        "secret_key": "s3_secret_key1"
-                    },
-                    "s3_key2": {
-                        "username": "alice",
-                        "secret_key": "s3_secret_key2"
-                    }
-                }
+        "user_mapping": {
+            "plugin_path": "/usr/lib/irods_s3_api/plugins/user_mapping/libirods_s3_api_plugin-user_mapping-local_file.so",
+            "configuration": {
+                "file_path": "/user_mappings.json"
             }
         },
 
         "region": "us-east-1",
-        "multipart_upload_part_files_directory": "/tmp",
-        "authentication": {
-            "eviction_check_interval_in_seconds": 60,
 
-            "basic": {
-                "timeout_in_seconds": 3600
-            }
-        },
+        "multipart_upload_part_files_directory": "/tmp",
 
         "requests": {
             "threads": 10,
@@ -48,7 +31,6 @@
         "background_io": {
             "threads": 10 
         }
-
     },
 
     "irods_client": {

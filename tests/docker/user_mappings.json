@@ -1,0 +1,10 @@
+{
+    "s3_key1": {
+        "username": "rods",
+        "secret_key": "s3_secret_key1"
+    },
+    "s3_key2": {
+        "username": "alice",
+        "secret_key": "s3_secret_key2"
+    }
+}
