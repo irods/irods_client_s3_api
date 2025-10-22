@@ -28,6 +28,8 @@ services:
             dockerfile: irods_runner.Dockerfile
         volumes:
             - ./config.json:/config.json:ro
+            - ./bucket_mappings.json:/bucket_mappings.json:ro
+            - ./user_mappings.json:/user_mappings.json:ro
         depends_on:
             irods-catalog-provider:
                 condition: service_healthy

@@ -1,0 +1,5 @@
+{
+    "test-bucket": "/tempZone/home/rods",
+    "alice-bucket": "/tempZone/home/alice/alice-bucket",
+    "alice-bucket2": "/tempZone/home/alice/alice-bucket2"
+}
