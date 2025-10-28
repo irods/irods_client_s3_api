@@ -387,8 +387,7 @@ constexpr auto default_jsonschema() -> std::string_view
         "s3_server",
         "irods_client"
     ]
-}
-)";
+})";
 	// clang-format on
 } // default_jsonschema
 
