@@ -332,17 +332,6 @@ Notice how some of the configuration values are wrapped in angle brackets (e.g. 
             // with the system default trusted certificates.
             "ca_certificate_file": "<string>",
 
-            // The file containing the server's certificate chain.
-            //
-            // The certificates must be in PEM format and must be sorted
-            // starting with the subject's certificate (actual client or server
-            // certificate), followed by intermediate CA certificates if
-            // applicable, and ending at the highest level (root) CA.
-            "certificate_chain_file": "<string>",
-
-            // The file containing Diffie-Hellman parameters.
-            "dh_params_file": "<string>",
-
             // Defines the level of server certificate authentication to
             // perform.
             //

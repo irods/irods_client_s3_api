@@ -283,12 +283,6 @@ constexpr auto default_jsonschema() -> std::string_view
                         "ca_certificate_file": {
                             "type": "string"
                         },
-                        "certificate_chain_file": {
-                            "type": "string"
-                        },
-                        "dh_params_file": {
-                            "type": "string"
-                        },
                         "verify_server": {
                             "enum": [
                                 "none",
@@ -315,7 +309,6 @@ constexpr auto default_jsonschema() -> std::string_view
                     "required": [
                         "client_server_policy",
                         "ca_certificate_file",
-                        "dh_params_file",
                         "verify_server",
                         "client_server_negotiation",
                         "encryption_algorithm",
@@ -445,8 +438,6 @@ auto print_configuration_template() -> void
         "tls": {{
             "client_server_policy": "CS_NEG_REFUSE",
             "ca_certificate_file": "<string>",
-            "certificate_chain_file": "<string>",
-            "dh_params_file": "<string>",
             "verify_server": "<string>",
             "client_server_negotiation": "request_server_negotiation",
             "encryption_algorithm": "AES-256-CBC",
