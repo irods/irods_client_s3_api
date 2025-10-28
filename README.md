@@ -538,6 +538,12 @@ Two plugin interfaces are provided:
 
 They expose a C interface for ABI stability and simplicity. Documentation is included in each header file.
 
+## Secure Communication (SSL/TLS)
+
+The S3 API does not handle SSL/TLS termination itself. Deployments should plan to provide a reverse proxy to handle SSL/TLS termination _in front of_ the S3 API for secure communication with the client.
+
+Popular proxy servers include nginx, Apache httpd, and HAProxy.
+
 ## Connecting with Botocore
 
 As a simple example, this is how you pass that in through botocore, a library from Amazon that provides S3 connectivity.
