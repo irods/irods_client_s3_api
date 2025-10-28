@@ -96,7 +96,8 @@ namespace irods::http
 		}
 
 		if (ec) {
-			return irods::fail(ec, "read");
+			logging::error("{}: read: {}", __func__, ec.message());
+			return;
 		}
 
 		//
@@ -338,7 +339,8 @@ namespace irods::http
 		boost::ignore_unused(bytes_transferred);
 
 		if (ec) {
-			return irods::fail(ec, "write");
+			logging::error("{}: write: {}", __func__, ec.message());
+			return;
 		}
 
 		if (close) {

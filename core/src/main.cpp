@@ -121,7 +121,7 @@ class listener : public std::enable_shared_from_this<listener>
 	auto on_accept(beast::error_code ec, tcp::socket socket) -> void
 	{
 		if (ec) {
-			irods::fail(ec, "accept");
+			logging::error("{}: accept: {}", __func__, ec.message());
 			//return; // To avoid infinite loop
 		}
 		else {
