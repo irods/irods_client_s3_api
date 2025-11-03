@@ -44,7 +44,7 @@ void irods::s3::actions::handle_listobjects_v2(
 	auto irods_username = irods::s3::authentication::authenticates(parser, url);
 	if (!irods_username) {
 		response.result(beast::http::status::forbidden);
-		logging::debug("{}: returned [{}]", __FUNCTION__, response.reason());
+		logging::debug("{}: returned [{}]", __func__, response.reason());
 		session_ptr->send(std::move(response));
 		return;
 	}
@@ -59,7 +59,7 @@ void irods::s3::actions::handle_listobjects_v2(
 	}
 	else {
 		response.result(beast::http::status::not_found);
-		logging::debug("{}: returned [{}]", __FUNCTION__, response.reason());
+		logging::debug("{}: returned [{}]", __func__, response.reason());
 		session_ptr->send(std::move(response));
 		return;
 	}
@@ -100,7 +100,7 @@ void irods::s3::actions::handle_listobjects_v2(
 				"select COLL_NAME where COLL_NAME like '{}/%' and COLL_NAME not like '{}/%/%'",
 				full_path.parent_path().c_str(),
 				full_path.parent_path().c_str());
-			logging::debug("{}: query={}", __FUNCTION__, query);
+			logging::debug("{}: query={}", __func__, query);
 			for (auto&& row : irods::query<RcComm>(rcComm_t_ptr, query)) {
 				ptree object;
 				std::string key = (row[0].size() > base_length ? row[0].substr(base_length) : "");
@@ -116,7 +116,7 @@ void irods::s3::actions::handle_listobjects_v2(
 			query = fmt::format(
 				"select COLL_NAME, DATA_NAME, DATA_OWNER_NAME, DATA_SIZE, DATA_MODIFY_TIME where COLL_NAME = '{}'",
 				full_path.parent_path().c_str());
-			logging::debug("{}: query={}", __FUNCTION__, query);
+			logging::debug("{}: query={}", __func__, query);
 			for (auto&& row : irods::query<RcComm>(rcComm_t_ptr, query)) {
 				ptree object;
 				std::string key = (row[0].size() > base_length ? row[0].substr(base_length) : "") + "/" + row[1];
@@ -148,7 +148,7 @@ void irods::s3::actions::handle_listobjects_v2(
 				"select COLL_NAME where COLL_NAME like '{}%' and COLL_NAME not like '{}%/%'",
 				full_path.c_str(),
 				full_path.c_str());
-			logging::debug("{}: query={}", __FUNCTION__, query);
+			logging::debug("{}: query={}", __func__, query);
 			for (auto&& row : irods::query<RcComm>(rcComm_t_ptr, query)) {
 				ptree object;
 				std::string key = (row[0].size() > base_length ? row[0].substr(base_length) : "");
@@ -166,7 +166,7 @@ void irods::s3::actions::handle_listobjects_v2(
 				" and DATA_NAME like '{}%'",
 				full_path.parent_path().c_str(),
 				full_path.object_name().c_str());
-			logging::debug("{}: query={}", __FUNCTION__, query);
+			logging::debug("{}: query={}", __func__, query);
 			for (auto&& row : irods::query<RcComm>(rcComm_t_ptr, query)) {
 				ptree object;
 				std::string key = (row[0].size() > base_length ? row[0].substr(base_length) : "") + "/" + row[1];
@@ -201,7 +201,7 @@ void irods::s3::actions::handle_listobjects_v2(
 		query = fmt::format(
 			"select COLL_NAME, DATA_NAME, DATA_OWNER_NAME, DATA_SIZE, DATA_MODIFY_TIME where COLL_NAME like '{}%'",
 			full_path.c_str());
-		logging::debug("{}: query={}", __FUNCTION__, query);
+		logging::debug("{}: query={}", __func__, query);
 		for (auto&& row : irods::query<RcComm>(rcComm_t_ptr, query)) {
 			ptree object;
 			std::string key = (row[0].size() > base_length ? row[0].substr(base_length) : "") + "/" + row[1];
@@ -230,7 +230,7 @@ void irods::s3::actions::handle_listobjects_v2(
 			" and DATA_NAME like '{}%'",
 			full_path.parent_path().c_str(),
 			full_path.object_name().c_str());
-		logging::debug("{}: query={}", __FUNCTION__, query);
+		logging::debug("{}: query={}", __func__, query);
 		for (auto&& row : irods::query<RcComm>(rcComm_t_ptr, query)) {
 			ptree object;
 			std::string key = (row[0].size() > base_length ? row[0].substr(base_length) : "") + "/" + row[1];
@@ -262,7 +262,7 @@ void irods::s3::actions::handle_listobjects_v2(
 	boost::property_tree::write_xml(s, document, settings);
 	string_body_response.body() = s.str();
 
-	logging::debug("{}: response body {}", __FUNCTION__, s.str());
-	logging::debug("{}: returned [{}]", __FUNCTION__, string_body_response.reason());
+	logging::debug("{}: response body {}", __func__, s.str());
+	logging::debug("{}: returned [{}]", __func__, string_body_response.reason());
 	session_ptr->send(std::move(string_body_response));
 }

@@ -134,8 +134,8 @@ void irods::s3::actions::handle_listbuckets(
 	settings.indent_count = 4;
 	boost::property_tree::write_xml(s, document, settings);
 	string_body_response.body() = s.str();
-	logging::debug("{}: return string:\n{}", __FUNCTION__, s.str());
-	logging::debug("{}: returned [{}]", __FUNCTION__, string_body_response.reason());
+	logging::debug("{}: return string:\n{}", __func__, s.str());
+	logging::debug("{}: returned [{}]", __func__, string_body_response.reason());
 	session_ptr->send(std::move(string_body_response));
 	return;
 }

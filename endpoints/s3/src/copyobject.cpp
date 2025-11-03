@@ -32,7 +32,7 @@ void irods::s3::actions::handle_copyobject(
 	auto irods_username = irods::s3::authentication::authenticates(parser, url);
 	if (!irods_username) {
 		response.result(beast::http::status::forbidden);
-		logging::debug("{}: returned [{}]", __FUNCTION__, response.reason());
+		logging::debug("{}: returned [{}]", __func__, response.reason());
 		session_ptr->send(std::move(response));
 		return;
 	}
@@ -45,9 +45,9 @@ void irods::s3::actions::handle_copyobject(
 		source_path = irods::s3::finish_path(bucket.value(), url2.segments());
 	}
 	else {
-		logging::debug("{}: Could not locate source path", __FUNCTION__);
+		logging::debug("{}: Could not locate source path", __func__);
 		response.result(beast::http::status::not_found);
-		logging::debug("{}: returned [{}]", __FUNCTION__, response.reason());
+		logging::debug("{}: returned [{}]", __func__, response.reason());
 		session_ptr->send(std::move(response));
 		return;
 	}
@@ -55,15 +55,15 @@ void irods::s3::actions::handle_copyobject(
 		destination_path = irods::s3::finish_path(bucket.value(), url.segments());
 	}
 	else {
-		logging::debug("{}: Could not locate destination path", __FUNCTION__);
+		logging::debug("{}: Could not locate destination path", __func__);
 		response.result(beast::http::status::not_found);
-		logging::debug("{}: returned [{}]", __FUNCTION__, response.reason());
+		logging::debug("{}: returned [{}]", __func__, response.reason());
 		session_ptr->send(std::move(response));
 		return;
 	}
 	if (source_path.empty() || destination_path.empty()) {
 		response.result(beast::http::status::not_found);
-		logging::debug("{}: returned [{}]", __FUNCTION__, response.reason());
+		logging::debug("{}: returned [{}]", __func__, response.reason());
 		session_ptr->send(std::move(response));
 		return;
 	}
@@ -101,28 +101,28 @@ void irods::s3::actions::handle_copyobject(
 				response.result(beast::http::status::forbidden);
 				break;
 			default:
-				logging::error("{}: Returned exception {}", __FUNCTION__, ex.what());
+				logging::error("{}: Returned exception {}", __func__, ex.what());
 				response.result(beast::http::status::internal_server_error);
 				break;
 		}
-		logging::debug("{}: returned [{}]", __FUNCTION__, response.reason());
+		logging::debug("{}: returned [{}]", __func__, response.reason());
 		session_ptr->send(std::move(response));
 		return;
 	}
 	catch (std::system_error& e) {
-		logging::error("{}: {}", __FUNCTION__, e.what());
+		logging::error("{}: {}", __func__, e.what());
 		response.result(beast::http::status::internal_server_error);
-		logging::debug("{}: returned [{}]", __FUNCTION__, response.reason());
+		logging::debug("{}: returned [{}]", __func__, response.reason());
 		session_ptr->send(std::move(response));
 		return;
 	}
-	logging::trace("{}: Copied object{}", __FUNCTION__, response.reason());
+	logging::trace("{}: Copied object{}", __func__, response.reason());
 	// We don't have real etags, so using the md5 here would be confusing, as it would match any number of distinct
 	// objects The most accurate representation of an Etag that I am aware of that we can get "for free" is using the
 	// md5 sum appended to the path of the object. This makes it both content-sensitive and location sensitive.
 	beast::http::response<beast::http::string_body> string_body_response(std::move(response));
 	string_body_response.body() = "<CopyObjectResult><ETag>TBD</ETag></CopyObjectResult>";
-	logging::debug("{}: returned [{}]", __FUNCTION__, string_body_response.reason());
+	logging::debug("{}: returned [{}]", __func__, string_body_response.reason());
 	session_ptr->send(std::move(string_body_response));
 	return;
 }
