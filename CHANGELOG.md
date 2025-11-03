@@ -11,6 +11,31 @@ and this project **only** adheres to the following _(as defined at [Semantic Ver
 > - MINOR version when you add functionality in a backward compatible manner
 > - PATCH version when you make backward compatible bug fixes
 
+## [0.5.0] - 2025-11-03
+
+> [!IMPORTANT]
+> This version requires modification of the S3 API server's configuration file.
+
+This release separates bucket mapping and user mapping from the main configuration file through use of a new plugin architecture. Administrators can now adjust mappings in real time without needing to restart the S3 API server.
+
+See the following README sections to learn more about the configuration and plugins.
+- [Configuration File Structure](https://github.com/irods/irods_client_s3_api/tree/0.5.0#configuration-file-structure)
+- [Bucket Mapping](https://github.com/irods/irods_client_s3_api/tree/0.5.0#bucket-mapping)
+- [User Mapping](https://github.com/irods/irods_client_s3_api/tree/0.5.0#user-mapping)
+- [Custom Plugins](https://github.com/irods/irods_client_s3_api/tree/0.5.0#custom-plugins)
+
+### Changed
+
+- Move management of bucket and user mapping to plugin architecture (#118).
+
+### Removed
+
+- Remove unnecessary TLS configuration properties from configuration file (#182).
+
+### Fixed
+
+- Add missing TLS configuration properties to configuration file (#169).
+
 ## [0.4.0] - 2025-08-20
 
 This release makes the S3 API compatible with iRODS 5 and adds support for Presigned URLs.
