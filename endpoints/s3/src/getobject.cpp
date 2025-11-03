@@ -98,9 +98,9 @@ void irods::s3::actions::handle_getobject(
 
 	auto irods_username = irods::s3::authentication::authenticates(parser, url);
 	if (!irods_username) {
-		logging::error("{}: Failed to authenticate.", __FUNCTION__);
+		logging::error("{}: Failed to authenticate.", __func__);
 		response.result(beast::http::status::forbidden);
-		logging::debug("{}: returned [{}]", __FUNCTION__, response.reason());
+		logging::debug("{}: returned [{}]", __func__, response.reason());
 		session_ptr->send(std::move(response));
 		return;
 	}
@@ -111,9 +111,9 @@ void irods::s3::actions::handle_getobject(
 		path = irods::s3::finish_path(path, url.segments());
 	}
 	else {
-		logging::error("{}: Failed to resolve bucket", __FUNCTION__);
+		logging::error("{}: Failed to resolve bucket", __func__);
 		response.result(beast::http::status::not_found);
-		logging::debug("{}: returned [{}]", __FUNCTION__, response.reason());
+		logging::debug("{}: returned [{}]", __func__, response.reason());
 		session_ptr->send(std::move(response));
 		return;
 	}
@@ -164,9 +164,9 @@ void irods::s3::actions::handle_getobject(
 			boost::split(range_parts, range, boost::is_any_of("-"));
 
 			if (range_parts.size() != 2) {
-				logging::error("{}: The provided range format has not been implemented.", __FUNCTION__);
+				logging::error("{}: The provided range format has not been implemented.", __func__);
 				response.result(beast::http::status::not_implemented);
-				logging::debug("{}: returned [{}]", __FUNCTION__, response.reason());
+				logging::debug("{}: returned [{}]", __func__, response.reason());
 				session_ptr->send(std::move(response));
 				return;
 			}
@@ -178,19 +178,18 @@ void irods::s3::actions::handle_getobject(
 				}
 			}
 			catch (const boost::bad_lexical_cast&) {
-				logging::error("{}: Could not cast the start or end range to a size_t.", __FUNCTION__);
+				logging::error("{}: Could not cast the start or end range to a size_t.", __func__);
 				response.result(beast::http::status::not_implemented);
-				logging::debug("{}: returned [{}]", __FUNCTION__, response.reason());
+				logging::debug("{}: returned [{}]", __func__, response.reason());
 				session_ptr->send(std::move(response));
 				return;
 			}
 		}
 		else {
 			logging::error(
-				"{}: The provided range format has not been implemented - does not begin with \"bytes=\".",
-				__FUNCTION__);
+				"{}: The provided range format has not been implemented - does not begin with \"bytes=\".", __func__);
 			response.result(beast::http::status::not_implemented);
-			logging::debug("{}: returned [{}]", __FUNCTION__, response.reason());
+			logging::debug("{}: returned [{}]", __func__, response.reason());
 			session_ptr->send(std::move(response));
 			return;
 		}
@@ -229,10 +228,10 @@ void irods::s3::actions::handle_getobject(
 			size_t offset = range_start;
 
 			if (persistent_data_ptr->d.fail() || persistent_data_ptr->d.bad()) {
-				logging::error("{}: Fail/badbit set", __FUNCTION__);
+				logging::error("{}: Fail/badbit set", __func__);
 				persistent_data_ptr->response.result(beast::http::status::forbidden);
 				persistent_data_ptr->response.body().more = false;
-				logging::debug("{}: returned [{}]", __FUNCTION__, persistent_data_ptr->response.reason());
+				logging::debug("{}: returned [{}]", __func__, persistent_data_ptr->response.reason());
 				session_ptr->send(std::move(persistent_data_ptr->response));
 				return;
 			}
@@ -240,7 +239,7 @@ void irods::s3::actions::handle_getobject(
 			beast::http::write_header(session_ptr->stream().socket(), persistent_data_ptr->serializer, ec);
 			if (ec) {
 				persistent_data_ptr->response.result(beast::http::status::internal_server_error);
-				logging::debug("{}: returned [{}]", __FUNCTION__, persistent_data_ptr->response.reason());
+				logging::debug("{}: returned [{}]", __func__, persistent_data_ptr->response.reason());
 				session_ptr->send(std::move(persistent_data_ptr->response));
 				return;
 			}
@@ -249,7 +248,7 @@ void irods::s3::actions::handle_getobject(
 			persistent_data_ptr->response.result(beast::http::status::ok);
 
 			read_from_irods_send_to_client(
-				session_ptr, persistent_data_ptr, range_start, range_end, offset, write_buffer_size, __FUNCTION__);
+				session_ptr, persistent_data_ptr, range_start, range_end, offset, write_buffer_size, __func__);
 		}
 		else {
 			return irods::s3::api::common_routines::send_error_response(
@@ -258,11 +257,11 @@ void irods::s3::actions::handle_getobject(
 				"NoSuchKey",
 				"Object does not exist",
 				url.path(),
-				__FUNCTION__);
+				__func__);
 		}
 	}
 	catch (irods::exception& e) {
-		logging::error("{}: Exception {}", __FUNCTION__, e.what());
+		logging::error("{}: Exception {}", __func__, e.what());
 
 		switch (e.code()) {
 			case USER_ACCESS_DENIED:
@@ -274,19 +273,19 @@ void irods::s3::actions::handle_getobject(
 				break;
 		}
 
-		logging::debug("{}: returned [{}]", __FUNCTION__, response.reason());
+		logging::debug("{}: returned [{}]", __func__, response.reason());
 		session_ptr->send(std::move(response));
 	}
 	catch (std::exception& e) {
-		logging::error("{}: Exception {}", __FUNCTION__, e.what());
+		logging::error("{}: Exception {}", __func__, e.what());
 		response.result(beast::http::status::internal_server_error);
-		logging::debug("{}: returned [{}]", __FUNCTION__, response.reason());
+		logging::debug("{}: returned [{}]", __func__, response.reason());
 		session_ptr->send(std::move(response));
 	}
 	catch (...) {
-		logging::error("{}: Unknown exception encountered", __FUNCTION__);
+		logging::error("{}: Unknown exception encountered", __func__);
 		response.result(beast::http::status::internal_server_error);
-		logging::debug("{}: returned [{}]", __FUNCTION__, response.reason());
+		logging::debug("{}: returned [{}]", __func__, response.reason());
 		session_ptr->send(std::move(response));
 	}
 
@@ -347,7 +346,7 @@ void read_from_irods_send_to_client(
 			if (offset > range_end) {
 				persistent_data_ptr->response.body().more = false;
 				logging::debug(
-					"{} returned [{}] error={}", __FUNCTION__, persistent_data_ptr->response.reason(), ec.message());
+					"{} returned [{}] error={}", __func__, persistent_data_ptr->response.reason(), ec.message());
 				return;
 			}
 

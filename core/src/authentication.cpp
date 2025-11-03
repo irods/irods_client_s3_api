@@ -60,7 +60,7 @@ namespace
 	{
 		namespace logging = irods::http::logging;
 		std::stringstream result;
-		logging::debug("{}:{} ({}) url={}", __FILE__, __LINE__, __FUNCTION__, url.path());
+		logging::debug("{}:{} ({}) url={}", __FILE__, __LINE__, __func__, url.path());
 		for (const auto i : url.segments()) {
 			result << '/' << uri_encode(i);
 		}

@@ -28,7 +28,7 @@ void irods::s3::actions::handle_headbucket(
 
 		if (!irods_username) {
 			response.result(beast::http::status::forbidden);
-			logging::debug("{}: returned [{}]", __FUNCTION__, response.reason());
+			logging::debug("{}: returned [{}]", __func__, response.reason());
 			session_ptr->send(std::move(response));
 			return;
 		}
@@ -42,7 +42,7 @@ void irods::s3::actions::handle_headbucket(
 		else {
 			std::cout << "Failed to resolve bucket" << std::endl;
 			response.result(beast::http::status::forbidden);
-			logging::debug("{}: returned [{}]", __FUNCTION__, response.reason());
+			logging::debug("{}: returned [{}]", __func__, response.reason());
 			session_ptr->send(std::move(response));
 			return;
 		}
@@ -50,7 +50,7 @@ void irods::s3::actions::handle_headbucket(
 		if (fs::client::exists(conn, path)) {
 			response.result(boost::beast::http::status::ok);
 			std::cout << response.result() << std::endl;
-			logging::debug("{}: returned [{}]", __FUNCTION__, response.reason());
+			logging::debug("{}: returned [{}]", __func__, response.reason());
 			session_ptr->send(std::move(response));
 			return;
 		}
@@ -58,7 +58,7 @@ void irods::s3::actions::handle_headbucket(
 		// This could be that it doesn't exist or that the user doesn't have permission.
 		// Returning forbidden.
 		response.result(boost::beast::http::status::forbidden);
-		logging::debug("{}: returned [{}]", __FUNCTION__, response.reason());
+		logging::debug("{}: returned [{}]", __func__, response.reason());
 		session_ptr->send(std::move(response));
 		return;
 	}
@@ -68,15 +68,15 @@ void irods::s3::actions::handle_headbucket(
 			case USER_ACCESS_DENIED:
 			case CAT_NO_ACCESS_PERMISSION:
 				response.result(beast::http::status::forbidden);
-				logging::debug("{}: returned [{}]", __FUNCTION__, response.reason());
+				logging::debug("{}: returned [{}]", __func__, response.reason());
 				break;
 			default:
 				response.result(beast::http::status::internal_server_error);
-				logging::debug("{}: returned [{}]", __FUNCTION__, response.reason());
+				logging::debug("{}: returned [{}]", __func__, response.reason());
 				break;
 		}
 	}
 
-	logging::debug("{}: returned [{}]", __FUNCTION__, response.reason());
+	logging::debug("{}: returned [{}]", __func__, response.reason());
 	session_ptr->send(std::move(response));
 }
