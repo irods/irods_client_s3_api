@@ -88,40 +88,30 @@ void irods::s3::actions::handle_listbuckets(
 
 	logging::debug("{}: number of mapped buckets = [{}]", __func__, bucket_size);
 
-	// TODO(#177): This loop can be expensive since it incurs a round trip to iRODS for each bucket.
-	// We need to reduce the roundtrips as much as possible. Here are a few ideas:
-	// - Use the IN keyword with GenQuery2 to gather the list of collections in one go.
-	// - Consider caching.
+	std::vector<const char*> collections;
+	collections.reserve(128); // Reduces need to resize/re-allocate memory for small bucket mappings.
 	for (std::size_t i = 0; i < bucket_size; ++i) {
-		const std::string_view bucket = buckets[i].bucket;
-		const std::string_view collection = buckets[i].collection;
+		collections.push_back(buckets[i].collection);
+	}
+	const auto in_args = fmt::format("'{}'", fmt::join(collections, "', '"));
 
-		// Get the creation time for the collection
-		bool found = false;
-		std::string query;
-		std::time_t create_collection_epoch_time = 0;
+	const auto query = fmt::format("select COLL_NAME, COLL_CREATE_TIME where COLL_NAME in ({})", in_args);
+	logging::debug("{}: query = [{}]", __func__, query);
 
-		query = fmt::format("select COLL_CREATE_TIME where COLL_NAME = '{}'", collection);
+	for (auto&& row : irods::query<RcComm>(rcComm_t_ptr, query)) {
+		const auto ctime = boost::lexical_cast<std::time_t>(row[1]);
+		ptree object;
+		object.put("CreationDate", irods::s3::api::common_routines::convert_time_t_to_str(ctime, date_format));
 
-		logging::debug("{}: query = [{}]", __func__, query);
-
-		for (auto&& row : irods::query<RcComm>(rcComm_t_ptr, query)) {
-			found = true;
-			create_collection_epoch_time = boost::lexical_cast<std::time_t>(row[0]);
-			break;
+		const auto iter = std::find_if(
+			buckets, buckets + bucket_size, [&c = row[0]](const bucket_mapping_entry& e) { return c == e.collection; });
+		if (iter == buckets + bucket_size) {
+			logging::warn("{}: Cannot resolve collection [{}] to bucket name. Skipping mapping.", __func__, row[0]);
+			continue;
 		}
+		object.put("Name", iter->bucket);
 
-		// If creation time not found, user does not have access to the collection the bucket
-		// maps to.  Do not add this bucket to the list.
-		if (found) {
-			std::string create_collection_epoch_time_str =
-				irods::s3::api::common_routines::convert_time_t_to_str(create_collection_epoch_time, date_format);
-
-			ptree object;
-			object.put("CreationDate", create_collection_epoch_time_str);
-			object.put("Name", bucket);
-			document.add_child("ListAllMyBucketsResult.Buckets.Bucket", object);
-		}
+		document.add_child("ListAllMyBucketsResult.Buckets.Bucket", object);
 	}
 	document.add("ListAllMyBucketsResult.Owner", "");
 
