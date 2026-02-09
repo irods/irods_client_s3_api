@@ -17,6 +17,8 @@
 
 #include <nlohmann/json.hpp>
 
+#include <algorithm>
+#include <array>
 #include <chrono>
 #include <iterator>
 #include <utility>
@@ -133,22 +135,34 @@ namespace irods::http
 		const auto& segments = url.segments();
 		const auto& params = url.params();
 
+		static constexpr auto listobjects_params = std::array{"encoding-type", "list-type", "prefix"};
+		const auto listobjects_detected =
+			std::any_of(listobjects_params.cbegin(), listobjects_params.cend(), [&params](const auto& _p) {
+				return params.contains(_p);
+			});
+
 		switch (req_.method()) {
 			case boost::beast::http::verb::get:
-				if (segments.empty() || params.contains("encoding-type") || params.contains("list-type")) {
-					auto f = params.find("list-type");
-
-					if (f != params.end() && (*f).value == "2") {
-						logging::debug("{}: ListObjects detected", __func__);
-						auto shared_this = shared_from_this();
-						irods::http::globals::background_task([shared_this, &parser = this->parser_]() mutable {
-							// build the url_view - must be done within background task as url_view is not copyable
-							boost::urls::url url;
-							get_url_from_parser(*parser, url);
-							boost::urls::url_view url_view = url;
-							irods::s3::actions::handle_listobjects_v2(shared_this, *parser, url_view);
-						});
-					}
+				if (params.contains("uploads")) {
+					// TODO(#108): Implement ListMultipartUploads
+					logging::debug("{}: ListMultipartUploads detected", __func__);
+					send(irods::http::fail(http::status::not_implemented));
+				}
+				else if (params.contains("max-parts")) {
+					// TODO(#107): Implement ListParts
+					logging::debug("{}: ListParts detected", __func__);
+					send(irods::http::fail(http::status::not_implemented));
+				}
+				else if (segments.empty() || listobjects_detected) {
+					logging::debug("{}: ListObjects detected", __func__);
+					auto shared_this = shared_from_this();
+					irods::http::globals::background_task([shared_this, &parser = this->parser_]() mutable {
+						// build the url_view - must be done within background task as url_view is not copyable
+						boost::urls::url url;
+						get_url_from_parser(*parser, url);
+						boost::urls::url_view url_view = url;
+						irods::s3::actions::handle_listobjects_v2(shared_this, *parser, url_view);
+					});
 				}
 				else {
 					if (req_.target() == "/") {
@@ -191,6 +205,15 @@ namespace irods::http
 						boost::beast::http::response<boost::beast::http::string_body> response;
 						response.body() = "<?xml version='1.0' encoding='utf-8'?>"
 										  "<Tagging><TagSet/></Tagging>";
+						response.result(boost::beast::http::status::ok);
+						send(std::move(response));
+					}
+					else if (params.find("versioning") != params.end()) {
+						logging::debug("{}: GetBucketVersioning detected", __func__);
+						boost::beast::http::response<boost::beast::http::string_body> response;
+						response.body() =
+							"<?xml version='1.0' encoding='utf-8'?>"
+							"<VersioningConfiguration xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\"/>";
 						response.result(boost::beast::http::status::ok);
 						send(std::move(response));
 					}
