@@ -429,6 +429,16 @@ void irods::s3::actions::handle_putobject(
 	}
 	logging::debug("{}: Path [{}]", __func__, path.string());
 
+	// This might be a "create folder" request. The only way to detect this is if the target path has a trailing slash.
+	if (path.string().back() == '/') {
+		auto conn = irods::get_connection(*irods_username);
+		fs::client::create_collections(conn, path);
+		response.result(beast::http::status::ok);
+		logging::debug("{}: Created folder: [{}]", __func__, path.c_str());
+		session_ptr->send(std::move(response));
+		return;
+	}
+
 	// check to see if this is a part upload
 	bool upload_part = false;
 	bool know_part_offset = false;
