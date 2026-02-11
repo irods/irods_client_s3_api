@@ -603,17 +603,19 @@ mc cp --disable-multipart put_file myminio/bucket_name/put_filename
 
 It is recommended to `cd` to the `tests/docker` directory in this repository when running the `docker compose` commands below. Otherwise, you must specify the Compose project directory with the `--project-directory` option.
 
+Due to the requirement to support many iRODS versions, there are different Compose project files for different iRODS versions. You must specify the Compose file to use with the `-f` option. In the examples below, iRODS 5 is used. Alternatively, you can create a symbolic link with the default Compose file name (`compose.yml` or `compose.yaml`) to your desired iRODS version and the `-f` argument will not be needed.
+
 Run the following to run the full test suite (assumes your current working directory is the root directory of this repository):
 ```bash
 cd tests/docker
-docker compose build
-docker compose run --rm test-runner
+docker compose -f compose-irods5.yml build
+docker compose -f compose-irods5.yml run --rm test-runner
 ```
 
 The test output will appear in the terminal. Once the tests complete run the following to cleanup:
 
 ```bash
-docker compose down
+docker compose -f compose-irods5.yml down
 docker volume prune # Use -f to skip the confirmation prompt
 ```
 
@@ -626,22 +628,22 @@ To run one or more specific tests by name, override the command for the `test-ru
 
 The most straightforward way to override the command is to specify it as an argument after the service name with `docker compose run`. Here is an example for how to run a specific test:
 ```bash
-docker compose run --rm test-runner listbuckets_test.ListBuckets_Test.test_aws_list_bucket
+docker compose -f compose-irods5.yml run --rm test-runner listbuckets_test.ListBuckets_Test.test_aws_list_bucket
 ```
 You can also specify a list of tests and test modules:
 ```bash
-docker compose run --rm test-runner listbuckets_test.ListBuckets_Test.test_aws_list_bucket abortmultipartupload_test
+docker compose -f compose-irods5.yml run --rm test-runner listbuckets_test.ListBuckets_Test.test_aws_list_bucket abortmultipartupload_test
 ```
 And use any of the supported options for the `unittest` CLI:
 ```bash
-docker compose run --rm test-runner -k aws -b listbuckets_test
+docker compose -f compose-irods5.yml run --rm test-runner -k aws -b listbuckets_test
 ```
 For more information about `docker compose run`, see the [Docker Compose documentation](https://docs.docker.com/reference/cli/docker/compose/run).
 For more information about the `unittest` CLI, see the [Python documentation](https://docs.python.org/3/library/unittest.html#command-line-interface).
 
 The command can also be overridden by modifying the `command` attribute of the `test-runner` service definition stanza in the Docker Compose file. Add the following line to the stanza:
 ```yaml
-# compose.yml
+# compose-irods5.yml
 
 # ...
 
@@ -655,10 +657,10 @@ The command can also be overridden by modifying the `command` attribute of the `
 ```
 With this method, the command will be overridden by default and does not need to be specified when running `docker compose run`. So, with the configuration for the `test-runner` service shown above, the following commands are equivalent:
 ```bash
-docker compose run --rm test-runner listbuckets_test.ListBuckets_Test.test_aws_list_bucket abortmultipartupload_test
+docker compose -f compose-irods5.yml run --rm test-runner listbuckets_test.ListBuckets_Test.test_aws_list_bucket abortmultipartupload_test
 ```
 ```bash
-docker compose run --rm test-runner
+docker compose -f compose-irods5.yml run --rm test-runner
 ```
 For more information about the Docker Compose `command` attribute, see the [Docker Compose documentation](https://docs.docker.com/reference/compose-file/services/#command).
 

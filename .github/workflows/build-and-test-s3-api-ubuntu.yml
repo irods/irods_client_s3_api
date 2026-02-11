@@ -1,0 +1,148 @@
+name: Build and Test Package
+on: [ push, pull_request ]
+jobs:
+  build_packages:
+    env:
+      DEBIAN_FRONTEND: noninteractive
+    name: "Build: ubuntu:${{ matrix.os-version }} - ${{ matrix.irods-version }}"
+    strategy:
+      fail-fast: false
+      matrix:
+        os-version: [ '22.04' ]
+        irods-version: [ 4.3.1, 4.3.4, 5.0.0, 5.0.2 ]
+    runs-on: ubuntu-latest
+    container: ubuntu:${{ matrix.os-version }}
+    steps:
+      - name: Install Prerequisites
+        run:  |
+              apt-get update -qq
+              apt-get install -qq \
+                ca-certificates \
+                cmake \
+                g++-11 \
+                gcc-11 \
+                git \
+                gnupg \
+                libcurl4-gnutls-dev \
+                libssl-dev \
+                libssl3 \
+                lsb-release \
+                ninja-build \
+                wget
+
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          submodules: 'true'
+
+      - name: Install iRODS
+        run:  |
+              mkdir -p /etc/apt/keyrings
+              wget -qO - https://unstable.irods.org/irods-unstable-signing-key.asc | \
+                gpg \
+                  --no-options \
+                  --no-default-keyring \
+                  --no-auto-check-trustdb \
+                  --homedir /dev/null \
+                  --no-keyring \
+                  --import-options import-export \
+                  --output /etc/apt/keyrings/renci-irods-unstable-archive-keyring.pgp \
+                  --import
+              echo "deb [signed-by=/etc/apt/keyrings/renci-irods-unstable-archive-keyring.pgp arch=amd64] https://unstable.irods.org/apt/ $(lsb_release -sc) main" | \
+                tee /etc/apt/sources.list.d/renci-irods-unstable.list
+              apt-get update -qq
+              apt-get install -qq \
+                "irods-dev=${{ matrix.irods-version }}-0~$(lsb_release -sc)" \
+                "irods-runtime=${{ matrix.irods-version }}-0~$(lsb_release -sc)"
+
+      - name: Install iRODS Externals
+        run:  |
+              wget -qO - https://unstable.irods.org/irods-unstable-signing-key.asc | apt-key add -
+              echo "deb [arch=amd64] https://unstable.irods.org/apt/ $(lsb_release -sc) main" | tee /etc/apt/sources.list.d/renci-irods-unstable.list
+              apt-get update -qq
+              # clang13.0.0-0 only needed for 4.3.1. Once support is dropped, we can remove this.
+              apt-get install -qq \
+                irods-externals-clang13.0.0-0 \
+                irods-externals-jsoncons0.178.0-0 \
+
+      - name: Configure Ccache
+        run:  |
+              apt-get install -qq ccache
+              echo "CCACHE_DIR=/irods_build_cache" >> $GITHUB_ENV
+              echo "CCACHE_MAXSIZE=1G" >> $GITHUB_ENV
+
+      - name: Restore Ccache State
+        uses: actions/cache@v4
+        with:
+            key: "ccache-irods-${{ matrix.container }}-${{ matrix.irods-version }}"
+            path: /irods_build_cache/
+
+      - name: Configure CMake
+        run:  |
+              mkdir build
+              cd build
+              cmake \
+                -DIRODS_BUILD_WITH_WERROR=NO \
+                -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+                -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+                -GNinja \
+                ../
+
+      - name: Build and Package
+        run:  |
+              cd build
+              ninja package
+
+      - name: Upload build output for dependent jobs
+        uses: actions/upload-artifact@v6
+        with:
+          name: build_output-ubuntu-${{ matrix.os-version }}-${{ matrix.irods-version }}
+          path: |
+              build/*.deb
+          retention-days: 1
+          overwrite: true
+
+  run_tests:
+    needs: build_packages
+
+    name: "Test: ubuntu:${{ matrix.os-version }} - ${{ matrix.irods-version }}"
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os-version: [ '22.04' ]
+        irods-version: [ 4.3.1, 4.3.4, 5.0.0, 5.0.2 ]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Download build output
+        uses: actions/download-artifact@v7
+        with:
+          name: build_output-ubuntu-${{ matrix.os-version }}-${{ matrix.irods-version }}
+          path: build_artifacts
+
+      - name: Set up docker compose
+        uses: docker/setup-compose-action@v1
+
+      - name: Launch iRODS and S3 API
+        run: |
+          compose_file=tests/docker/compose-irods-${{ matrix.irods-version }}.yml
+          # TODO(#159): Unnecessary when we can specify a build artifact location for irods_runner
+          cp build_artifacts/*.deb .
+          docker compose -f ${compose_file} build --build-arg irods_version=${{ matrix.irods-version }}
+          # --wait causes this step to wait for services to be running/healthy.
+          # --wait-timeout is used to limit the wait time for all services to be running/healthy.
+          docker compose -f ${compose_file} up -d --wait --wait-timeout 60 irods-s3-api
+
+      - name: Run tests
+        run: |
+          compose_file=tests/docker/compose-irods-${{ matrix.irods-version }}.yml
+          docker compose -f ${compose_file} run --rm test-runner
+
+      - name: Stop Docker Compose services
+        if: always()
+        run: |
+          compose_file=tests/docker/compose-irods-${{ matrix.irods-version }}.yml
+          docker compose -f ${compose_file} down

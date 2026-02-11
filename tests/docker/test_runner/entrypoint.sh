@@ -1,4 +1,4 @@
-#! /bin/bash -x
+#! /bin/bash -ex
 
 #### Give root an environment to connect to iRODS as Alice ####
 #### Needed to set up testing.                             ####
