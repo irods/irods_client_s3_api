@@ -44,7 +44,8 @@ RUN mkdir -p /etc/apt/keyrings && \
     echo "deb [signed-by=/etc/apt/keyrings/renci-irods-archive-keyring.pgp arch=amd64] https://packages.irods.org/apt/ $(lsb_release -sc) main" | \
         tee /etc/apt/sources.list.d/renci-irods.list
 
-ARG irods_version=4.3.1-0~jammy
+ARG irods_version=5.0.2
+ARG irods_package_suffix=0~jammy
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     apt-get update && \
@@ -55,8 +56,8 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
         g++-11 \
         gcc-11 \
         cmake \
-        irods-dev=${irods_version} \
-        irods-runtime=${irods_version} \
+        irods-dev=${irods_version}-${irods_package_suffix} \
+        irods-runtime=${irods_version}-${irods_package_suffix} \
         irods-externals-clang13.0.0-0 \
         irods-externals-fmt8.1.1-0 \
         irods-externals-json3.10.4-0 \

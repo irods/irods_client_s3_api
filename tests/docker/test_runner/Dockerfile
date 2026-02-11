@@ -59,7 +59,7 @@ RUN curl https://dl.min.io/client/mc/release/linux-amd64/mc \
     chmod +x ${MINIO_BINARIES_DIR}/mc
 ENV PATH=${PATH}:${MINIO_BINARIES_DIR}/
 
-ARG irods_version=4.3.1
+ARG irods_version=5.0.2
 ARG irods_package_version_suffix=-0~jammy
 ARG irods_package_version=${irods_version}${irods_package_version_suffix}
 RUN apt-get update && \
