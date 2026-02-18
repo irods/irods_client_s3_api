@@ -18,26 +18,12 @@ target_link_libraries(
   ${CMAKE_DL_LIBS}
 )
 
-if (IRODS_VERSION VERSION_GREATER "4.3.1")
-  target_link_libraries(
-    ${plugin_target}
-    PRIVATE
-    fmt::fmt
-    spdlog::spdlog
-  )
-else()
-  target_link_libraries(
-    ${plugin_target}
-    PRIVATE
-    "${IRODS_EXTERNALS_FULLPATH_FMT}/lib/libfmt.so"
-  )
-  target_include_directories(
-    ${plugin_target}
-    PRIVATE
-    "${IRODS_EXTERNALS_FULLPATH_FMT}/include"
-    "${IRODS_EXTERNALS_FULLPATH_SPDLOG}/include"
-  )
-endif()
+target_link_libraries(
+  ${plugin_target}
+  PRIVATE
+  fmt::fmt
+  spdlog::spdlog
+)
 
 target_include_directories(
   ${plugin_target}

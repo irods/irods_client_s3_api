@@ -43,27 +43,12 @@ target_link_libraries(
   "${IRODS_EXTERNALS_FULLPATH_BOOST}/lib/libboost_filesystem.so"
 )
 
-if (IRODS_VERSION VERSION_GREATER "4.3.1")
-  target_link_libraries(
-    ${IRODS_TEST_EXECUTABLE}
-    PUBLIC
-    fmt::fmt
-    spdlog::spdlog
-  )
-else()
-  target_link_libraries(
-    ${IRODS_TEST_EXECUTABLE}
-    PRIVATE
-    "${IRODS_EXTERNALS_FULLPATH_FMT}/lib/libfmt.so"
-  )
-
-  target_include_directories(
-    ${IRODS_TEST_EXECUTABLE}
-    PRIVATE
-    "${IRODS_EXTERNALS_FULLPATH_FMT}/include"
-    "${IRODS_EXTERNALS_FULLPATH_SPDLOG}/include"
-  )
-endif()
+target_link_libraries(
+  ${IRODS_TEST_EXECUTABLE}
+  PUBLIC
+  fmt::fmt
+  spdlog::spdlog
+)
 
 # Make the test available to CTest.
 catch_discover_tests(${IRODS_TEST_EXECUTABLE})

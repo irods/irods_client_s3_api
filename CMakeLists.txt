@@ -4,7 +4,9 @@ cmake_minimum_required(VERSION 3.18.0 FATAL_ERROR)
 # Build Configuration
 #
 
-find_package(IRODS REQUIRED)
+set(IRODS_MINIMUM_VERSION "4.3.2")
+set(IRODS_MAXIMUM_VERSION "6.0.0")
+find_package(IRODS "${IRODS_MINIMUM_VERSION}...<${IRODS_MAXIMUM_VERSION}" REQUIRED)
 
 include(RequireOutOfSourceBuild)
 
@@ -104,12 +106,8 @@ find_package(CURL REQUIRED)
 find_package(nlohmann_json "3.6.1" REQUIRED)
 find_package(OpenSSL REQUIRED COMPONENTS Crypto SSL)
 
-if (IRODS_VERSION VERSION_GREATER "4.3.1")
-  find_package(fmt "8.1.1"
-    HINTS "${IRODS_EXTERNALS_FULLPATH_FMT}")
-  find_package(spdlog "1.9.2"
-    HINTS "${IRODS_EXTERNALS_FULLPATH_SPDLOG}")
-endif()
+find_package(fmt "8.1.1" HINTS "${IRODS_EXTERNALS_FULLPATH_FMT}")
+find_package(spdlog "1.9.2" HINTS "${IRODS_EXTERNALS_FULLPATH_SPDLOG}")
 
 include(ObjectTargetHelpers)
 

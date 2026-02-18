@@ -166,7 +166,7 @@ If the container was launched with `-d`, use `docker container stop <container_n
 
 ### Build Dependencies
 
-- iRODS development package _(4.3.1 or later)_
+- iRODS development package _(4.3.2 or later)_
 - iRODS externals package for boost
 - iRODS externals package for catch2
 - iRODS externals package for fmt
