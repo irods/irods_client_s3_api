@@ -41,7 +41,7 @@ RUN apt-get update && \
     && \
     rm -rf /tmp/*
 
-ARG irods_version=4.3.1
+ARG irods_version=4.3.2
 ARG irods_package_version_suffix=-0~jammy
 ARG irods_package_version=${irods_version}${irods_package_version_suffix}
 
