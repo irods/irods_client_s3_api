@@ -1,8 +1,8 @@
-#! /bin/bash
+#! /bin/bash -e
 
 set -x
 
-mkdir /_build_s3_api
+mkdir -p /_build_s3_api
 cd /_build_s3_api
 cmake -DIRODS_BUILD_WITH_WERROR=NO -GNinja /s3_api_source
 ninja package
