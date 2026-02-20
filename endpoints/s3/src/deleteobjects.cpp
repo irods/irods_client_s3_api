@@ -133,26 +133,33 @@ void irods::s3::actions::handle_deleteobjects(
 		session_ptr->send(std::move(response));
 		return;
 	}
+
 	logging::debug("{}: quiet_flag={}", __func__, quiet_flag);
 	for (const auto& [key, value] : key_map) {
 		logging::debug("{}: key={}", __func__, key);
 		try {
-			if (fs::client::exists(conn, key) && not fs::client::is_collection(conn, key)) {
-				if (fs::client::remove(conn, key, experimental::filesystem::remove_options::no_trash)) {
-					logging::debug("{}: Remove {} successful", __func__, key);
-					key_map[key] = "Success";
-				}
-				else {
-					logging::debug("{}: Deletion of key {} failed", __func__, key);
-					key_map[key] = "InternalError";
-				}
+			// Delete collections after all objects have been deleted.
+			if (key.back() == '/') {
+				logging::debug("{}: Skipping collection [{}]", __func__, key);
+				continue;
+			}
+
+			if (!fs::client::exists(conn, key)) {
+				logging::debug("{}: Could not find {}", __func__, key);
+				key_map[key] = "NoSuchKey";
+				continue;
+			}
+
+			if (fs::client::remove(conn, key, experimental::filesystem::remove_options::no_trash)) {
+				logging::debug("{}: Remove {} (object) successful", __func__, key);
+				key_map[key] = "Success";
 			}
 			else {
-				logging::debug("{}: Could not find object {}", __func__, key);
-				key_map[key] = "NoSuchKey";
+				logging::debug("{}: Deletion of key {} (object) failed", __func__, key);
+				key_map[key] = "InternalError";
 			}
 		}
-		catch (irods::exception& e) {
+		catch (const irods::exception& e) {
 			beast::http::response<beast::http::empty_body> response;
 			logging::debug("{}: Exception encountered", __func__);
 
@@ -161,10 +168,56 @@ void irods::s3::actions::handle_deleteobjects(
 				case CAT_NO_ACCESS_PERMISSION:
 					logging::debug("{}: No access to delete key {}", __func__, key);
 					key_map[key] = "AccessDenied";
-					// keep the value false meaning the deletion for this key failed
 					break;
 				default:
-					// unknown exception, just keep the deletion status as false for this object
+					logging::debug("{}: Unknown exception when deleting key {}", __func__, key);
+					key_map[key] = "InternalError";
+					break;
+			}
+		}
+	}
+
+	logging::debug("{}: Deleting empty collections now.", __func__);
+	for (const auto& [key, value] : key_map) {
+		logging::debug("{}: key={}", __func__, key);
+
+		// Any keys with a non-empty value means it has already been processed. Skip it to ensure that we are only
+		// dealing with prefixes.
+		if (!value.empty()) {
+			logging::debug("{}: skipping key [{}] because it was already processed.", __func__, key);
+			continue;
+		}
+
+		try {
+			if (!fs::client::exists(conn, key)) {
+				logging::debug("{}: Could not find {}", __func__, key);
+				key_map[key] = "NoSuchKey";
+				continue;
+			}
+
+			// Remove trailing slash - it confuses remove_all. Use remove_all here because some S3 clients only include
+			// the base prefix in the request instead of all common prefixes.
+			const auto key_without_trailing_slash = key.substr(0, key.size() - 1);
+			if (fs::client::remove_all(conn, key_without_trailing_slash, fs::remove_options::no_trash) >= 0) {
+				logging::debug("{}: Remove {} (collection) successful", __func__, key);
+				key_map[key] = "Success";
+			}
+			else {
+				logging::debug("{}: Deletion of key {} (collection) failed", __func__, key);
+				key_map[key] = "InternalError";
+			}
+		}
+		catch (const irods::exception& e) {
+			beast::http::response<beast::http::empty_body> response;
+			logging::debug("{}: Exception encountered", __func__);
+
+			switch (e.code()) {
+				case USER_ACCESS_DENIED:
+				case CAT_NO_ACCESS_PERMISSION:
+					logging::debug("{}: No access to delete key {}", __func__, key);
+					key_map[key] = "AccessDenied";
+					break;
+				default:
 					logging::debug("{}: Unknown exception when deleting key {}", __func__, key);
 					key_map[key] = "InternalError";
 					break;
