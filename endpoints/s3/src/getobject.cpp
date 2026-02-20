@@ -96,6 +96,17 @@ void irods::s3::actions::handle_getobject(
 
 	beast::http::response<beast::http::empty_body> response;
 
+	// TODO(#201): Implement If-Modified-Since for GetObject
+	if (const auto if_modified_since_header = parser.get().find("If-Modified-Since");
+	    if_modified_since_header != parser.get().end())
+	{
+		logging::error("{}: If-Modified-Since header for GetObject is not yet supported.", __func__);
+		response.result(beast::http::status::not_implemented);
+		logging::debug("{}: returned [{}]", __func__, response.reason());
+		session_ptr->send(std::move(response));
+		return;
+	}
+
 	auto irods_username = irods::s3::authentication::authenticates(parser, url);
 	if (!irods_username) {
 		logging::error("{}: Failed to authenticate.", __func__);
