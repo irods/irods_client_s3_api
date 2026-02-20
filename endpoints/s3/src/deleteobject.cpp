@@ -64,6 +64,11 @@ void irods::s3::actions::handle_deleteobject(
 	if (auto bucket = irods::s3::resolve_bucket(url.segments()); bucket.has_value()) {
 		path = bucket.value();
 		path = irods::s3::finish_path(path, url.segments());
+		// Remove trailing slash - it confuses iRODS.
+		if (path.string().back() == '/') {
+			const auto tmp = path.string();
+			path = fs::path{tmp.substr(0, tmp.size() - 1)};
+		}
 	}
 	else {
 		response.result(beast::http::status::not_found);
@@ -75,25 +80,36 @@ void irods::s3::actions::handle_deleteobject(
 	logging::debug("{}: Requested to delete {}", __func__, path.string());
 
 	try {
-		if (fs::client::exists(conn, path) && not fs::client::is_collection(conn, path)) {
-			if (fs::client::remove(conn, path, experimental::filesystem::remove_options::no_trash)) {
-				logging::debug("{}: Remove {} successful", __func__, path.string());
-				response.result(beast::http::status::ok);
-			}
-			else {
-				response.result(beast::http::status::forbidden);
-			}
-			logging::debug("{}: returned [{}]", __func__, response.reason());
-			session_ptr->send(std::move(response));
-			return;
-		}
-		else {
-			logging::debug("{}: Could not find file {}", __func__, path.string());
+		const auto status = fs::client::status(conn, path);
+		if (!fs::client::exists(status)) {
+			logging::debug("{}: Could not find {}", __func__, path.c_str());
 			response.result(beast::http::status::not_found);
 			logging::debug("{}: returned [{}]", __func__, response.reason());
 			session_ptr->send(std::move(response));
 			return;
 		}
+
+		if (fs::client::is_collection(status)) {
+			if (fs::client::remove_all(conn, path, fs::remove_options::no_trash) >= 0) {
+				logging::debug("{}: Remove {} (collection) successful", __func__, path.c_str());
+				response.result(beast::http::status::ok);
+			}
+			else {
+				response.result(beast::http::status::forbidden);
+			}
+		}
+		else {
+			if (fs::client::remove(conn, path, fs::remove_options::no_trash)) {
+				logging::debug("{}: Remove {} (object) successful", __func__, path.c_str());
+				response.result(beast::http::status::ok);
+			}
+			else {
+				response.result(beast::http::status::forbidden);
+			}
+		}
+		logging::debug("{}: returned [{}]", __func__, response.reason());
+		session_ptr->send(std::move(response));
+		return;
 	}
 	catch (irods::exception& e) {
 		beast::http::response<beast::http::empty_body> response;
