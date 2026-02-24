@@ -176,6 +176,13 @@ namespace irods::http
 							irods::s3::actions::handle_listbuckets(shared_this, *parser, url_view);
 						});
 					}
+					else if (req_.target() == "/2020-05-31/distribution") {
+						// This is a special string which invokes the ListDistributions API from AWS CloudFront. This
+						// could cause problems if your bucket is named "2020-05-31" and there is an object inside
+						// called "distribution".
+						logging::debug("{}: ListDistributions (AWS CloudFront) detected?", __func__);
+						send(irods::http::fail(http::status::not_implemented));
+					}
 					else if (params.find("location") != params.end()) {
 						// This is GetBucketLocation
 						logging::debug("{}: GetBucketLocation detected", __func__);
