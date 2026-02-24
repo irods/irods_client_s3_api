@@ -32,6 +32,35 @@ namespace logging = irods::http::logging;
 
 const static std::string_view date_format{"{:%Y-%m-%dT%H:%M:%S.000Z}"};
 
+namespace
+{
+	auto make_ListBucketResult_object(
+		const std::string& key,
+		const std::string& etag,
+		const std::string& owner,
+		std::int64_t size,
+		const std::string& last_modified) -> boost::property_tree::ptree
+	{
+		boost::property_tree::ptree object;
+		object.put("Key", key);
+		object.put("Etag", etag);
+		object.put("Owner", owner);
+		object.put("Size", size);
+		try {
+			std::time_t modified_epoch_time = boost::lexical_cast<std::time_t>(last_modified);
+			std::string modified_time_str =
+				irods::s3::api::common_routines::convert_time_t_to_str(modified_epoch_time, date_format);
+			object.put("LastModified", modified_time_str);
+		}
+		catch (const boost::bad_lexical_cast&) {
+			// do nothing - don't add LastModified tag
+			logging::info(
+				"{}: Failed to convert last_modified time [{}]. LastModified tag not added.", __func__, last_modified);
+		}
+		return object;
+	} // make_ListBucketResult_object
+} //namespace
+
 void irods::s3::actions::handle_listobjects_v2(
 	irods::http::session_pointer_type session_ptr,
 	boost::beast::http::request_parser<boost::beast::http::empty_body>& parser,
@@ -118,25 +147,13 @@ void irods::s3::actions::handle_listobjects_v2(
 				full_path.parent_path().c_str());
 			logging::debug("{}: query={}", __func__, query);
 			for (auto&& row : irods::query<RcComm>(rcComm_t_ptr, query)) {
-				ptree object;
 				std::string key = (row[0].size() > base_length ? row[0].substr(base_length) : "") + "/" + row[1];
 				if (key.starts_with("/")) {
 					key = key.substr(1);
 				}
-				object.put("Key", key);
-				object.put("Etag", row[0] + row[1]);
-				object.put("Owner", row[2]);
-				object.put("Size", atoi(row[3].c_str()));
-				try {
-					std::time_t modified_epoch_time = boost::lexical_cast<std::time_t>(row[4]);
-					std::string modified_time_str =
-						irods::s3::api::common_routines::convert_time_t_to_str(modified_epoch_time, date_format);
-					object.put("LastModified", modified_time_str);
-				}
-				catch (const boost::bad_lexical_cast&) {
-					// do nothing - don't add LastModified tag
-				}
-				document.add_child("ListBucketResult.Contents", object);
+				document.add_child(
+					"ListBucketResult.Contents",
+					make_ListBucketResult_object(key, row[0] + row[1], row[2], std::atoi(row[3].c_str()), row[4]));
 			}
 		}
 		else {
@@ -168,25 +185,13 @@ void irods::s3::actions::handle_listobjects_v2(
 				full_path.object_name().c_str());
 			logging::debug("{}: query={}", __func__, query);
 			for (auto&& row : irods::query<RcComm>(rcComm_t_ptr, query)) {
-				ptree object;
 				std::string key = (row[0].size() > base_length ? row[0].substr(base_length) : "") + "/" + row[1];
 				if (key.starts_with("/")) {
 					key = key.substr(1);
 				}
-				object.put("Key", key);
-				object.put("Etag", row[0] + row[1]);
-				object.put("Owner", row[2]);
-				object.put("Size", atoi(row[3].c_str()));
-				try {
-					std::time_t modified_epoch_time = boost::lexical_cast<std::time_t>(row[4]);
-					std::string modified_time_str =
-						irods::s3::api::common_routines::convert_time_t_to_str(modified_epoch_time, date_format);
-					object.put("LastModified", modified_time_str);
-				}
-				catch (const boost::bad_lexical_cast&) {
-					// do nothing - don't add LastModified tag
-				}
-				document.add_child("ListBucketResult.Contents", object);
+				document.add_child(
+					"ListBucketResult.Contents",
+					make_ListBucketResult_object(key, row[0] + row[1], row[2], std::atoi(row[3].c_str()), row[4]));
 			}
 		}
 	}
@@ -197,31 +202,42 @@ void irods::s3::actions::handle_listobjects_v2(
 		// 1.  Look for objects with COLL_NAME like <prefix>%
 		// 2.  Look for objects with COLL_NAME = <parent> and DATA_NAME like <object>%
 
+		// First, add this collection to the results. This is required because some clients use these results as a way
+		// of listing what needs to be deleted when targeting objects under a certain prefix. Information about the
+		// collection representing such a prefix must be returned here so that it is included in the objects to be
+		// deleted.
+		query = fmt::format(
+			"select COLL_NAME, COLL_OWNER_NAME, COLL_MODIFY_TIME where COLL_NAME = '{}'",
+			full_path.parent_path().c_str());
+		logging::debug("{}: query={}", __func__, query);
+		for (auto&& row : irods::query<RcComm>(rcComm_t_ptr, query)) {
+			// Skip over the bucket base collection.
+			if (row[0] == bucket_base.c_str()) {
+				logging::debug("{}: Skipping bucket base coll.", __func__);
+				continue;
+			}
+			std::string key = (row[0].size() > base_length ? row[0].substr(base_length) : "");
+			if (key.starts_with("/")) {
+				key = key.substr(1);
+			}
+			key += "/";
+			document.add_child(
+				"ListBucketResult.Contents", make_ListBucketResult_object(key, row[0], row[1], 0, row[2]));
+		}
+
 		// look for objects with COLL_NAME like <prefix>%
 		query = fmt::format(
 			"select COLL_NAME, DATA_NAME, DATA_OWNER_NAME, DATA_SIZE, DATA_MODIFY_TIME where COLL_NAME like '{}%'",
 			full_path.c_str());
 		logging::debug("{}: query={}", __func__, query);
 		for (auto&& row : irods::query<RcComm>(rcComm_t_ptr, query)) {
-			ptree object;
 			std::string key = (row[0].size() > base_length ? row[0].substr(base_length) : "") + "/" + row[1];
 			if (key.starts_with("/")) {
 				key = key.substr(1);
 			}
-			object.put("Key", key);
-			object.put("Etag", row[0] + row[1]);
-			object.put("Owner", row[2]);
-			object.put("Size", atoi(row[3].c_str()));
-			try {
-				std::time_t modified_epoch_time = boost::lexical_cast<std::time_t>(row[4]);
-				std::string modified_time_str =
-					irods::s3::api::common_routines::convert_time_t_to_str(modified_epoch_time, date_format);
-				object.put("LastModified", modified_time_str);
-			}
-			catch (const boost::bad_lexical_cast&) {
-				// do nothing - don't add LastModified tag
-			}
-			document.add_child("ListBucketResult.Contents", object);
+			document.add_child(
+				"ListBucketResult.Contents",
+				make_ListBucketResult_object(key, row[0] + row[1], row[2], std::atoi(row[3].c_str()), row[4]));
 		}
 
 		// look for objects with COLL_NAME = <parent> and DATA_NAME like <object>%
@@ -232,25 +248,13 @@ void irods::s3::actions::handle_listobjects_v2(
 			full_path.object_name().c_str());
 		logging::debug("{}: query={}", __func__, query);
 		for (auto&& row : irods::query<RcComm>(rcComm_t_ptr, query)) {
-			ptree object;
 			std::string key = (row[0].size() > base_length ? row[0].substr(base_length) : "") + "/" + row[1];
 			if (key.starts_with("/")) {
 				key = key.substr(1);
 			}
-			object.put("Key", key);
-			object.put("Etag", row[0] + row[1]);
-			object.put("Owner", row[2]);
-			object.put("Size", atoi(row[3].c_str()));
-			try {
-				std::time_t modified_epoch_time = boost::lexical_cast<std::time_t>(row[4]);
-				std::string modified_time_str =
-					irods::s3::api::common_routines::convert_time_t_to_str(modified_epoch_time, date_format);
-				object.put("LastModified", modified_time_str);
-			}
-			catch (const boost::bad_lexical_cast&) {
-				// do nothing - don't add LastModified tag
-			}
-			document.add_child("ListBucketResult.Contents", object);
+			document.add_child(
+				"ListBucketResult.Contents",
+				make_ListBucketResult_object(key, row[0] + row[1], row[2], std::atoi(row[3].c_str()), row[4]));
 		}
 	}
 
