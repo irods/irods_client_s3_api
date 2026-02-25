@@ -116,7 +116,7 @@ void irods::s3::actions::handle_deleteobjects(
 			const std::string& tag = v.first;
 			if (tag == "Quiet") {
 				quiet_flag = v.second.get_value<bool>();
-				logging::debug("{}: quiet tag value={}", __func__, v.second.data());
+				logging::debug("{}: quiet tag value=[{}]", __func__, v.second.data());
 				continue;
 			}
 			else if (tag == "Object") {
@@ -134,9 +134,9 @@ void irods::s3::actions::handle_deleteobjects(
 		return;
 	}
 
-	logging::debug("{}: quiet_flag={}", __func__, quiet_flag);
+	logging::debug("{}: quiet_flag=[{}]", __func__, quiet_flag);
 	for (const auto& [key, value] : key_map) {
-		logging::debug("{}: key={}", __func__, key);
+		logging::debug("{}: key=[{}]", __func__, key);
 		try {
 			// Delete collections after all objects have been deleted.
 			if (key.back() == '/') {
@@ -145,17 +145,17 @@ void irods::s3::actions::handle_deleteobjects(
 			}
 
 			if (!fs::client::exists(conn, key)) {
-				logging::debug("{}: Could not find {}", __func__, key);
+				logging::debug("{}: Could not find [{}]", __func__, key);
 				key_map[key] = "NoSuchKey";
 				continue;
 			}
 
 			if (fs::client::remove(conn, key, experimental::filesystem::remove_options::no_trash)) {
-				logging::debug("{}: Remove {} (object) successful", __func__, key);
+				logging::debug("{}: Remove [{}] (object) successful", __func__, key);
 				key_map[key] = "Success";
 			}
 			else {
-				logging::debug("{}: Deletion of key {} (object) failed", __func__, key);
+				logging::debug("{}: Deletion of key [{}] (object) failed", __func__, key);
 				key_map[key] = "InternalError";
 			}
 		}
@@ -166,11 +166,11 @@ void irods::s3::actions::handle_deleteobjects(
 			switch (e.code()) {
 				case USER_ACCESS_DENIED:
 				case CAT_NO_ACCESS_PERMISSION:
-					logging::debug("{}: No access to delete key {}", __func__, key);
+					logging::debug("{}: No access to delete key [{}]", __func__, key);
 					key_map[key] = "AccessDenied";
 					break;
 				default:
-					logging::debug("{}: Unknown exception when deleting key {}", __func__, key);
+					logging::debug("{}: Unknown exception when deleting key [{}]", __func__, key);
 					key_map[key] = "InternalError";
 					break;
 			}
@@ -179,7 +179,7 @@ void irods::s3::actions::handle_deleteobjects(
 
 	logging::debug("{}: Deleting empty collections now.", __func__);
 	for (const auto& [key, value] : key_map) {
-		logging::debug("{}: key={}", __func__, key);
+		logging::debug("{}: key=[{}]", __func__, key);
 
 		// Any keys with a non-empty value means it has already been processed. Skip it to ensure that we are only
 		// dealing with prefixes.
@@ -190,7 +190,7 @@ void irods::s3::actions::handle_deleteobjects(
 
 		try {
 			if (!fs::client::exists(conn, key)) {
-				logging::debug("{}: Could not find {}", __func__, key);
+				logging::debug("{}: Could not find [{}]", __func__, key);
 				key_map[key] = "NoSuchKey";
 				continue;
 			}
@@ -199,11 +199,11 @@ void irods::s3::actions::handle_deleteobjects(
 			// the base prefix in the request instead of all common prefixes.
 			const auto key_without_trailing_slash = key.substr(0, key.size() - 1);
 			if (fs::client::remove_all(conn, key_without_trailing_slash, fs::remove_options::no_trash) >= 0) {
-				logging::debug("{}: Remove {} (collection) successful", __func__, key);
+				logging::debug("{}: Remove [{}] (collection) successful", __func__, key);
 				key_map[key] = "Success";
 			}
 			else {
-				logging::debug("{}: Deletion of key {} (collection) failed", __func__, key);
+				logging::debug("{}: Deletion of key [{}] (collection) failed", __func__, key);
 				key_map[key] = "InternalError";
 			}
 		}
@@ -214,11 +214,11 @@ void irods::s3::actions::handle_deleteobjects(
 			switch (e.code()) {
 				case USER_ACCESS_DENIED:
 				case CAT_NO_ACCESS_PERMISSION:
-					logging::debug("{}: No access to delete key {}", __func__, key);
+					logging::debug("{}: No access to delete key [{}]", __func__, key);
 					key_map[key] = "AccessDenied";
 					break;
 				default:
-					logging::debug("{}: Unknown exception when deleting key {}", __func__, key);
+					logging::debug("{}: Unknown exception when deleting key [{}]", __func__, key);
 					key_map[key] = "InternalError";
 					break;
 			}
