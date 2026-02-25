@@ -43,7 +43,7 @@ namespace
 	{
 		boost::property_tree::ptree object;
 		object.put("Key", key);
-		object.put("Etag", etag);
+		object.put("ETag", etag);
 		object.put("Owner", owner);
 		object.put("Size", size);
 		try {

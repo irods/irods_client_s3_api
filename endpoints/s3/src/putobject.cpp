@@ -154,7 +154,7 @@ class incremental_async_read : public std::enable_shared_from_this<incremental_a
 		namespace part_shmem = irods::s3::api::multipart_global_state;
 
 		resp_.version(parser_->get().version());
-		resp_.set("Etag", _irods_path);
+		resp_.set("ETag", _irods_path);
 		resp_.keep_alive(parser_->get().keep_alive());
 
 		tp_ = std::make_shared<irods::experimental::io::client::default_transport>(*conn_);
@@ -624,7 +624,7 @@ void irods::s3::actions::handle_putobject(
 	uint64_t read_buffer_size = irods::s3::get_put_object_buffer_size_in_bytes();
 	logging::debug("{}: read_buffer_size={}", __func__, read_buffer_size);
 
-	response.set("Etag", path.c_str());
+	response.set("ETag", path.c_str());
 	response.set("Connection", "close");
 	response.keep_alive(parser_message.keep_alive());
 
