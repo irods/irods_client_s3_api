@@ -77,12 +77,12 @@ void irods::s3::actions::handle_deleteobject(
 		session_ptr->send(std::move(response));
 		return;
 	}
-	logging::debug("{}: Requested to delete {}", __func__, path.string());
+	logging::debug("{}: Requested to delete [{}]", __func__, path.string());
 
 	try {
 		const auto status = fs::client::status(conn, path);
 		if (!fs::client::exists(status)) {
-			logging::debug("{}: Could not find {}", __func__, path.c_str());
+			logging::debug("{}: Could not find [{}]", __func__, path.c_str());
 			response.result(beast::http::status::not_found);
 			logging::debug("{}: returned [{}]", __func__, response.reason());
 			session_ptr->send(std::move(response));
@@ -91,7 +91,7 @@ void irods::s3::actions::handle_deleteobject(
 
 		if (fs::client::is_collection(status)) {
 			if (fs::client::remove_all(conn, path, fs::remove_options::no_trash) >= 0) {
-				logging::debug("{}: Remove {} (collection) successful", __func__, path.c_str());
+				logging::debug("{}: Remove [{}] (collection) successful", __func__, path.c_str());
 				response.result(beast::http::status::ok);
 			}
 			else {
@@ -100,7 +100,7 @@ void irods::s3::actions::handle_deleteobject(
 		}
 		else {
 			if (fs::client::remove(conn, path, fs::remove_options::no_trash)) {
-				logging::debug("{}: Remove {} (object) successful", __func__, path.c_str());
+				logging::debug("{}: Remove [{}] (object) successful", __func__, path.c_str());
 				response.result(beast::http::status::ok);
 			}
 			else {

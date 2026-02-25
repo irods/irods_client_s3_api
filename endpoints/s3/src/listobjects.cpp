@@ -129,7 +129,7 @@ void irods::s3::actions::handle_listobjects_v2(
 				"select COLL_NAME where COLL_NAME like '{}/%' and COLL_NAME not like '{}/%/%'",
 				full_path.parent_path().c_str(),
 				full_path.parent_path().c_str());
-			logging::debug("{}: query={}", __func__, query);
+			logging::debug("{}: query=[{}]", __func__, query);
 			for (auto&& row : irods::query<RcComm>(rcComm_t_ptr, query)) {
 				ptree object;
 				std::string key = (row[0].size() > base_length ? row[0].substr(base_length) : "");
@@ -145,7 +145,7 @@ void irods::s3::actions::handle_listobjects_v2(
 			query = fmt::format(
 				"select COLL_NAME, DATA_NAME, DATA_OWNER_NAME, DATA_SIZE, DATA_MODIFY_TIME where COLL_NAME = '{}'",
 				full_path.parent_path().c_str());
-			logging::debug("{}: query={}", __func__, query);
+			logging::debug("{}: query=[{}]", __func__, query);
 			for (auto&& row : irods::query<RcComm>(rcComm_t_ptr, query)) {
 				std::string key = (row[0].size() > base_length ? row[0].substr(base_length) : "") + "/" + row[1];
 				if (key.starts_with("/")) {
@@ -165,7 +165,7 @@ void irods::s3::actions::handle_listobjects_v2(
 				"select COLL_NAME where COLL_NAME like '{}%' and COLL_NAME not like '{}%/%'",
 				full_path.c_str(),
 				full_path.c_str());
-			logging::debug("{}: query={}", __func__, query);
+			logging::debug("{}: query=[{}]", __func__, query);
 			for (auto&& row : irods::query<RcComm>(rcComm_t_ptr, query)) {
 				ptree object;
 				std::string key = (row[0].size() > base_length ? row[0].substr(base_length) : "");
@@ -183,7 +183,7 @@ void irods::s3::actions::handle_listobjects_v2(
 				" and DATA_NAME like '{}%'",
 				full_path.parent_path().c_str(),
 				full_path.object_name().c_str());
-			logging::debug("{}: query={}", __func__, query);
+			logging::debug("{}: query=[{}]", __func__, query);
 			for (auto&& row : irods::query<RcComm>(rcComm_t_ptr, query)) {
 				std::string key = (row[0].size() > base_length ? row[0].substr(base_length) : "") + "/" + row[1];
 				if (key.starts_with("/")) {
@@ -209,7 +209,7 @@ void irods::s3::actions::handle_listobjects_v2(
 		query = fmt::format(
 			"select COLL_NAME, COLL_OWNER_NAME, COLL_MODIFY_TIME where COLL_NAME = '{}'",
 			full_path.parent_path().c_str());
-		logging::debug("{}: query={}", __func__, query);
+		logging::debug("{}: query=[{}]", __func__, query);
 		for (auto&& row : irods::query<RcComm>(rcComm_t_ptr, query)) {
 			// Skip over the bucket base collection.
 			if (row[0] == bucket_base.c_str()) {
@@ -229,7 +229,7 @@ void irods::s3::actions::handle_listobjects_v2(
 		query = fmt::format(
 			"select COLL_NAME, DATA_NAME, DATA_OWNER_NAME, DATA_SIZE, DATA_MODIFY_TIME where COLL_NAME like '{}%'",
 			full_path.c_str());
-		logging::debug("{}: query={}", __func__, query);
+		logging::debug("{}: query=[{}]", __func__, query);
 		for (auto&& row : irods::query<RcComm>(rcComm_t_ptr, query)) {
 			std::string key = (row[0].size() > base_length ? row[0].substr(base_length) : "") + "/" + row[1];
 			if (key.starts_with("/")) {
@@ -246,7 +246,7 @@ void irods::s3::actions::handle_listobjects_v2(
 			" and DATA_NAME like '{}%'",
 			full_path.parent_path().c_str(),
 			full_path.object_name().c_str());
-		logging::debug("{}: query={}", __func__, query);
+		logging::debug("{}: query=[{}]", __func__, query);
 		for (auto&& row : irods::query<RcComm>(rcComm_t_ptr, query)) {
 			std::string key = (row[0].size() > base_length ? row[0].substr(base_length) : "") + "/" + row[1];
 			if (key.starts_with("/")) {
