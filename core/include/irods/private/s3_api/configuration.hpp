@@ -5,7 +5,6 @@
 
 namespace irods::s3
 {
-	void set_resource(const std::string_view&);
 	std::string get_resource();
 
 	uint64_t get_put_object_buffer_size_in_bytes();
