@@ -34,13 +34,31 @@ namespace irods::http
 		boost::urls::url& url)
 	{
 		auto& message = parser.get();
+
 		auto host = message.find("Host")->value();
 		url.set_encoded_host(host.find(':') != std::string::npos ? host.substr(0, host.find(':')) : host);
-		url.set_path(message.target().substr(0, message.target().find("?")));
 		url.set_scheme("http");
-		if (message.target().find('?') != std::string::npos) {
-			url.set_encoded_query(message.target().substr(message.target().find("?") + 1));
+
+		const auto& target = message.target();
+		const auto params_pos = target.find('?');
+
+		// If a query parameters delimiter was in the original target, make sure to set the query in the parsed URL.
+		if (params_pos != std::string::npos) {
+			url.set_encoded_query(target.substr(params_pos + 1));
 		}
+
+		// If no query parameters delimiter is in the target, then the target and the path are one and the same.
+		const auto encoded_path = (params_pos != std::string::npos) ? target.substr(0, params_pos) : target;
+
+		// Decode the "path" part of the request. An encoded path string can and often does differ from the path sent
+		// from the client. For instance, spaces, percent signs, and plus signs can be encoded even though the path is
+		// supposed to have these literal characters in them.
+		const auto psv_path = boost::urls::pct_string_view{encoded_path};
+		std::string decoded_path;
+		decoded_path.resize(psv_path.decoded_size());
+		psv_path.decode({}, boost::urls::string_token::assign_to(decoded_path));
+		logging::debug("{}: encoded_path [{}], decoded_path [{}]", __func__, encoded_path, decoded_path);
+		url.set_path(decoded_path);
 	}
 
 	session::session(boost::asio::ip::tcp::socket&& socket, int _max_body_size, int _timeout_in_seconds)
