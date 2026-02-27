@@ -1,6 +1,7 @@
 from datetime import datetime
 import botocore
 import botocore.session
+import inspect
 import os
 import unittest
 
@@ -167,6 +168,26 @@ class ListObject_Test(unittest.TestCase):
        print(listobjects_result)
        self.assertRaises(KeyError, lambda: listobjects_result['Contents'])
 
+    def test_botocore_list_object_with_reserved_characters_in_name(self):
+        for character in ['+', ' ', '$', '@', ',', ':', ';', '=', '?', '&']:
+            with self.subTest(f"character:[{character}]"):
+                put_filename = f'{inspect.currentframe().f_code.co_name}__{character}.data'
+                logical_path = f'{self.bucket_irods_path}/{put_filename}'
+
+                try:
+                    utility.make_arbitrary_file(put_filename, 100*1024)
+                    command.assert_command(['iput', put_filename, logical_path])
+                    listobjects_result = self.client.list_objects_v2(Bucket=self.bucket_name)
+                    print(listobjects_result)
+                    self.assertGreater(len(listobjects_result['Contents']), 6, 'Wrong number of results')
+                    self.assert_key_in_contents_list(listobjects_result, put_filename)
+
+                finally:
+                    command.assert_command(['ils', '-l', self.bucket_irods_path], 'STDOUT') # debugging
+                    if os.path.exists(put_filename):
+                        os.remove(put_filename)
+                    command.assert_command(['irm', '-f', logical_path])
+
     def test_aws_list_with_delimiter_no_prefix(self):
         command.assert_command(f'aws --profile s3_api_alice --endpoint-url {self.s3_api_url} s3 ls s3://{self.bucket_name}/',
                 'STDOUT_MULTILINE', ['f1', 'dir1/', 'dir2/'])
@@ -209,6 +230,35 @@ class ListObject_Test(unittest.TestCase):
         _, out, _ = command.assert_command(f'aws --profile s3_api_alice --endpoint-url {self.s3_api_url} s3 ls --recursive s3://{self.bucket_name}/doesnotexist')
         self.assertEqual(len(out), 0)
 
+    def test_aws_list_object_with_reserved_characters_in_name(self):
+        for character in ['+', ' ', '$', '@', ',', ':', ';', '=', '?', '&']:
+            with self.subTest(f"character:[{character}]"):
+                put_filename = f'{inspect.currentframe().f_code.co_name}__{character}.data'
+                logical_path = f'{self.bucket_irods_path}/{put_filename}'
+
+                try:
+                    utility.make_arbitrary_file(put_filename, 100*1024)
+                    command.assert_command(['iput', put_filename, logical_path])
+                    command.assert_command(
+                        [
+                            'aws',
+                            '--profile',
+                            's3_api_alice',
+                            '--endpoint-url',
+                            self.s3_api_url,
+                            's3',
+                            'ls',
+                            f's3://{self.bucket_name}'
+                        ],
+                        'STDOUT',
+                        put_filename)
+
+                finally:
+                    command.assert_command(['ils', '-l', self.bucket_irods_path], 'STDOUT') # debugging
+                    if os.path.exists(put_filename):
+                        os.remove(put_filename)
+                    command.assert_command(['irm', '-f', logical_path])
+
     def test_mc_list_with_delimiter_no_prefix(self):
         command.assert_command(f'mc ls s3-api-alice/{self.bucket_name}/',
                 'STDOUT_MULTILINE', ['f1', 'dir1/', 'dir2/'])
@@ -247,3 +297,20 @@ class ListObject_Test(unittest.TestCase):
     def test_mc_list_nothing_found(self):
         _, out, _ = command.assert_command(f'mc ls s3-api-alice/{self.bucket_name}/doesnotexist')
         self.assertEqual(len(out), 0)
+
+    def test_mc_list_object_with_reserved_characters_in_name(self):
+        for character in ['+', ' ', '$', '@', ',', ':', ';', '=', '?', '&']:
+            with self.subTest(f"character:[{character}]"):
+                put_filename = f'{inspect.currentframe().f_code.co_name}__{character}.data'
+                logical_path = f'{self.bucket_irods_path}/{put_filename}'
+
+                try:
+                    utility.make_arbitrary_file(put_filename, 100*1024)
+                    command.assert_command(['iput', put_filename, logical_path])
+                    command.assert_command(['mc', 'ls', f's3-api-alice/{self.bucket_name}/'], 'STDOUT', put_filename)
+
+                finally:
+                    command.assert_command(['ils', '-l', self.bucket_irods_path], 'STDOUT') # debugging
+                    if os.path.exists(put_filename):
+                        os.remove(put_filename)
+                    command.assert_command(['irm', '-f', logical_path])
