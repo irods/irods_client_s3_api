@@ -46,6 +46,26 @@ class PutObject_Test(unittest.TestCase):
             os.remove(get_filename)
             command.assert_command(f'irm -f {self.bucket_irods_path}/{put_filename}')
 
+    def test_botocore_put_file_with_reserved_characters_in_name(self):
+        for character in ['+', ' ', '$', '@', ',', ':', ';', '=', '?', '&']:
+            with self.subTest(f"character:[{character}]"):
+                put_filename = f'{inspect.currentframe().f_code.co_name}__{character}.data'
+                get_filename = f'get.{put_filename}'
+
+                try:
+                    utility.make_arbitrary_file(put_filename, 100*1024)
+                    self.boto3_client.upload_file(put_filename, self.bucket_name, put_filename)
+                    command.assert_command(['iget', '/'.join([self.bucket_irods_path, put_filename]), get_filename])
+                    command.assert_command(['diff', '-q', put_filename, get_filename])
+
+                finally:
+                    command.assert_command(f'ils -l {self.bucket_irods_path}', 'STDOUT') # debugging
+                    if os.path.exists(put_filename):
+                        os.remove(put_filename)
+                    if os.path.exists(get_filename):
+                        os.remove(get_filename)
+                    command.assert_command(['irm', '-f', '/'.join([self.bucket_irods_path, put_filename])])
+
     def test_botocore_put_in_bucket_root_large_file(self):
 
         put_filename = inspect.currentframe().f_code.co_name 
@@ -106,6 +126,39 @@ class PutObject_Test(unittest.TestCase):
             os.remove(put_filename)
             os.remove(get_filename)
             command.assert_command(f'irm -f {self.bucket_irods_path}/{put_filename}')
+
+    def test_aws_put_file_with_reserved_characters_in_name(self):
+        for character in ['+', ' ', '$', '@', ',', ':', ';', '=', '?', '&']:
+            with self.subTest(f"character:[{character}]"):
+                put_filename = f'{inspect.currentframe().f_code.co_name}__{character}.data'
+                get_filename = f'get.{put_filename}'
+
+                try:
+                    utility.make_arbitrary_file(put_filename, 100*1024)
+                    command.assert_command(
+                        [
+                            'aws',
+                            '--profile',
+                            's3_api_alice',
+                            '--endpoint-url',
+                            self.s3_api_url,
+                            's3',
+                            'cp',
+                            put_filename,
+                            f's3://{self.bucket_name}/{put_filename}'
+                        ],
+                        'STDOUT',
+                        f'upload: ./{put_filename} to s3://{self.bucket_name}/{put_filename}')
+                    command.assert_command(['iget', '/'.join([self.bucket_irods_path, put_filename]), get_filename])
+                    command.assert_command(['diff', '-q', put_filename, get_filename])
+
+                finally:
+                    command.assert_command(f'ils -l {self.bucket_irods_path}', 'STDOUT') # debugging
+                    if os.path.exists(put_filename):
+                        os.remove(put_filename)
+                    if os.path.exists(get_filename):
+                        os.remove(get_filename)
+                    command.assert_command(['irm', '-f', '/'.join([self.bucket_irods_path, put_filename])])
 
     def test_aws_put_in_bucket_root_large_file(self):
 
@@ -174,6 +227,29 @@ class PutObject_Test(unittest.TestCase):
             os.remove(put_filename)
             os.remove(get_filename)
             command.assert_command(f'irm -f {self.bucket_irods_path}/{put_filename}')
+
+    def test_mc_put_file_with_reserved_characters_in_name(self):
+        for character in ['+', ' ', '$', '@', ',', ':', ';', '=', '?', '&']:
+            with self.subTest(f"character:[{character}]"):
+                put_filename = f'{inspect.currentframe().f_code.co_name}__{character}.data'
+                get_filename = f'get.{put_filename}'
+
+                try:
+                    utility.make_arbitrary_file(put_filename, 100*1024)
+                    command.assert_command(
+                        ["mc", "cp", put_filename, f"s3-api-alice/{self.bucket_name}/{put_filename}"],
+                        'STDOUT',
+                        put_filename)
+                    command.assert_command(['iget', '/'.join([self.bucket_irods_path, put_filename]), get_filename])
+                    command.assert_command(['diff', '-q', put_filename, get_filename])
+
+                finally:
+                    command.assert_command(f'ils -l {self.bucket_irods_path}', 'STDOUT') # debugging
+                    if os.path.exists(put_filename):
+                        os.remove(put_filename)
+                    if os.path.exists(get_filename):
+                        os.remove(get_filename)
+                    command.assert_command(['irm', '-f', '/'.join([self.bucket_irods_path, put_filename])])
 
     def test_mc_put_large_file_in_bucket_root(self):
 
