@@ -80,7 +80,6 @@ jobs:
               mkdir build
               cd build
               cmake \
-                -DIRODS_BUILD_WITH_WERROR=NO \
                 -DCMAKE_C_COMPILER_LAUNCHER=ccache \
                 -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
                 -GNinja \

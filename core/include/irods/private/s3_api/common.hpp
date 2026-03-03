@@ -9,7 +9,11 @@
 #include <irods/rodsErrorTable.h>
 
 #include <boost/beast/http/status.hpp>
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-but-set-variable"
 #include <boost/beast/http/string_body.hpp>
+#pragma GCC diagnostic pop
 
 #include <fmt/format.h>
 

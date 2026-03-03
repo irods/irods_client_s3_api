@@ -5,11 +5,15 @@
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/ssl.hpp>
 #include <boost/beast/core/tcp_stream.hpp>
-#include <boost/beast/http/string_body.hpp>
-#include <boost/beast/http/read.hpp>
-#include <boost/beast/http/write.hpp>
 #include <boost/beast/ssl.hpp>
 #include <boost/url/parse.hpp>
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-but-set-variable"
+#include <boost/beast/http/read.hpp>
+#include <boost/beast/http/string_body.hpp>
+#include <boost/beast/http/write.hpp>
+#pragma GCC diagnostic pop
 
 #include <string_view>
 #include <memory>

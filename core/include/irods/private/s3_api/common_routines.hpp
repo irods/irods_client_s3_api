@@ -4,10 +4,10 @@
 #include <string>
 
 #include <fmt/format.h>
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #include <fmt/chrono.h>
-#pragma clang diagnostic pop
+#pragma GCC diagnostic pop
 
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_generators.hpp>

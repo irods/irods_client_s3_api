@@ -1,7 +1,11 @@
 #ifndef IRODS_S3_API_AUTHENTICATION_HPP
 #define IRODS_S3_API_AUTHENTICATION_HPP
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-but-set-variable"
 #include <boost/beast.hpp>
+#pragma GCC diagnostic pop
+
 #include <boost/url.hpp>
 
 #include <optional>

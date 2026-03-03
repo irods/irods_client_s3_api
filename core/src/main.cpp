@@ -31,10 +31,10 @@
 #include <boost/program_options.hpp>
 #include <boost/url/parse.hpp>
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wunused-parameter"
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-parameter"
 #include <boost/process.hpp>
-#pragma clang diagnostic pop
+#pragma GCC diagnostic pop
 
 #include <fmt/format.h>
 #include <nlohmann/json.hpp>
