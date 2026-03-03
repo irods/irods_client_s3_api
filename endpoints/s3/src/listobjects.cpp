@@ -39,13 +39,15 @@ namespace
 		const std::string& etag,
 		const std::string& owner,
 		std::int64_t size,
-		const std::string& last_modified) -> boost::property_tree::ptree
+		const std::string& last_modified,
+		bool url_encode_keys) -> boost::property_tree::ptree
 	{
 		boost::property_tree::ptree object;
-		object.put("Key", key);
+		object.put("Key", url_encode_keys ? boost::urls::encode(key, boost::urls::unreserved_chars) : key);
 		object.put("ETag", etag);
 		object.put("Owner", owner);
 		object.put("Size", size);
+		object.put("StorageClass", "STANDARD");
 		try {
 			std::time_t modified_epoch_time = boost::lexical_cast<std::time_t>(last_modified);
 			std::string modified_time_str =
@@ -101,14 +103,6 @@ void irods::s3::actions::handle_listobjects_v2(
 		the_prefix = (*prefix).value;
 	}
 
-	// For recursive searches, no delimiter is passed in.  In that case only return all data objects
-	// which have the prefix.
-	// TODO:  We might not be able to support delimiters that are not "/".
-	bool delimiter_in_request = false;
-	if (const auto prefix = url.params().find("delimiter"); prefix != url.params().end()) {
-		delimiter_in_request = true;
-	}
-
 	auto full_path = resolved_path / the_prefix;
 
 	std::string query;
@@ -119,7 +113,17 @@ void irods::s3::actions::handle_listobjects_v2(
 	document.add("ListBucketResult.Marker", "");
 	document.add("ListBucketResult.IsTruncated", "false");
 
-	if (delimiter_in_request) {
+	bool url_encode_keys = false;
+	if (const auto encoding_type = url.params().find("encoding-type"); encoding_type != url.params().end()) {
+		url_encode_keys = (*encoding_type).value == "url";
+		document.add("ListBucketResult.EncodingType", (*encoding_type).value);
+	}
+
+	// For recursive searches, no delimiter is passed in.  In that case only return all data objects
+	// which have the prefix.
+	// TODO(#221):  We might not be able to support delimiters that are not "/".
+	if (const auto delimiter = url.params().find("delimiter"); delimiter != url.params().end()) {
+		document.add("ListBucketResult.Delimiter", (*delimiter).value);
 		if (full_path.object_name().empty()) {
 			// Path ends in a slash, this is an exact collection match
 			// and all objects in that collection
@@ -153,7 +157,8 @@ void irods::s3::actions::handle_listobjects_v2(
 				}
 				document.add_child(
 					"ListBucketResult.Contents",
-					make_ListBucketResult_object(key, row[0] + row[1], row[2], std::atoi(row[3].c_str()), row[4]));
+					make_ListBucketResult_object(
+						key, row[0] + row[1], row[2], std::atoi(row[3].c_str()), row[4], url_encode_keys));
 			}
 		}
 		else {
@@ -191,7 +196,8 @@ void irods::s3::actions::handle_listobjects_v2(
 				}
 				document.add_child(
 					"ListBucketResult.Contents",
-					make_ListBucketResult_object(key, row[0] + row[1], row[2], std::atoi(row[3].c_str()), row[4]));
+					make_ListBucketResult_object(
+						key, row[0] + row[1], row[2], std::atoi(row[3].c_str()), row[4], url_encode_keys));
 			}
 		}
 	}
@@ -222,7 +228,8 @@ void irods::s3::actions::handle_listobjects_v2(
 			}
 			key += "/";
 			document.add_child(
-				"ListBucketResult.Contents", make_ListBucketResult_object(key, row[0], row[1], 0, row[2]));
+				"ListBucketResult.Contents",
+				make_ListBucketResult_object(key, row[0], row[1], 0, row[2], url_encode_keys));
 		}
 
 		// look for objects with COLL_NAME like <prefix>%
@@ -237,7 +244,8 @@ void irods::s3::actions::handle_listobjects_v2(
 			}
 			document.add_child(
 				"ListBucketResult.Contents",
-				make_ListBucketResult_object(key, row[0] + row[1], row[2], std::atoi(row[3].c_str()), row[4]));
+				make_ListBucketResult_object(
+					key, row[0] + row[1], row[2], std::atoi(row[3].c_str()), row[4], url_encode_keys));
 		}
 
 		// look for objects with COLL_NAME = <parent> and DATA_NAME like <object>%
@@ -254,7 +262,8 @@ void irods::s3::actions::handle_listobjects_v2(
 			}
 			document.add_child(
 				"ListBucketResult.Contents",
-				make_ListBucketResult_object(key, row[0] + row[1], row[2], std::atoi(row[3].c_str()), row[4]));
+				make_ListBucketResult_object(
+					key, row[0] + row[1], row[2], std::atoi(row[3].c_str()), row[4], url_encode_keys));
 		}
 	}
 
