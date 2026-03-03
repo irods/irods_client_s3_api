@@ -114,7 +114,7 @@ void irods::s3::actions::handle_listobjects_v2(
 	std::string query;
 
 	document.add("ListBucketResult", "");
-	document.add("ListBucketResult.Name", bucket_base.c_str());
+	document.add("ListBucketResult.Name", (*url.segments().begin()).c_str());
 	document.add("ListBucketResult.Prefix", the_prefix.c_str());
 	document.add("ListBucketResult.Marker", "");
 	document.add("ListBucketResult.IsTruncated", "false");
