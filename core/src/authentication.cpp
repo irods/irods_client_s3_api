@@ -355,7 +355,7 @@ std::optional<std::string> irods::s3::authentication::authenticates(
 	}
 	else {
 		// should be equal to something like
-		// [ 'AWS4-SHA256-HMAC Credential=...', 'SignedHeaders=...', 'Signature=...']
+		// [ 'AWS4-HMAC-SHA256 Credential=...', 'SignedHeaders=...', 'Signature=...']
 		boost::split(auth_fields, (*authorization_iter).value(), boost::is_any_of(","));
 
 		// Strip the names and such
