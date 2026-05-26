@@ -11,6 +11,38 @@ and this project **only** adheres to the following _(as defined at [Semantic Ver
 > - MINOR version when you add functionality in a backward compatible manner
 > - PATCH version when you make backward compatible bug fixes
 
+## [0.6.0] - 2026-06-09
+
+This release improves compatibility with GUI applications and fixes various bugs in XML responses.
+
+Building from source now requires an iRODS development package of 4.3.2 or later.
+
+### Changed
+
+- Add square brackets around some log message substitutions (#19).
+- Support creating folders using PutObject API (#190).
+- Raise minimum version requirement for iRODS development package to 4.3.2 (#199).
+- Return `HTTP 501 Not Implemented` when GetObject API request includes `If-Modified-Since` header (#202).
+- Ignore build warnings in Boost library (#215).
+
+### Fixed
+
+- Include prefix in non-recursive ListObjects API results (#192).
+- Handle prefixes in DeleteObject and DeleteObjects APIs (#192).
+- Fix builder image not failing on errors (#198).
+- Handle special characters in request targets (#203).
+- Encode `ListBucketResult.Key` (#203).
+- Return `HTTP 501 Not Implemented` from ListDistributions API (#205).
+- Change Etag labels to ETag (#207).
+- Use bucket name in `ListBucketResult.Name` (#213).
+- Fix hostname resolution for iRODS 4 testing (#223).
+- List one S3 object per iRODS object in ListObjectsV2 and ListObjects APIs (#223).
+
+### Added
+
+- Implement GetBucketVersioning API (#189).
+- Implement ListObjects API (#189).
+
 ## [0.5.0] - 2025-11-03
 
 > [!IMPORTANT]
