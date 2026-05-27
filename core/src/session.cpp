@@ -172,15 +172,29 @@ namespace irods::http
 					send(irods::http::fail(http::status::not_implemented));
 				}
 				else if (segments.empty() || listobjects_detected) {
-					logging::debug("{}: ListObjects detected", __func__);
-					auto shared_this = shared_from_this();
-					irods::http::globals::background_task([shared_this, &parser = this->parser_]() mutable {
-						// build the url_view - must be done within background task as url_view is not copyable
-						boost::urls::url url;
-						get_url_from_parser(*parser, url);
-						boost::urls::url_view url_view = url;
-						irods::s3::actions::handle_listobjects_v2(shared_this, *parser, url_view);
-					});
+					const auto list_type = params.find("list-type");
+					if (list_type != params.end() && (*list_type).has_value && "2" == (*list_type).value) {
+						logging::debug("{}: ListObjectsV2 detected", __func__);
+						auto shared_this = shared_from_this();
+						irods::http::globals::background_task([shared_this, &parser = this->parser_]() mutable {
+							// build the url_view - must be done within background task as url_view is not copyable
+							boost::urls::url url;
+							get_url_from_parser(*parser, url);
+							boost::urls::url_view url_view = url;
+							irods::s3::actions::handle_listobjects_v2(shared_this, *parser, url_view);
+						});
+					}
+					else {
+						logging::debug("{}: ListObjects detected", __func__);
+						auto shared_this = shared_from_this();
+						irods::http::globals::background_task([shared_this, &parser = this->parser_]() mutable {
+							// build the url_view - must be done within background task as url_view is not copyable
+							boost::urls::url url;
+							get_url_from_parser(*parser, url);
+							boost::urls::url_view url_view = url;
+							irods::s3::actions::handle_listobjects(shared_this, *parser, url_view);
+						});
+					}
 				}
 				else {
 					if (req_.target() == "/") {

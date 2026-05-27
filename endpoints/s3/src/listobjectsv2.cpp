@@ -8,31 +8,32 @@
 #include "irods/private/s3_api/s3_api.hpp"
 #include "irods/private/s3_api/session.hpp"
 
-#include <boost/asio/awaitable.hpp>
-#include <boost/asio/this_coro.hpp>
-#include <boost/beast.hpp>
-
-#include <boost/asio.hpp>
-#include <boost/property_tree/ptree.hpp>
-#include <boost/property_tree/xml_parser.hpp>
-#include <boost/url.hpp>
-#include <boost/lexical_cast.hpp>
-
 #include <irods/filesystem.hpp>
 #include <irods/query_builder.hpp>
 
-#include <iostream>
-#include <unordered_set>
-#include <chrono>
+#include <boost/asio.hpp>
+#include <boost/asio/awaitable.hpp>
+#include <boost/asio/this_coro.hpp>
+#include <boost/beast.hpp>
+#include <boost/lexical_cast.hpp>
+#include <boost/property_tree/ptree.hpp>
+#include <boost/property_tree/xml_parser.hpp>
+#include <boost/url.hpp>
 
 #include <fmt/format.h>
+
+#include <chrono>
+#include <iostream>
+#include <unordered_set>
 
 namespace asio = boost::asio;
 namespace beast = boost::beast;
 namespace logging = irods::http::logging;
 namespace fs = irods::experimental::filesystem;
 
-void irods::s3::actions::handle_listobjects(
+using data_object_info_map_type = irods::s3::detail::data_object_info_map_type;
+
+void irods::s3::actions::handle_listobjects_v2(
 	irods::http::session_pointer_type session_ptr,
 	boost::beast::http::request_parser<boost::beast::http::empty_body>& parser,
 	const boost::urls::url_view& url)
@@ -97,7 +98,7 @@ void irods::s3::actions::handle_listobjects(
 	const auto bucket_base_str = std::string_view{bucket_base.c_str()};
 
 	// Need to use a query here because fs::client::collection_iterator does not return all replica information.
-	std::map<std::string, irods::query<RcComm>::value_type> id_to_info;
+	data_object_info_map_type id_to_info;
 
 	// For recursive searches, no delimiter is passed in.  In that case only return all data objects
 	// which have the prefix.
@@ -171,30 +172,6 @@ void irods::s3::actions::handle_listobjects(
 		//
 		// 1.  Look for objects with COLL_NAME like <prefix>%
 		// 2.  Look for objects with COLL_NAME = <parent> and DATA_NAME like <object>%
-
-		// First, add this collection to the results. This is required because some clients use these results as a way
-		// of listing what needs to be deleted when targeting objects under a certain prefix. Information about the
-		// collection representing such a prefix must be returned here so that it is included in the objects to be
-		// deleted. This is not done in ListObjectsV2.
-		query = fmt::format(
-			"select COLL_NAME, COLL_OWNER_NAME, COLL_MODIFY_TIME where COLL_NAME = '{}'",
-			full_path.parent_path().c_str());
-		logging::debug("{}: query=[{}]", __func__, query);
-		for (auto&& row : irods::query<RcComm>(rcComm_t_ptr, query)) {
-			// Skip over the bucket base collection.
-			if (row[0] == bucket_base.c_str()) {
-				logging::debug("{}: Skipping bucket base coll.", __func__);
-				continue;
-			}
-			std::string key = (row[0].size() > bucket_base_str.size() ? row[0].substr(bucket_base_str.size()) : "");
-			if (key.starts_with("/")) {
-				key = key.substr(1);
-			}
-			key += "/"; // append trailing slash to show that this is a folder
-			document.add_child(
-				"ListBucketResult.Contents",
-				detail::make_ListBucketResult_object(key, row[0], row[1], 0, row[2], url_encode_keys));
-		}
 
 		// look for objects with COLL_NAME like <prefix>%
 		query = fmt::format(
