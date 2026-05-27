@@ -53,7 +53,7 @@ RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2
 # install MinIO client (mc) #
 
 ARG MINIO_BINARIES_DIR=/minio-binaries
-RUN curl https://dl.min.io/client/mc/release/linux-amd64/mc \
+RUN curl https://dl.min.io/aistor/mc/release/linux-amd64/mc \
         --create-dirs \
         -o ${MINIO_BINARIES_DIR}/mc && \
     chmod +x ${MINIO_BINARIES_DIR}/mc
