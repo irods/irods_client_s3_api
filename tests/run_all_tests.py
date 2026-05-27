@@ -23,6 +23,7 @@ def run_some_tests():
             headobject_test.HeadObject_Test,
             listbuckets_test.ListBuckets_Test,
             listobject_test.ListObject_Test,
+            listobject_test.ListObject_with_Multiple_Replicas_Test,
             presignedurl_test.PresignedURL_Test,
             putobject_test.PutObject_Test,
             abortmultipartupload_test.AbortMultipartUpload_Test]
