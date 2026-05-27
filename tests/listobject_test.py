@@ -2,7 +2,9 @@ from datetime import datetime
 import botocore
 import botocore.session
 import inspect
+import itertools
 import os
+import socket
 import unittest
 
 from host_port import s3_api_host_port
@@ -10,11 +12,11 @@ from libs import command, utility
 
 
 def switch_client_user(username, password):
-    client_environment_file = "~/.irods/irods_environment.json"
-    new_client_environment_file = f"~/.irods/irods_environment.json.{username}"
+    client_environment_file = "/root/.irods/irods_environment.json"
+    new_client_environment_file = f"/root/.irods/irods_environment.json.{username}"
     command.assert_command(['iexit'])
     command.assert_command(['cp', new_client_environment_file, client_environment_file])
-    command.assert_command(['iinit'], input=password)
+    command.assert_command(['iinit'], 'STDOUT', "Enter your current iRODS password", input=password)
 
 
 class ListObject_Test(unittest.TestCase):
@@ -79,7 +81,7 @@ class ListObject_Test(unittest.TestCase):
                 matching_size = entry['Size']
                 matching_lastmodified = entry['LastModified']
                 break
-    
+
         self.assertIsNotNone(matching_key, f'Key not found [{key}]')
         self.assertIsNotNone(matching_size, f'Size not found for key [{key}]')
         self.assertIsNotNone(matching_lastmodified, f'LastModified is not found for key {key}')
@@ -323,3 +325,332 @@ class ListObject_Test(unittest.TestCase):
                     if os.path.exists(put_filename):
                         os.remove(put_filename)
                     command.assert_command(['irm', '-f', logical_path])
+
+
+class ListObject_with_Multiple_Replicas_Test(unittest.TestCase):
+    bucket_irods_path = '/tempZone/home/alice/alice-bucket'
+    bucket_name = 'alice-bucket'
+    key = 's3_key2'
+    secret_key = 's3_secret_key2'
+    s3_api_url = f'http://{s3_api_host_port}'
+
+    test_resources = [f's3_ufs{n}' for n in range(1, 3)]
+    collection_name = 'issue_223_coll'
+    put_filename = 'issue_223.data'
+    collection_path = f'{bucket_irods_path}/{collection_name}'
+    logical_path = f'{collection_path}/{put_filename}'
+    repl0_size = 100
+    repl1_size = 101
+    repl2_size = 102
+
+    def __init__(self, *args, **kwargs):
+        super(ListObject_with_Multiple_Replicas_Test, self).__init__(*args, **kwargs)
+
+    @classmethod
+    def setUpClass(self):
+        # Create a test collection.
+        command.assert_command(['imkdir', self.collection_path])
+
+        # Create a test data object.
+        utility.make_arbitrary_file(self.put_filename, self.repl0_size)
+        command.assert_command(['iput', self.put_filename, self.logical_path])
+
+        # Switch to the rodsadmin user. To avoid switching back and forth, these tests will be run as the rodsadmin
+        # user so that we can precisely manipulate replica information without moving data or sleeping.
+        switch_client_user("rods", "rods")
+
+        # Create some test resources to which the data object created above can be replicated.
+        resc_host = 'irods-catalog-provider'
+        for resc in self.test_resources:
+            command.assert_command(
+                ['iadmin', 'mkresc', resc, 'unixfilesystem', f'{resc_host}:/tmp/{resc}_vault'],
+                "STDOUT", resc)
+
+        # Replicate to the test resource so that there are multiple replicas.
+        for resc in self.test_resources:
+            command.assert_command(['irepl', '-M', '-R', resc, self.logical_path])
+
+        # Change the replica sizes so that they are all unique. This helps to easily identify them in the S3 listings.
+        command.assert_command(
+            ["iadmin", "modrepl", "logical_path", self.logical_path, "replica_number", str(1), "DATA_SIZE", str(self.repl1_size)])
+        command.assert_command(
+            ["iadmin", "modrepl", "logical_path", self.logical_path, "replica_number", str(2), "DATA_SIZE", str(self.repl2_size)])
+
+        # Create a client connection for botocore.
+        session = botocore.session.get_session()
+        self.client = session.create_client(
+            's3', use_ssl=False, endpoint_url=self.s3_api_url, aws_access_key_id=self.key, aws_secret_access_key=self.secret_key)
+
+    @classmethod
+    def tearDownClass(self):
+        # Switch to the rodsuser and remove the test data.
+        switch_client_user("alice", "apass")
+        command.assert_command(['rm', '-f', self.put_filename])
+        command.assert_command(['irm', '-rf', self.collection_path])
+
+        # Remove the test resources.
+        switch_client_user("rods", "rods")
+        for resc in self.test_resources:
+            command.assert_command(['iadmin', 'rmresc', resc])
+
+        # Switch back to the rodsuser because the other tests expect to be the rodsuser.
+        switch_client_user("alice", "apass")
+
+    def do_test(self, replica_info, index_of_expected_replica, case_name=None):
+        """Assert that the replica information provided results in the expected listing from various S3 clients.
+
+        Args:
+            replica_info: A list of dicts containing desired state of the 3 test replicas in this format:
+                {"number": 0, "status": 0, "mtime": 1000, "size": 1000}
+            index_of_expected_replica: The index of the replica expected to be selected.
+            case_name: Identifier for the test case. Default: e.g. "status:[0, 0, 0],mtime:[1000, 1000, 1000]"
+        """
+        try:
+            # Set all the replica statuses and sizes as specified in the dict.
+            for repl in replica_info:
+                repl_num = str(repl["number"])
+                status = str(repl["status"])
+                mtime = str(repl["mtime"])
+                command.assert_command(
+                    ["iadmin", "modrepl", "logical_path", self.logical_path, "replica_number", repl_num, "DATA_REPL_STATUS", status])
+                command.assert_command(
+                    ["iadmin", "modrepl", "logical_path", self.logical_path, "replica_number", repl_num, "DATA_MODIFY_TIME", mtime])
+
+            # If no case name is provided, generate one which shows the replica statuses and mtimes.
+            if case_name is None:
+                case_name = (
+                    f'status:{[repl["status"] for repl in replica_info]},'
+                    f'mtime:{[repl["mtime"] for repl in replica_info]}'
+                )
+
+            expected_repl = replica_info[index_of_expected_replica]
+
+            # Confirm that the object is only listed once and uses info from the most-recently-updated replica.
+
+            # Test with the Minio CLI.
+            mc_targets = [
+                f's3-api-alice/{self.bucket_name}/{self.collection_name}/{self.put_filename}',
+                f's3-api-alice/{self.bucket_name}/{self.collection_name}/'
+            ]
+            for target in mc_targets:
+                with self.subTest(f'mc ls {target}, case [{case_name}]'):
+                    _, out, _ = command.assert_command(['mc', 'ls', target], 'STDOUT', self.put_filename)
+                    for i, repl in enumerate(replica_info):
+                        repl = replica_info[i]
+                        if index_of_expected_replica == i:
+                            self.assertIn(f'{repl["size"]}B STANDARD', out)
+                        else:
+                            self.assertNotIn(f'{repl["size"]}B STANDARD', out)
+
+            # Test with the AWS CLI.
+            # TODO(#99): For some reason, these commands are taking >1 second to complete.
+            aws_targets = [
+                f's3://{self.bucket_name}/{self.collection_name}/{self.put_filename}',
+                f's3://{self.bucket_name}/{self.collection_name}/'
+            ]
+            for target in aws_targets:
+                with self.subTest(f'aws s3 ls {target}, case [{case_name}]'):
+                    # List the data object...
+                    _, out, _ = command.assert_command(
+                        [
+                            'aws',
+                            '--profile',
+                            's3_api_alice',
+                            '--endpoint-url',
+                            self.s3_api_url,
+                            's3',
+                            'ls',
+                            target
+                        ],
+                        'STDOUT',
+                        self.put_filename)
+                    for i, repl in enumerate(replica_info):
+                        if index_of_expected_replica == i:
+                            self.assertIn(f'{repl["size"]} {self.put_filename}', out)
+                        else:
+                            self.assertNotIn(f'{repl["size"]} {self.put_filename}', out)
+
+            # Test with the botocore client. This one only lists the object (rather than the object and the collection)
+            # because the list_objects_v2 interface does not allow for listing the objects in the collection.
+            target = f'{self.collection_name}/{self.put_filename}'
+            with self.subTest(f'botocore list_objects_v2 prefix={target}, case [{case_name}]'):
+                listobjects_result = self.client.list_objects_v2(Bucket=self.bucket_name, Prefix=target)
+                print(listobjects_result) # debugging
+                self.assertEqual(len(listobjects_result['Contents']), 1)
+                # Assert that the key and expected replica size are in the contents list.
+                for entry in listobjects_result['Contents']:
+                    if entry['Key'] == target:
+                        self.assertIsNotNone(entry.get('Key'), f'Key not found [{target}]')
+                        self.assertIsNotNone(entry.get('LastModified'), f'LastModified is not found for key {target}')
+                        size = entry.get('Size')
+                        self.assertIsNotNone(size, f'Size not found for key [{target}]')
+                        self.assertEqual(
+                            size,
+                            replica_info[index_of_expected_replica]["size"],
+                            f'Size does not match for key {target}')
+                        break
+
+        finally:
+            command.assert_command(['ils', '-Lr'], 'STDOUT') # debugging
+
+    def do_list_object_with_multiple_replicas_only_shows_one_s3_object_per_irods_object_test(
+        self, status_tuple, expected_selected_replica_indexes
+    ):
+        """Run test for ListObjectsV2 to demonstrate that iRODS objects with multiple replicas only show 1 S3 object.
+
+        Args:
+            status_tuple: A triple with integers representing the 3 replica statuses.
+            expected_selected_replica_indexes: A list of integers with the expected replica indexes.
+        """
+        # There are 27 cases for each of the 8 combinations of replica statuses, so make sure the expected indexes
+        # list is the right length.
+        self.assertEqual(27, len(expected_selected_replica_indexes))
+
+        repl0_status, repl1_status, repl2_status = status_tuple
+        replica_info = [
+            {"number": 0, "status": repl0_status, "mtime": 1000, "size": self.repl0_size},
+            {"number": 1, "status": repl1_status, "mtime": 1000, "size": self.repl1_size},
+            {"number": 2, "status": repl2_status, "mtime": 1000, "size": self.repl2_size},
+        ]
+
+        expected_index = itertools.count()
+
+        # Replica 0 has lowest mtime.
+
+        replica_info[0]["mtime"] = str(1000)
+
+        replica_info[1]["mtime"] = str(1000)
+        replica_info[2]["mtime"] = str(1000)
+        self.do_test(replica_info, expected_selected_replica_indexes[next(expected_index)])
+        replica_info[2]["mtime"] = str(1001)
+        self.do_test(replica_info, expected_selected_replica_indexes[next(expected_index)])
+        replica_info[2]["mtime"] = str(1002)
+        self.do_test(replica_info, expected_selected_replica_indexes[next(expected_index)])
+
+        replica_info[1]["mtime"] = str(1001)
+        replica_info[2]["mtime"] = str(1000)
+        self.do_test(replica_info, expected_selected_replica_indexes[next(expected_index)])
+        replica_info[2]["mtime"] = str(1001)
+        self.do_test(replica_info, expected_selected_replica_indexes[next(expected_index)])
+        replica_info[2]["mtime"] = str(1002)
+        self.do_test(replica_info, expected_selected_replica_indexes[next(expected_index)])
+
+        replica_info[1]["mtime"] = str(1002)
+        replica_info[2]["mtime"] = str(1000)
+        self.do_test(replica_info, expected_selected_replica_indexes[next(expected_index)])
+        replica_info[2]["mtime"] = str(1001)
+        self.do_test(replica_info, expected_selected_replica_indexes[next(expected_index)])
+        replica_info[2]["mtime"] = str(1002)
+        self.do_test(replica_info, expected_selected_replica_indexes[next(expected_index)])
+
+        # Replica 0 has middle mtime.
+
+        replica_info[0]["mtime"] = str(1001)
+
+        replica_info[1]["mtime"] = str(1000)
+        replica_info[2]["mtime"] = str(1000)
+        self.do_test(replica_info, expected_selected_replica_indexes[next(expected_index)])
+        replica_info[2]["mtime"] = str(1001)
+        self.do_test(replica_info, expected_selected_replica_indexes[next(expected_index)])
+        replica_info[2]["mtime"] = str(1002)
+        self.do_test(replica_info, expected_selected_replica_indexes[next(expected_index)])
+
+        replica_info[1]["mtime"] = str(1001)
+        replica_info[2]["mtime"] = str(1000)
+        self.do_test(replica_info, expected_selected_replica_indexes[next(expected_index)])
+        replica_info[2]["mtime"] = str(1001)
+        self.do_test(replica_info, expected_selected_replica_indexes[next(expected_index)])
+        replica_info[2]["mtime"] = str(1002)
+        self.do_test(replica_info, expected_selected_replica_indexes[next(expected_index)])
+
+        replica_info[1]["mtime"] = str(1002)
+        replica_info[2]["mtime"] = str(1000)
+        self.do_test(replica_info, expected_selected_replica_indexes[next(expected_index)])
+        replica_info[2]["mtime"] = str(1001)
+        self.do_test(replica_info, expected_selected_replica_indexes[next(expected_index)])
+        replica_info[2]["mtime"] = str(1002)
+        self.do_test(replica_info, expected_selected_replica_indexes[next(expected_index)])
+
+        # Replica 0 has largest mtime.
+
+        replica_info[0]["mtime"] = str(1002)
+
+        replica_info[1]["mtime"] = str(1000)
+        replica_info[2]["mtime"] = str(1000)
+        self.do_test(replica_info, expected_selected_replica_indexes[next(expected_index)])
+        replica_info[2]["mtime"] = str(1001)
+        self.do_test(replica_info, expected_selected_replica_indexes[next(expected_index)])
+        replica_info[2]["mtime"] = str(1002)
+        self.do_test(replica_info, expected_selected_replica_indexes[next(expected_index)])
+
+        replica_info[1]["mtime"] = str(1001)
+        replica_info[2]["mtime"] = str(1000)
+        self.do_test(replica_info, expected_selected_replica_indexes[next(expected_index)])
+        replica_info[2]["mtime"] = str(1001)
+        self.do_test(replica_info, expected_selected_replica_indexes[next(expected_index)])
+        replica_info[2]["mtime"] = str(1002)
+        self.do_test(replica_info, expected_selected_replica_indexes[next(expected_index)])
+
+        replica_info[1]["mtime"] = str(1002)
+        replica_info[2]["mtime"] = str(1000)
+        self.do_test(replica_info, expected_selected_replica_indexes[next(expected_index)])
+        replica_info[2]["mtime"] = str(1001)
+        self.do_test(replica_info, expected_selected_replica_indexes[next(expected_index)])
+        replica_info[2]["mtime"] = str(1002)
+        self.do_test(replica_info, expected_selected_replica_indexes[next(expected_index)])
+
+    def test_repl0_good_repl1_good_repl2_good(self):
+        # cases 1-27
+        self.do_list_object_with_multiple_replicas_only_shows_one_s3_object_per_irods_object_test(
+            (1, 1, 1),
+            [0, 2, 2, 1, 1, 2, 1, 1, 1, 0, 0, 2, 0, 0, 2, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        )
+
+    def test_repl0_good_repl1_good_repl2_stale(self):
+        # cases 28-54
+        self.do_list_object_with_multiple_replicas_only_shows_one_s3_object_per_irods_object_test(
+            (1, 1, 0),
+            [0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        )
+
+    def test_repl0_good_repl1_stale_repl2_good(self):
+        # cases 55-81
+        self.do_list_object_with_multiple_replicas_only_shows_one_s3_object_per_irods_object_test(
+            (1, 0, 1),
+            [0, 2, 2, 0, 2, 2, 0, 2, 2, 0, 0, 2, 0, 0, 2, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        )
+
+    def test_repl0_good_repl1_stale_repl2_stale(self):
+        # cases 82-108
+        self.do_list_object_with_multiple_replicas_only_shows_one_s3_object_per_irods_object_test(
+            (1, 0, 0),
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        )
+
+    def test_repl0_stale_repl1_good_repl2_good(self):
+        # cases 109-135
+        self.do_list_object_with_multiple_replicas_only_shows_one_s3_object_per_irods_object_test(
+            (0, 1, 1),
+            [1, 2, 2, 1, 1, 2, 1, 1, 1, 1, 2, 2, 1, 1, 2, 1, 1, 1, 1, 2, 2, 1, 1, 2, 1, 1, 1]
+        )
+
+    def test_repl0_stale_repl1_good_repl2_stale(self):
+        # cases 136-162
+        self.do_list_object_with_multiple_replicas_only_shows_one_s3_object_per_irods_object_test(
+            (0, 1, 0),
+            [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+        )
+
+    def test_repl0_stale_repl1_stale_repl2_good(self):
+        # cases 163-189
+        self.do_list_object_with_multiple_replicas_only_shows_one_s3_object_per_irods_object_test(
+            (0, 0, 1),
+            [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2]
+        )
+
+    def test_repl0_stale_repl1_stale_repl2_stale(self):
+        # cases 190-216
+        self.do_list_object_with_multiple_replicas_only_shows_one_s3_object_per_irods_object_test(
+            (0, 0, 0),
+            [0, 2, 2, 1, 1, 2, 1, 1, 1, 0, 0, 2, 0, 0, 2, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        )
