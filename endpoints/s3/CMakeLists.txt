@@ -2,6 +2,8 @@ add_library(
   irods_s3_endpoints
   OBJECT
   "${CMAKE_CURRENT_SOURCE_DIR}/src/listobjects.cpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/src/listobjectsv2.cpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/src/listobjects_common.cpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/src/listbuckets.cpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/src/getobject.cpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/src/putobject.cpp"
@@ -32,6 +34,8 @@ target_link_libraries(
 target_include_directories(
   irods_s3_endpoints
   PRIVATE
+  "${CMAKE_CURRENT_SOURCE_DIR}/include"
+  "${CMAKE_CURRENT_BINARY_DIR}/include"
   "${IRODS_S3_API_PROJECT_SOURCE_DIR}/core/include"
   "${IRODS_S3_API_PROJECT_BINARY_DIR}/core/include"
   "${IRODS_S3_API_PROJECT_SOURCE_DIR}/endpoints/shared/include"
