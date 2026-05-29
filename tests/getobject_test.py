@@ -70,7 +70,7 @@ class GetObject_Test(unittest.TestCase):
             os.remove(get_filename)
             command.assert_command(f'irm -f {self.bucket_irods_path}/{put_filename}')
 
-    def test_botocore_put_in_subdirectory(self):
+    def test_botocore_get_in_subdirectory(self):
 
         put_filename = inspect.currentframe().f_code.co_name 
         put_directory = f'{put_filename}_dir'
