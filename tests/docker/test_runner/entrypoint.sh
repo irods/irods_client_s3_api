@@ -1,5 +1,18 @@
 #! /bin/bash -ex
 
+# Create an iRODS client environment for a rodsadmin user for use in the tests.
+echo 'irods-catalog-provider
+1247
+rods
+tempZone
+rods' | iinit
+
+cp ~/.irods/irods_environment.json ~/.irods/irods_environment.json.rods
+
+# Remove the rodsadmin client environment so that the rodsuser client environment can be created.
+iexit -f
+rm ~/.irods/irods_environment.json
+
 #### Give root an environment to connect to iRODS as Alice ####
 #### Needed to set up testing.                             ####
 echo 'irods-catalog-provider
@@ -7,6 +20,8 @@ echo 'irods-catalog-provider
 alice
 tempZone
 apass' | iinit
+
+cp ~/.irods/irods_environment.json ~/.irods/irods_environment.json.alice
 
 ##### Configure mc client #### 
 mc alias set s3-api-alice http://irods-s3-api:8080 s3_key2 s3_secret_key2

@@ -8,6 +8,15 @@ import unittest
 from host_port import s3_api_host_port
 from libs import command, utility
 
+
+def switch_client_user(username, password):
+    client_environment_file = "~/.irods/irods_environment.json"
+    new_client_environment_file = f"~/.irods/irods_environment.json.{username}"
+    command.assert_command(['iexit'])
+    command.assert_command(['cp', new_client_environment_file, client_environment_file])
+    command.assert_command(['iinit'], input=password)
+
+
 class ListObject_Test(unittest.TestCase):
 
     # ======== Construction, setUp, tearDown =========
