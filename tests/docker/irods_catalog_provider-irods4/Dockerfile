@@ -29,6 +29,7 @@ RUN mkdir -p /etc/apt/keyrings && \
 
 RUN apt-get update && \
     apt-get install -y \
+        jq \
         libcurl4-gnutls-dev \
         python3 \
         python3-distro \
