@@ -16,6 +16,15 @@ setup_input_file=/irods_setup.input
 if [ -f ${setup_input_file} ]; then
     /var/lib/irods/scripts/setup_irods.py < ${setup_input_file}
 
+    # Make a backup of the produced server_config.json, just in case.
+    server_config=/etc/irods/server_config.json
+    cp ${server_config} ${server_config}.orig
+
+    # Make iRODS recognize itself by its Docker Compose service name as a hostname.
+    THE_HOSTNAME=$(hostname)
+    host_entries="{\"host_entries\": [{\"address_type\": \"local\", \"addresses\": [\"irods-catalog-provider\", \"${THE_HOSTNAME}\"]}]}"
+    jq ".host_resolution |= ${host_entries}" /etc/irods/server_config.json > ${server_config}.new && mv ${server_config}.new ${server_config}
+
     #### Start iRODS ####
     su irods -c 'bash -c "/var/lib/irods/irodsctl start"'
 
