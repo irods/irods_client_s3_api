@@ -29,6 +29,9 @@
 #include <chrono>
 
 #include <fmt/format.h>
+#if __has_include(<fmt/ranges.h>)
+#  include <fmt/ranges.h>
+#endif
 
 namespace asio = boost::asio;
 namespace beast = boost::beast;
