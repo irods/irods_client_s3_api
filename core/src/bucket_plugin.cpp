@@ -32,6 +32,38 @@ std::optional<fs::path> irods::s3::resolve_bucket(const boost::urls::segments_vi
 	return opt;
 } // resolve_bucket
 
+std::optional<std::string> irods::s3::auth_bucket(
+	const boost::urls::segments_view& view,
+	const nlohmann::json& auth_data)
+{
+	auto& bucket_mapping = irods::http::globals::bucket_mapping_library();
+
+	using T = decltype(bucket_mapping_map_user);
+	static auto bm_auth = bucket_mapping.get<T>("bucket_mapping_map_user");
+
+	const std::string bucket = *view.begin();
+	const std::string auth_data_string = auth_data.dump();
+	char* user{};
+
+	if (bm_auth(bucket.c_str(), auth_data_string.c_str(), &user) != 0 || !user) {
+		return std::nullopt;
+	}
+
+	std::optional<std::string> opt{std::in_place, user};
+	using U = decltype(bucket_mapping_free);
+	static auto bm_free = bucket_mapping.get<U>("bucket_mapping_free");
+	bm_free(user);
+
+	return opt;
+}
+
+std::pair<std::optional<fs::path>, std::optional<std::string>> irods::s3::resolve_bucket_and_auth(
+	const boost::urls::segments_view& view,
+	const nlohmann::json& auth_data)
+{
+	return std::make_pair(resolve_bucket(view), auth_bucket(view, auth_data));
+}
+
 fs::path irods::s3::finish_path(const fs::path& base, const boost::urls::segments_view& view)
 {
 	auto result = base;

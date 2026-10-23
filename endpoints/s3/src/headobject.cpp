@@ -1,5 +1,4 @@
 #include "irods/private/s3_api/s3_api.hpp"
-#include "irods/private/s3_api/authentication.hpp"
 #include "irods/private/s3_api/bucket.hpp"
 #include "irods/private/s3_api/common_routines.hpp"
 #include "irods/private/s3_api/connection.hpp"
@@ -27,29 +26,29 @@ void irods::s3::actions::handle_headobject(
 	response.result(beast::http::status::forbidden);
 
 	try {
-		auto irods_username = irods::s3::authentication::authenticates(parser, url);
-
-		if (!irods_username) {
+		auto [bucket, username] = irods::s3::resolve_bucket_and_auth(
+			url.segments(), irods::s3::api::common_routines::make_auth_json(url, parser));
+		if (!username) {
 			response.result(beast::http::status::forbidden);
 			logging::debug("{}: returned [{}]", __func__, response.reason());
 			session_ptr->send(std::move(response));
 			return;
 		}
 
-		auto conn = irods::get_connection(*irods_username);
-
 		fs::path path;
-		if (auto bucket = irods::s3::resolve_bucket(url.segments()); bucket.has_value()) {
+		if (bucket) {
 			path = bucket.value();
 			path = irods::s3::finish_path(path, url.segments());
 		}
 		else {
-			logging::error("Failed to resolve bucket");
-			response.result(beast::http::status::forbidden);
+			response.result(beast::http::status::not_found);
 			logging::debug("{}: returned [{}]", __func__, response.reason());
 			session_ptr->send(std::move(response));
 			return;
 		}
+
+		auto conn = irods::get_connection(*username);
+
 		bool can_see = false;
 
 		if (fs::client::exists(conn, path)) {
@@ -57,7 +56,7 @@ void irods::s3::actions::handle_headobject(
 			// But until then, check for any mentioned permission.
 			auto all_permissions = fs::client::status(conn, path).permissions();
 			for (const auto& i : all_permissions) {
-				if (i.name == *irods_username) {
+				if (i.name == *username) {
 					can_see = true;
 				}
 			}

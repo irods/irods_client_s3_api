@@ -1,5 +1,4 @@
 #include "irods/private/s3_api/s3_api.hpp"
-#include "irods/private/s3_api/authentication.hpp"
 #include "irods/private/s3_api/bucket.hpp"
 #include "irods/private/s3_api/common_routines.hpp"
 #include "irods/private/s3_api/connection.hpp"
@@ -107,9 +106,9 @@ void irods::s3::actions::handle_getobject(
 		return;
 	}
 
-	auto irods_username = irods::s3::authentication::authenticates(parser, url);
-	if (!irods_username) {
-		logging::error("{}: Failed to authenticate.", __func__);
+	auto [bucket, username] = irods::s3::resolve_bucket_and_auth(
+		url.segments(), irods::s3::api::common_routines::make_auth_json(url, parser));
+	if (!username) {
 		response.result(beast::http::status::forbidden);
 		logging::debug("{}: returned [{}]", __func__, response.reason());
 		session_ptr->send(std::move(response));
@@ -117,12 +116,11 @@ void irods::s3::actions::handle_getobject(
 	}
 
 	fs::path path;
-	if (auto bucket = irods::s3::resolve_bucket(url.segments()); bucket.has_value()) {
+	if (bucket) {
 		path = bucket.value();
 		path = irods::s3::finish_path(path, url.segments());
 	}
 	else {
-		logging::error("{}: Failed to resolve bucket", __func__);
 		response.result(beast::http::status::not_found);
 		logging::debug("{}: returned [{}]", __func__, response.reason());
 		session_ptr->send(std::move(response));
@@ -143,7 +141,7 @@ void irods::s3::actions::handle_getobject(
 		irods_client_config.at("host").get_ref<const std::string&>(),
 		irods_client_config.at("port").get<int>(),
 		irods::experimental::fully_qualified_username{rodsadmin_username, zone},
-		irods::experimental::fully_qualified_username{*irods_username, zone});
+		irods::experimental::fully_qualified_username{*username, zone});
 
 	auto* conn_ptr = static_cast<RcComm*>(*conn);
 

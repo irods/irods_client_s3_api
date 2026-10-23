@@ -1,4 +1,3 @@
-#include "irods/private/s3_api/authentication.hpp"
 #include "irods/private/s3_api/bucket.hpp"
 #include "irods/private/s3_api/common.hpp"
 #include "irods/private/s3_api/common_routines.hpp"
@@ -42,26 +41,17 @@ void irods::s3::actions::handle_listobjects_v2(
 
 	beast::http::response<beast::http::empty_body> response;
 
-	auto irods_username = irods::s3::authentication::authenticates(parser, url);
-	if (!irods_username) {
+	auto [bucket, username] = irods::s3::resolve_bucket_and_auth(
+		url.segments(), irods::s3::api::common_routines::make_auth_json(url, parser));
+	if (!username) {
 		response.result(beast::http::status::forbidden);
 		logging::debug("{}: returned [{}]", __func__, response.reason());
 		session_ptr->send(std::move(response));
 		return;
 	}
 
-	auto conn = irods::get_connection(*irods_username);
-	auto rcComm_t_ptr = static_cast<RcComm*>(conn);
-	if (nullptr == rcComm_t_ptr) {
-		response.result(beast::http::status::internal_server_error);
-		logging::error("{}: RcComm is nullptr", __func__);
-		logging::debug("{}: returned [{}]", __func__, response.reason());
-		session_ptr->send(std::move(response));
-		return;
-	}
-
 	irods::experimental::filesystem::path bucket_base;
-	if (auto bucket = irods::s3::resolve_bucket(url.segments()); bucket.has_value()) {
+	if (bucket) {
 		logging::debug("{}: bucket = [{}]", __func__, bucket.value().c_str());
 		bucket_base = bucket.value();
 	}
@@ -71,7 +61,19 @@ void irods::s3::actions::handle_listobjects_v2(
 		session_ptr->send(std::move(response));
 		return;
 	}
+
 	auto resolved_path = irods::s3::finish_path(bucket_base, url.segments());
+
+	auto conn = irods::get_connection(*username);
+	auto rcComm_t_ptr = static_cast<RcComm*>(conn);
+	if (nullptr == rcComm_t_ptr) {
+		response.result(beast::http::status::internal_server_error);
+		logging::error("{}: RcComm is nullptr", __func__);
+		logging::debug("{}: returned [{}]", __func__, response.reason());
+		session_ptr->send(std::move(response));
+		return;
+	}
+
 	boost::property_tree::ptree document;
 
 	irods::experimental::filesystem::path the_prefix;

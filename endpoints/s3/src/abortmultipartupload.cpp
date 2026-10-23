@@ -1,5 +1,4 @@
 #include "irods/private/s3_api/s3_api.hpp"
-#include "irods/private/s3_api/authentication.hpp"
 #include "irods/private/s3_api/bucket.hpp"
 #include "irods/private/s3_api/common_routines.hpp"
 #include "irods/private/s3_api/connection.hpp"
@@ -85,31 +84,29 @@ void irods::s3::actions::handle_abortmultipartupload(
 	beast::http::response<beast::http::empty_body> response;
 	response.result(beast::http::status::ok);
 
-	// Authenticate
-	auto irods_username = irods::s3::authentication::authenticates(empty_body_parser, url);
-	if (!irods_username) {
-		logging::error("{}: Failed to authenticate.", __func__);
+	auto [bucket, username] = irods::s3::resolve_bucket_and_auth(
+		url.segments(), irods::s3::api::common_routines::make_auth_json(url, empty_body_parser));
+	if (!username) {
 		response.result(beast::http::status::forbidden);
 		logging::debug("{}: returned [{}]", __func__, response.reason());
 		session_ptr->send(std::move(response));
 		return;
 	}
 
-	auto conn = irods::get_connection(*irods_username);
-
 	fs::path path;
-	if (auto bucket = irods::s3::resolve_bucket(url.segments()); bucket.has_value()) {
+	if (bucket) {
 		path = bucket.value();
 		path = irods::s3::finish_path(path, url.segments());
 		logging::debug("{}: AbortMultipartUpload path={}", __func__, path.string());
 	}
 	else {
-		logging::error("{}: Failed to resolve bucket", __func__);
-		response.result(beast::http::status::forbidden);
+		response.result(beast::http::status::not_found);
 		logging::debug("{}: returned [{}]", __func__, response.reason());
 		session_ptr->send(std::move(response));
 		return;
 	}
+
+	auto conn = irods::get_connection(*username);
 
 	// get the uploadId from the param list
 	std::string upload_id;

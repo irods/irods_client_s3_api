@@ -1,5 +1,4 @@
 #include "irods/private/s3_api/s3_api.hpp"
-#include "irods/private/s3_api/authentication.hpp"
 #include "irods/private/s3_api/bucket.hpp"
 #include "irods/private/s3_api/common_routines.hpp"
 #include "irods/private/s3_api/connection.hpp"
@@ -82,17 +81,29 @@ void irods::s3::actions::handle_completemultipartupload(
 
 	beast::http::response<beast::http::empty_body> response;
 
-	// Authenticate
-	auto irods_username = irods::s3::authentication::authenticates(empty_body_parser, url);
-	if (!irods_username) {
-		logging::error("{}: Failed to authenticate.", __func__);
+	auto [bucket, username] = irods::s3::resolve_bucket_and_auth(
+		url.segments(), irods::s3::api::common_routines::make_auth_json(url, empty_body_parser));
+	if (!username) {
 		response.result(beast::http::status::forbidden);
 		logging::debug("{}: returned [{}]", __func__, response.reason());
 		session_ptr->send(std::move(response));
 		return;
 	}
 
-	auto conn = irods::get_connection(*irods_username);
+	fs::path path;
+	if (bucket) {
+		path = bucket.value();
+		path = irods::s3::finish_path(path, url.segments());
+		logging::debug("{}: CompleteMultipartUpload path={}", __func__, path.string());
+	}
+	else {
+		response.result(beast::http::status::not_found);
+		logging::debug("{}: returned [{}]", __func__, response.reason());
+		session_ptr->send(std::move(response));
+		return;
+	}
+
+	auto conn = irods::get_connection(*username);
 
 	std::filesystem::path s3_bucket;
 	std::filesystem::path s3_key;
@@ -109,20 +120,6 @@ void irods::s3::actions::handle_completemultipartupload(
 	}
 
 	logging::debug("{} s3_bucket={} s3_key={}", __func__, s3_bucket.string(), s3_key.string());
-
-	fs::path path;
-	if (auto bucket = irods::s3::resolve_bucket(url.segments()); bucket.has_value()) {
-		path = bucket.value();
-		path = irods::s3::finish_path(path, url.segments());
-		logging::debug("{}: CompleteMultipartUpload path={}", __func__, path.string());
-	}
-	else {
-		logging::error("{}: Failed to resolve bucket", __func__);
-		response.result(beast::http::status::forbidden);
-		logging::debug("{}: returned [{}]", __func__, response.reason());
-		session_ptr->send(std::move(response));
-		return;
-	}
 
 	// get the uploadId from the param list
 	std::string upload_id;
@@ -308,7 +305,7 @@ void irods::s3::actions::handle_completemultipartupload(
 
 		irods::http::globals::background_task(
 			[session_ptr,
-		     irods_username,
+		     username,
 		     path,
 		     &cv_mutex,
 		     &cv,
@@ -367,7 +364,7 @@ void irods::s3::actions::handle_completemultipartupload(
 				}
 
 				// open dstream for writing to iRODS
-				auto conn = irods::get_connection(*irods_username);
+				auto conn = irods::get_connection(*username);
 				irods::experimental::io::client::default_transport xtrans{conn};
 				irods::experimental::io::dstream ds; // irods dstream for writing directly to irods
 				ds.open(

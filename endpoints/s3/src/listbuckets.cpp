@@ -1,4 +1,3 @@
-#include "irods/private/s3_api/authentication.hpp"
 #include "irods/private/s3_api/bucket.hpp"
 #include "irods/private/s3_api/common.hpp"
 #include "irods/private/s3_api/common_routines.hpp"
@@ -48,16 +47,16 @@ void irods::s3::actions::handle_listbuckets(
 
 	beast::http::response<beast::http::empty_body> response;
 
-	auto irods_username = irods::s3::authentication::authenticates(parser, url);
-
-	if (!irods_username) {
+	auto [bucket, username] = irods::s3::resolve_bucket_and_auth(
+		url.segments(), irods::s3::api::common_routines::make_auth_json(url, parser));
+	if (!username) {
 		response.result(beast::http::status::forbidden);
 		logging::debug("{}: returned [{}]", __func__, response.reason());
 		session_ptr->send(std::move(response));
 		return;
 	}
 
-	auto conn = irods::get_connection(*irods_username);
+	auto conn = irods::get_connection(*username);
 	auto rcComm_t_ptr = static_cast<RcComm*>(conn);
 
 	boost::property_tree::ptree document;

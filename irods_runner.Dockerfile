@@ -43,7 +43,7 @@ RUN mkdir -p /etc/apt/keyrings && \
     echo "deb [signed-by=/etc/apt/keyrings/renci-irods-archive-keyring.pgp arch=amd64] https://packages.irods.org/apt/ $(lsb_release -sc) main" | \
         tee /etc/apt/sources.list.d/renci-irods.list
 
-ARG irods_version=5.0.2
+ARG irods_version=5.1.0
 ARG irods_package_suffix=0~jammy
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \

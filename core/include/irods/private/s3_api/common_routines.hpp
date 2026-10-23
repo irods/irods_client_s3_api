@@ -15,6 +15,9 @@
 #include <boost/lexical_cast.hpp>
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/xml_parser.hpp>
+#include <boost/url.hpp>
+
+#include <nlohmann/json.hpp>
 
 #include "irods/private/s3_api/log.hpp"
 #include "irods/private/s3_api/session.hpp"
@@ -67,6 +70,42 @@ namespace irods::s3::api::common_routines
 		session_ptr->send(std::move(response));
 		return;
 	}
+
+	inline nlohmann::json make_auth_json(
+		const boost::urls::url_view& url,
+		const boost::beast::http::request_parser<boost::beast::http::empty_body>& parser)
+	{
+		return nlohmann::json{
+			{"headers",
+		     std::accumulate(
+				 parser.get().cbegin(),
+				 parser.get().cend(),
+				 nlohmann::json{},
+				 [](auto&& acc, const std::decay_t<decltype(parser.get())>::fields_type::value_type& val) {
+					 acc[val.name_string()] = val.value();
+					 return std::move(acc);
+				 })},
+			{"verb", parser.get().method_string()},
+			{"url_params",
+		     std::accumulate(
+				 url.params().begin(),
+				 url.params().end(),
+				 nlohmann::json{},
+				 [](auto&& acc, const std::decay_t<decltype(url.params())>::value_type& val) {
+					 acc[val.key] = val.has_value ? val.value : nullptr;
+					 return std::move(acc);
+				 })},
+			{"url_segments",
+		     std::accumulate(
+				 url.segments().begin(),
+				 url.segments().end(),
+				 nlohmann::json(nlohmann::json::value_t::array),
+				 [](auto&& acc, const std::decay_t<decltype(url.segments())>::value_type& val) {
+					 acc.push_back(val);
+					 return std::move(acc);
+				 })}};
+	}
+
 } //namespace irods::s3::api::common_routines
 
 #endif // IRODS_S3_API_COMMON_ROUTINES_HPP
