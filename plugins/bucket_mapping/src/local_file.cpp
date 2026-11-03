@@ -43,7 +43,7 @@ namespace
 	using bucket_mapping_type = std::tuple<std::string, user_mapping_mode_type, std::optional<std::filesystem::path>>;
 
 	// Config storage for some user_mapping modes
-	std::unordered_map<std::filesystem::path, config_map_value> g_configs;
+	std::unordered_map<std::string, config_map_value> g_configs;
 
 	// The path of the configuration file defining various bucket mappings.
 	std::filesystem::path g_file_path;
@@ -199,11 +199,11 @@ namespace
 			if (const auto& filename = std::get<2>(mapping.second); filename) {
 				std::ifstream file{filename.value()};
 				if (!file) {
-					throw std::runtime_error{fmt::format("Could not open file [{}].", g_file_path.c_str())};
+					throw std::runtime_error{fmt::format("Could not open file [{}].", filename.value().lexically_normal().string())};
 				}
 				g_configs_copy.emplace(
 					std::piecewise_construct,
-					std::forward_as_tuple(filename.value()),
+					std::forward_as_tuple(filename.value().lexically_normal().string()),
 					std::forward_as_tuple(
 						std::filesystem::last_write_time(filename.value()),
 						nlohmann::json::parse(file),
@@ -216,24 +216,25 @@ namespace
 		g_configs = std::move(g_configs_copy);
 	} // load_bucket_mapping
 
-	auto reload_usermap_configuration_if_modified(const std::filesystem::path _path) -> void
+	auto reload_usermap_configuration_if_modified(const std::filesystem::path& _path) -> void
 	{
 		try {
+            const auto& path_string = _path.lexically_normal().string();
 			// Acquire exclusive lock on per-file mutex stored in g_configs.
 			// If fail, do not reload.
-			if (std::unique_lock lock{*std::get<2>(g_configs.at(_path)), std::try_to_lock}; lock) {
+			if (std::unique_lock lock{*std::get<2>(g_configs.at(path_string)), std::try_to_lock}; lock) {
 				auto new_mtime = std::filesystem::last_write_time(_path);
-				if (new_mtime == std::get<0>(g_configs.at(_path))) {
+				if (new_mtime == std::get<0>(g_configs.at(path_string))) {
 					spdlog::debug("Usermap config {} is unmodified; skipping reload.", _path.string());
 					return;
 				}
 				std::ifstream file{_path};
 
 				if (!file) {
-					throw std::runtime_error{fmt::format("Could not open file [{}].", g_file_path.c_str())};
+					throw std::runtime_error{fmt::format("Could not open file [{}].", path_string)};
 				}
-				std::get<1>(g_configs.at(_path)) = nlohmann::json::parse(file);
-				std::get<0>(g_configs.at(_path)) = new_mtime;
+				std::get<1>(g_configs.at(path_string)) = nlohmann::json::parse(file);
+				std::get<0>(g_configs.at(path_string)) = new_mtime;
 			}
 		}
 		catch (const std::exception& e) {
@@ -578,7 +579,7 @@ namespace
 
 		// Paths are guaranteed to be in g_configs, since the keys are passed in from
 		// g_mappings, which loads g_configs on load in load_bucket_mapping
-		const nlohmann::json& config_json = std::get<1>(g_configs.at(usermap_path));
+		const nlohmann::json& config_json = std::get<1>(g_configs.at(usermap_path.lexically_normal().string()));
 		std::string irods_user, secret_key;
 
 		if (config_json.contains(access_key_id) && config_json[access_key_id].contains("username") &&
@@ -780,7 +781,7 @@ int bucket_mapping_map_user(const char* _bucket, const char* _auth_json, char** 
 			std::shared_lock<std::shared_mutex> usermap_config_read_lock;
 			if (std::get<2>(iter->second)) {
 				reload_usermap_configuration_if_modified(*std::get<2>(iter->second));
-				usermap_config_read_lock = std::shared_lock{*std::get<2>(g_configs.at(*std::get<2>(iter->second)))};
+				usermap_config_read_lock = std::shared_lock{*std::get<2>(g_configs.at(std::get<2>(iter->second).value().lexically_normal().string()))};
 			}
 
 			const auto& optional_username = (std::get<1>(iter->second))(auth_json, std::get<2>(iter->second));
