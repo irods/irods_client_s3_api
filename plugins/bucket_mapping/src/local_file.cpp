@@ -42,8 +42,16 @@ namespace
 	// In order: collection name, user_mapping mode, configuration file
 	using bucket_mapping_type = std::tuple<std::string, user_mapping_mode_type, std::optional<std::filesystem::path>>;
 
+	// Needed for clang libc++ versions < 17
+	typedef struct PathHasher
+	{
+		auto operator()(const std::filesystem::path& p) const noexcept
+		{
+			return std::filesystem::hash_value(p);
+		}
+	} PathHash;
 	// Config storage for some user_mapping modes
-	std::unordered_map<std::filesystem::path, config_map_value> g_configs;
+	std::unordered_map<std::filesystem::path, config_map_value, PathHasher> g_configs;
 
 	// The path of the configuration file defining various bucket mappings.
 	std::filesystem::path g_file_path;
@@ -199,7 +207,7 @@ namespace
 			if (const auto& filename = std::get<2>(mapping.second); filename) {
 				std::ifstream file{filename.value()};
 				if (!file) {
-                    throw std::runtime_error{fmt::format("Could not open file [{}].", filename.value())};
+					throw std::runtime_error{fmt::format("Could not open file [{}].", filename.value().string())};
 				}
 				g_configs_copy.emplace(
 					std::piecewise_construct,

@@ -84,8 +84,8 @@ void irods::s3::actions::handle_completemultipartupload(
 	auto bucket_username_pair = irods::s3::resolve_bucket_and_auth(
 		url.segments(), irods::s3::api::common_routines::make_auth_json(url, empty_body_parser));
 
-    auto bucket = std::get<0>(bucket_username_pair);
-    auto username = std::get<1>(bucket_username_pair);
+	auto bucket = std::get<0>(bucket_username_pair);
+	auto username = std::get<1>(bucket_username_pair);
 
 	if (!username) {
 		response.result(beast::http::status::forbidden);
