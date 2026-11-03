@@ -199,11 +199,11 @@ namespace
 			if (const auto& filename = std::get<2>(mapping.second); filename) {
 				std::ifstream file{filename.value()};
 				if (!file) {
-					throw std::runtime_error{fmt::format("Could not open file [{}].", filename.value().lexically_normal().string())};
+                    throw std::runtime_error{fmt::format("Could not open file [{}].", filename.value())};
 				}
 				g_configs_copy.emplace(
 					std::piecewise_construct,
-					std::forward_as_tuple(filename.value().lexically_normal().string()),
+					std::forward_as_tuple(filename.value()),
 					std::forward_as_tuple(
 						std::filesystem::last_write_time(filename.value()),
 						nlohmann::json::parse(file),
