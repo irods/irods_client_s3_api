@@ -1,6 +1,7 @@
 set(plugin "local_file")
 set(plugin_target "irods_s3_api_plugin-bucket_mapping-${plugin}")
 set(plugin_name "irods_s3_api_plugin-bucket_mapping-${plugin}")
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 add_subdirectory(third-party/hmac_sha256)
 
