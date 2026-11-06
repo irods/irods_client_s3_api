@@ -191,21 +191,6 @@ constexpr auto default_jsonschema() -> std::string_view
                         "configuration"
                     ]
                 },
-                "user_mapping": {
-                    "type": "object",
-                    "properties": {
-                        "plugin_path": {
-                            "type": "string"
-                        },
-                        "configuration": {
-                            "type": "object"
-                        }
-                    },
-                    "required": [
-                        "plugin_path",
-                        "configuration"
-                    ]
-                },
                 "region": {
                     "type": "string"
                 },
@@ -251,7 +236,6 @@ constexpr auto default_jsonschema() -> std::string_view
                 "host",
                 "port",
                 "bucket_mapping",
-                "user_mapping",
                 "region",
                 "multipart_upload_part_files_directory",
                 "requests",
@@ -401,13 +385,6 @@ auto print_configuration_template() -> void
         "log_level": "info",
 
         "bucket_mapping": {{
-            "plugin_path": "/path/to/plugin.so",
-            "configuration": {{
-                "file_path": "/path/to/mapping_file.json"
-            }}
-        }},
-
-        "user_mapping": {{
             "plugin_path": "/path/to/plugin.so",
             "configuration": {{
                 "file_path": "/path/to/mapping_file.json"
@@ -693,6 +670,7 @@ auto init_bucket_mapping(const json& _mapping_config) -> void
 		"bucket_mapping_init",
 		"bucket_mapping_list",
 		"bucket_mapping_collection",
+		"bucket_mapping_map_user",
 		"bucket_mapping_close",
 		"bucket_mapping_free"
 	};
@@ -708,37 +686,6 @@ auto init_bucket_mapping(const json& _mapping_config) -> void
 		throw std::runtime_error{fmt::format("{}: Plugin initialization failed with code [{}].", __func__, ec)};
 	}
 } // init_bucket_mapping
-
-auto init_user_mapping(const json& _mapping_config) -> void
-{
-	const auto& lib_path = _mapping_config.at("plugin_path").get_ref<const std::string&>();
-	const auto config_string = _mapping_config.at("configuration").dump();
-
-	logging::trace("{}: Loading shared library at [{}].", __func__, lib_path);
-	boost::dll::shared_library lib{lib_path};
-	irods::http::globals::set_user_mapping_library(lib);
-
-	// clang-format off
-	// Make sure the library supports the expected symbols.
-	const auto symbols = {
-		"user_mapping_init",
-		"user_mapping_irods_username",
-		"user_mapping_s3_secret_key",
-		"user_mapping_close",
-		"user_mapping_free"
-	};
-	// clang-format on
-	const auto has_symbol = [&lib](const auto& symbol) { return lib.has(symbol); };
-	if (!std::all_of(std::begin(symbols), std::end(symbols), has_symbol)) {
-		throw std::runtime_error{
-			fmt::format("{}: Could not find all required symbols for library [{}].", __func__, lib_path)};
-	}
-
-	const auto init_func = lib.get<int(const char*)>("user_mapping_init");
-	if (const auto ec = init_func(config_string.c_str()); ec != 0) {
-		throw std::runtime_error{fmt::format("{}: Plugin initialization failed with code [{}].", __func__, ec)};
-	}
-} // init_user_mapping
 
 auto main(int _argc, char* _argv[]) -> int
 {
@@ -830,7 +777,6 @@ auto main(int _argc, char* _argv[]) -> int
 		load_client_api_plugins();
 
 		init_bucket_mapping(s3_server_config.at(json::json_pointer{"/bucket_mapping"}));
-		init_user_mapping(s3_server_config.at(json::json_pointer{"/user_mapping"}));
 
 		const auto address = net::ip::make_address(s3_server_config.at("host").get_ref<const std::string&>());
 		const auto port = s3_server_config.at("port").get<std::uint16_t>();
@@ -906,14 +852,7 @@ auto main(int _argc, char* _argv[]) -> int
 
 		logging::trace("Waiting for I/O thread pool to shut down.");
 		io_threads.join();
-
-		logging::trace("Releasing resources for user mapping plugin.");
 		bool plugin_close_error = false;
-		auto um_close = irods::http::globals::user_mapping_library().get<int()>("user_mapping_close");
-		if (const auto ec = um_close(); ec != 0) {
-			logging::error("User mapping plugin experienced an error during shut down. [error_code={}].", ec);
-			plugin_close_error = true;
-		}
 
 		logging::trace("Releasing resources for bucket mapping plugin.");
 		auto bm_close = irods::http::globals::bucket_mapping_library().get<int()>("bucket_mapping_close");

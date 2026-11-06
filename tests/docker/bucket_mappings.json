@@ -1,5 +1,23 @@
 {
-    "test-bucket": "/tempZone/home/rods",
-    "alice-bucket": "/tempZone/home/alice/alice-bucket",
-    "alice-bucket2": "/tempZone/home/alice/alice-bucket2"
+    "test-bucket": {
+        "path": "/tempZone/home/rods",
+        "user_mapping": {
+            "mode": "s3_key",
+            "config_file": "/user_mappings.json"
+        }
+    },
+    "alice-bucket": {
+        "path": "/tempZone/home/alice/alice-bucket",
+        "user_mapping": {
+            "mode": "s3_key",
+            "config_file": "/user_mappings.json"
+        }
+    },
+    "alice-bucket2": {
+        "path": "/tempZone/home/alice/alice-bucket2",
+        "user_mapping": {
+            "mode": "s3_key",
+            "config_file": "/user_mappings.json"
+        }
+    }
 }

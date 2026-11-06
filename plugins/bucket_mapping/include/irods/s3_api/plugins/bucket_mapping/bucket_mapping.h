@@ -58,6 +58,19 @@ int bucket_mapping_list(bucket_mapping_entry_t** _buckets, size_t* _size);
 /// \since 0.5.0
 int bucket_mapping_collection(const char* _bucket, char** _collection);
 
+/// Get the iRODS collection mapped to a bucket.
+///
+/// On error, \p _collection must be null.
+///
+/// \param[in]  _bucket     The bucket name.
+/// \param[out] _collection The logical path of the mapped collection.
+///
+/// \returns A C-string indicating the name of the mapped user.
+/// \retval nullptr  On lookup or auth failure.
+///
+/// \since 0.5.0
+int bucket_mapping_map_user(const char* _bucket, const char* _auth_json, char** _user);
+
 /// Executes clean-up for the plugin.
 ///
 /// \returns An integer indicating the status of the operation.

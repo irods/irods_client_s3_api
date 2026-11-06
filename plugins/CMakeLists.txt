@@ -6,4 +6,3 @@ set(
 )
 
 add_subdirectory(bucket_mapping)
-add_subdirectory(user_mapping)

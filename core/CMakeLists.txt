@@ -17,9 +17,7 @@ add_library(
   "${CMAKE_CURRENT_SOURCE_DIR}/src/transport.cpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/src/connection.cpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/src/configuration.cpp"
-  "${CMAKE_CURRENT_SOURCE_DIR}/src/authentication.cpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/src/bucket_plugin.cpp"
-  "${CMAKE_CURRENT_SOURCE_DIR}/src/hmac.cpp"
 )
 
 target_link_libraries(
@@ -30,7 +28,6 @@ target_link_libraries(
   "${IRODS_EXTERNALS_FULLPATH_BOOST}/lib/libboost_program_options.so"
   "${IRODS_EXTERNALS_FULLPATH_BOOST}/lib/libboost_url.so"
   CURL::libcurl
-  hmac_sha256
 )
 
 target_compile_definitions(

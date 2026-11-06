@@ -1,6 +1,9 @@
 set(plugin "local_file")
 set(plugin_target "irods_s3_api_plugin-bucket_mapping-${plugin}")
 set(plugin_name "irods_s3_api_plugin-bucket_mapping-${plugin}")
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
+add_subdirectory(third-party/hmac_sha256)
 
 add_library(
   ${plugin_target}
@@ -23,12 +26,14 @@ target_link_libraries(
   PRIVATE
   fmt::fmt
   spdlog::spdlog
+  hmac_sha256
 )
 
 target_include_directories(
   ${plugin_target}
   PRIVATE
   "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
+  "${CMAKE_CURRENT_SOURCE_DIR}/third-party/date/include"
   "${IRODS_EXTERNALS_FULLPATH_BOOST}/include"
   "${IRODS_EXTERNALS_FULLPATH_JSONCONS}/include"
 )

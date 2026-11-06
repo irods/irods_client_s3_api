@@ -1,5 +1,4 @@
 #include "irods/private/s3_api/s3_api.hpp"
-#include "irods/private/s3_api/authentication.hpp"
 #include "irods/private/s3_api/bucket.hpp"
 #include "irods/private/s3_api/common_routines.hpp"
 #include "irods/private/s3_api/connection.hpp"
@@ -29,44 +28,44 @@ void irods::s3::actions::handle_copyobject(
 {
 	beast::http::response<beast::http::empty_body> response;
 
-	auto irods_username = irods::s3::authentication::authenticates(parser, url);
-	if (!irods_username) {
+	auto [source_bucket, source_username] = irods::s3::resolve_bucket_and_auth(
+		url.segments(), irods::s3::api::common_routines::make_auth_json(url, parser));
+	auto [dest_bucket, dest_username] = irods::s3::resolve_bucket_and_auth(
+		url.segments(), irods::s3::api::common_routines::make_auth_json(url, parser));
+
+	// Both auths should succeed.
+	if (!source_username || !dest_username) {
 		response.result(beast::http::status::forbidden);
 		logging::debug("{}: returned [{}]", __func__, response.reason());
 		session_ptr->send(std::move(response));
 		return;
 	}
 
-	auto conn = irods::get_connection(*irods_username);
-
-	auto url2 = boost::urls::url(parser.get()["x-amz-copy-source"]);
 	fs::path destination_path, source_path;
-	if (auto bucket = irods::s3::resolve_bucket(url2.segments()); bucket.has_value()) {
-		source_path = irods::s3::finish_path(bucket.value(), url2.segments());
-	}
-	else {
+	irods::experimental::filesystem::path bucket_base;
+
+	if (!source_bucket) {
 		logging::debug("{}: Could not locate source path", __func__);
 		response.result(beast::http::status::not_found);
 		logging::debug("{}: returned [{}]", __func__, response.reason());
 		session_ptr->send(std::move(response));
 		return;
 	}
-	if (auto bucket = irods::s3::resolve_bucket(url.segments()); bucket.has_value()) {
-		destination_path = irods::s3::finish_path(bucket.value(), url.segments());
-	}
-	else {
+
+	if (!dest_bucket) {
 		logging::debug("{}: Could not locate destination path", __func__);
 		response.result(beast::http::status::not_found);
 		logging::debug("{}: returned [{}]", __func__, response.reason());
 		session_ptr->send(std::move(response));
 		return;
 	}
-	if (source_path.empty() || destination_path.empty()) {
-		response.result(beast::http::status::not_found);
-		logging::debug("{}: returned [{}]", __func__, response.reason());
-		session_ptr->send(std::move(response));
-		return;
-	}
+
+	auto url2 = boost::urls::url(parser.get()["x-amz-copy-source"]);
+	source_path = irods::s3::finish_path(source_bucket.value(), url2.segments());
+	destination_path = irods::s3::finish_path(dest_bucket.value(), url.segments());
+
+	auto conn = irods::get_connection(*source_username);
+
 	try {
 #if IRODS_VERSION_INTEGER < 4003002
 		fs::throw_if_path_length_exceeds_limit(source_path);

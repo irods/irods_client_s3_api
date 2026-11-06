@@ -1,5 +1,4 @@
 #include "irods/private/s3_api/s3_api.hpp"
-#include "irods/private/s3_api/authentication.hpp"
 #include "irods/private/s3_api/bucket.hpp"
 #include "irods/private/s3_api/common_routines.hpp"
 #include "irods/private/s3_api/connection.hpp"
@@ -53,9 +52,21 @@ void irods::s3::actions::handle_deleteobjects(
 
 	// Permission verification stuff should go roughly here.
 
-	auto irods_username = irods::s3::authentication::authenticates(empty_body_parser, url);
-	if (!irods_username) {
+	auto [bucket, username] = irods::s3::resolve_bucket_and_auth(
+		url.segments(), irods::s3::api::common_routines::make_auth_json(url, empty_body_parser));
+	if (!username) {
 		response.result(beast::http::status::forbidden);
+		logging::debug("{}: returned [{}]", __func__, response.reason());
+		session_ptr->send(std::move(response));
+		return;
+	}
+
+	fs::path path;
+	if (bucket) {
+		path = bucket.value();
+	}
+	else {
+		response.result(beast::http::status::not_found);
 		logging::debug("{}: returned [{}]", __func__, response.reason());
 		session_ptr->send(std::move(response));
 		return;
@@ -68,19 +79,7 @@ void irods::s3::actions::handle_deleteobjects(
 
 	// Reconnect to the iRODS server as the target user.
 	// The rodsadmin account from the config file will act as the proxy for the user.
-	auto conn = irods::get_connection(*irods_username);
-
-	fs::path path;
-	if (auto bucket = irods::s3::resolve_bucket(url.segments()); bucket.has_value()) {
-		path = bucket.value();
-	}
-	else {
-		response.result(beast::http::status::not_found);
-		logging::debug("{}: Could not find bucket", __func__);
-		logging::debug("{}: returned [{}]", __func__, response.reason());
-		session_ptr->send(std::move(response));
-		return;
-	}
+	auto conn = irods::get_connection(*username);
 
 	// read and parse the body
 	std::string& request_body = parser.get().body();

@@ -1,5 +1,4 @@
 #include "irods/private/s3_api/s3_api.hpp"
-#include "irods/private/s3_api/authentication.hpp"
 #include "irods/private/s3_api/bucket.hpp"
 #include "irods/private/s3_api/common_routines.hpp"
 #include "irods/private/s3_api/connection.hpp"
@@ -351,11 +350,22 @@ void irods::s3::actions::handle_putobject(
 	beast::http::response<beast::http::empty_body> response;
 
 	// Authenticate
-	auto irods_username = irods::s3::authentication::authenticates(empty_body_parser, url);
-
-	if (!irods_username) {
-		logging::error("{}: Failed to authenticate.", __func__);
+	auto [bucket, username] = irods::s3::resolve_bucket_and_auth(
+		url.segments(), irods::s3::api::common_routines::make_auth_json(url, empty_body_parser));
+	if (!username) {
 		response.result(beast::http::status::forbidden);
+		logging::debug("{}: returned [{}]", __func__, response.reason());
+		session_ptr->send(std::move(response));
+		return;
+	}
+
+	fs::path path;
+	if (bucket) {
+		path = std::move(bucket.value());
+		path = irods::s3::finish_path(path, url.segments());
+	}
+	else {
+		response.result(beast::http::status::not_found);
 		logging::debug("{}: returned [{}]", __func__, response.reason());
 		session_ptr->send(std::move(response));
 		return;
@@ -415,23 +425,11 @@ void irods::s3::actions::handle_putobject(
 		logging::debug("{}: Sent 100-continue", __func__);
 	}
 
-	fs::path path;
-	if (auto bucket = irods::s3::resolve_bucket(url.segments()); bucket.has_value()) {
-		path = std::move(bucket.value());
-		path = irods::s3::finish_path(path, url.segments());
-	}
-	else {
-		logging::error("{}: Failed to resolve bucket", __func__);
-		response.result(beast::http::status::not_found);
-		logging::debug("{}: returned [{}]", __func__, response.reason());
-		session_ptr->send(std::move(response));
-		return;
-	}
 	logging::debug("{}: Path [{}]", __func__, path.string());
 
 	// This might be a "create folder" request. The only way to detect this is if the target path has a trailing slash.
 	if (path.string().back() == '/') {
-		auto conn = irods::get_connection(*irods_username);
+		auto conn = irods::get_connection(*username);
 		fs::client::create_collections(conn, path);
 		response.result(beast::http::status::ok);
 		logging::debug("{}: Created folder: [{}]", __func__, path.c_str());
@@ -617,7 +615,7 @@ void irods::s3::actions::handle_putobject(
 
 	// Make sure the parent collection exists.
 	{
-		auto conn = irods::get_connection(*irods_username);
+		auto conn = irods::get_connection(*username);
 		fs::client::create_collections(conn, path.parent_path());
 	}
 
@@ -643,7 +641,7 @@ void irods::s3::actions::handle_putobject(
 		irods_client_config.at("host").get_ref<const std::string&>(),
 		irods_client_config.at("port").get<int>(),
 		irods::experimental::fully_qualified_username{rodsadmin_username, zone},
-		irods::experimental::fully_qualified_username{*irods_username, zone});
+		irods::experimental::fully_qualified_username{*username, zone});
 
 	auto* conn_ptr = static_cast<RcComm*>(*conn);
 
