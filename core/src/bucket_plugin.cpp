@@ -55,7 +55,7 @@ std::optional<std::string> irods::s3::auth_bucket(
 	bm_free(user);
 
 	return opt;
-}
+} // auth_bucket
 
 std::pair<std::optional<fs::path>, std::optional<std::string>> irods::s3::resolve_bucket_and_auth(
 	const boost::urls::segments_view& view,
@@ -71,4 +71,4 @@ fs::path irods::s3::finish_path(const fs::path& base, const boost::urls::segment
 		result /= (*i).c_str();
 	}
 	return result;
-} // finish_path
+} // resolve_bucket_and_auth

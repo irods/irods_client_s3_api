@@ -355,7 +355,7 @@ namespace
 		// for X-Amz-Signature."
 		// Since signatures are not used in generating themselves, exclude them for all authentication types.
 		result << std::accumulate(params.begin(), params.end(), std::string{}, [](auto&& acc, const auto& param) {
-			if (param.first == "X-Amz-Signature") {
+			if (to_lower(param.first) == "x-amz-signature") {
 				return std::move(acc);
 			}
 			if (acc == "") {
@@ -412,8 +412,9 @@ namespace
 			result << '\n';
 		}
 
+        auto it_proxy_headers = auth_json["headers"].items();
 		// Hashed Payload
-		if (auto req = auth_json["headers"].find("X-Amz-Content-SHA256"); req != auth_json["headers"].end()) {
+		if (auto req = std::find_if(it_proxy_headers.begin(), it_proxy_headers.end(), [](const auto& entry) { return to_lower(entry.key()) == "x-amz-content-sha256";}); req != it_proxy_headers.end()) {
 			result << req.value().get<std::string>();
 		}
 		else {

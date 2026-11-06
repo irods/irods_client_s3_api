@@ -11,13 +11,6 @@
             }
         },
 
-        "user_mapping": {
-            "plugin_path": "/usr/lib/irods_s3_api/plugins/user_mapping/libirods_s3_api_plugin-user_mapping-local_file.so",
-            "configuration": {
-                "file_path": "/user_mappings.json"
-            }
-        },
-
         "region": "us-east-1",
 
         "multipart_upload_part_files_directory": "/tmp",

@@ -47,22 +47,6 @@ void irods::s3::actions::handle_listbuckets(
 
 	beast::http::response<beast::http::empty_body> response;
 
-	auto [bucket, username] = irods::s3::resolve_bucket_and_auth(
-		url.segments(), irods::s3::api::common_routines::make_auth_json(url, parser));
-	if (!username) {
-		response.result(beast::http::status::forbidden);
-		logging::debug("{}: returned [{}]", __func__, response.reason());
-		session_ptr->send(std::move(response));
-		return;
-	}
-
-	auto conn = irods::get_connection(*username);
-	auto rcComm_t_ptr = static_cast<RcComm*>(conn);
-
-	boost::property_tree::ptree document;
-	document.add("ListAllMyBucketsResult", "");
-	document.add("ListAllMyBucketsResult.Buckets", "");
-
 	// get the buckets from the configuration
 	auto& bucket_mapping = irods::http::globals::bucket_mapping_library();
 
@@ -90,31 +74,56 @@ void irods::s3::actions::handle_listbuckets(
 
 	logging::debug("{}: number of mapped buckets = [{}]", __func__, bucket_size);
 
-	std::vector<const char*> collections;
+    // Collection name and username pairs
+	std::vector<std::pair<const char*, std::string>> collections;
 	collections.reserve(128); // Reduces need to resize/re-allocate memory for small bucket mappings.
 	for (std::size_t i = 0; i < bucket_size; ++i) {
-		collections.push_back(buckets[i].collection);
-	}
-	const auto in_args = fmt::format("'{}'", fmt::join(collections, "', '"));
+        // Try to auth against each bucket
+        auto bucket_name = boost::urls::url { buckets[i].bucket };
+        auto [bucket, username] = irods::s3::resolve_bucket_and_auth(
+            bucket_name.segments(), irods::s3::api::common_routines::make_auth_json(url, parser));
+        if (username) {
+            collections.push_back(std::make_pair(buckets[i].collection, *username));
+        }
+    }
 
-	const auto query = fmt::format("select COLL_NAME, COLL_CREATE_TIME where COLL_NAME in ({})", in_args);
-	logging::debug("{}: query = [{}]", __func__, query);
+    // Failed to auth to any bucket.
+    if(collections.empty()) {
+        response.result(beast::http::status::forbidden);
+        logging::debug("{}: returned [{}]", __func__, response.reason());
+        session_ptr->send(std::move(response));
+        return;
+    }
 
-	for (auto&& row : irods::query<RcComm>(rcComm_t_ptr, query)) {
-		const auto ctime = boost::lexical_cast<std::time_t>(row[1]);
-		ptree object;
-		object.put("CreationDate", irods::s3::api::common_routines::convert_time_t_to_str(ctime, date_format));
+	boost::property_tree::ptree document;
+	document.add("ListAllMyBucketsResult", "");
+	document.add("ListAllMyBucketsResult.Buckets", "");
 
-		const auto iter = std::find_if(
-			buckets, buckets + bucket_size, [&c = row[0]](const bucket_mapping_entry& e) { return c == e.collection; });
-		if (iter == buckets + bucket_size) {
-			logging::warn("{}: Cannot resolve collection [{}] to bucket name. Skipping mapping.", __func__, row[0]);
-			continue;
-		}
-		object.put("Name", iter->bucket);
+    for(const auto& collection : collections) {
+        auto conn = irods::get_connection(collection.second);
+        auto rcComm_t_ptr = static_cast<RcComm*>(conn);
 
-		document.add_child("ListAllMyBucketsResult.Buckets.Bucket", object);
-	}
+        const auto in_args = fmt::format("'{}'", fmt::join(collections, "', '"));
+
+        const auto query = fmt::format("select COLL_NAME, COLL_CREATE_TIME where COLL_NAME = '{}'", collection.first);
+        logging::debug("{}: query = [{}]", __func__, query);
+
+        for (auto&& row : irods::query<RcComm>(rcComm_t_ptr, query)) {
+            const auto ctime = boost::lexical_cast<std::time_t>(row[1]);
+            ptree object;
+            object.put("CreationDate", irods::s3::api::common_routines::convert_time_t_to_str(ctime, date_format));
+
+            const auto iter = std::find_if(
+                buckets, buckets + bucket_size, [&c = row[0]](const bucket_mapping_entry& e) { return c == e.collection; });
+            if (iter == buckets + bucket_size) {
+                logging::warn("{}: Cannot resolve collection [{}] to bucket name. Skipping mapping.", __func__, row[0]);
+                continue;
+            }
+            object.put("Name", iter->bucket);
+
+            document.add_child("ListAllMyBucketsResult.Buckets.Bucket", object);
+        }
+    }
 	document.add("ListAllMyBucketsResult.Owner", "");
 
 	// convert empty_body response to string_body
